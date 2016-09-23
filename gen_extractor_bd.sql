@@ -11,7 +11,8 @@ SELECT
     WHERE
       (trim(MTDT_EXT_SCENARIO.STATUS) = 'P' or trim(MTDT_EXT_SCENARIO.STATUS) = 'D')
       and trim(MTDT_EXT_SCENARIO.TABLE_NAME) in (
-      'PARQUE_ABO_PRE', 'GRUPO_ABONADO'
+      --'PARQUE_ABO_PRE', 'GRUPO_ABONADO'
+      'GRUPO_ABONADO'
     --'PARQUE_ABO_PRE', 'PARQUE_ABO_POST', 'DISTRIBUIDOR'
     --, 'CLIENTE', 'GRUPO_ABONADO', 'GRUPO_ABONADO_AA', 'REL_GRUPO_ABONADO', 'REL_GRUPO_ABONADO_AA', 'CICLO'
     --, 'CICLO_FACTURACION', 'CUENTA', 'ESTATUS_OPERACION'
@@ -2461,10 +2462,11 @@ begin
     if (v_type_validation = 'I') then
       /* (20160606) Angel Ruiz. NF: Se trata de la validacion en la que en lugar de ir a un fichero plano */
       /* va directamente a las tablas de STAGING. Se generan por lo tanto INSERTs */
-      UTL_FILE.put_line (fich_salida_pkg,'');
-      UTL_FILE.put_line (fich_salida_pkg,'TRUNCATE TABLE ' || OWNER_SA || '.SA_' || reg_tabla.TABLE_NAME || ';');      
-      UTL_FILE.put_line (fich_salida_pkg,'');
-      UTL_FILE.put_line (fich_salida_pkg,'INSERT INTO ' || OWNER_SA || '.SA_' || reg_tabla.TABLE_NAME);
+      --UTL_FILE.put_line (fich_salida_pkg,'');
+      --UTL_FILE.put_line (fich_salida_pkg,'TRUNCATE TABLE ' || OWNER_SA || '.SA_' || reg_tabla.TABLE_NAME || ';');      
+      --UTL_FILE.put_line (fich_salida_pkg,'');
+      /* Cuando se trata de una validacion I los datos van a la tabla directamente. Han de ir a la partiion adecuada */
+      UTL_FILE.put_line (fich_salida_pkg,'INSERT INTO ' || OWNER_SA || '.SA_' || reg_tabla.TABLE_NAME || ' PARTITION (FCH_CARGA=''&' || '6'')');
       --UTL_FILE.put_line (fich_salida_pkg,'(');
       --primera_col := 1;
       --open MTDT_INTERFAZ_DETAIL (reg_tabla.TABLE_NAME);
@@ -2543,7 +2545,21 @@ begin
       v_fecha_ini_param:=true;
     end if;
     /* (20160714) Fin BUG.*/
-    
+    if v_tabla_dinamica = true then
+      dbms_output.put_line ('El valor de v_tabla_dinamica es: true');
+    else
+      dbms_output.put_line ('El valor de v_tabla_dinamica es: false');
+    end if;
+    if v_fecha_ini_param = true then
+      dbms_output.put_line ('El valor de v_fecha_ini_param es: true');
+    else
+      dbms_output.put_line ('El valor de v_fecha_ini_param es: false');
+    end if;
+    if v_fecha_fin_param = true then
+      dbms_output.put_line ('El valor de v_fecha_fin_param es: true');
+    else
+      dbms_output.put_line ('El valor de v_fecha_fin_param es: false');
+    end if;
     
     v_hay_sce_COMPUESTO := false;
     open MTDT_SCENARIO (reg_tabla.TABLE_NAME);
@@ -2607,12 +2623,12 @@ begin
           UTL_FILE.put_line(fich_salida_pkg,'SELECT ');
         end if;
         /* (20160614) Angel Ruiz. NF: Tambien pueden aparecer las tablas tipo _[YYYYMM] en el campo TABLE_BASE_NAME */
-        --if (instr(reg_scenario.TABLE_BASE_NAME, '[YYYYMM]') > 0) then
+        if (instr(reg_scenario.TABLE_BASE_NAME, '[YYYYMM]') > 0) then
             /* Hay una tabla dinamica. Ponemos el switch a true */
             /* Para posteriormente cuando generamos el Shell script, hacerlo */
             /* de manera adecuada */
             v_tabla_dinamica := true;
-        --end if;
+        end if;
         open MTDT_TC_DETAIL (reg_scenario.TABLE_NAME, reg_scenario.SCENARIO);
         primera_col := 1;
         loop
@@ -2729,59 +2745,92 @@ begin
                   else
                     /* Valor numerico que no es HARDC */
                     /* Aqui el algoritmo de justificacion es complicado */
-                    if (instr(reg_detail.LONGITUD, ',') > 0 ) then
-                      /* Quiere decir que en la longitud aparecen zona de decimales */
-                      v_long_total := to_number (substr(reg_detail.LONGITUD, 1, instr(reg_detail.LONGITUD, ',') -1));
-                      v_long_parte_decimal := to_number (trim(substr(reg_detail.LONGITUD, instr(reg_detail.LONGITUD, ',') +1)));
-                    else
-                      v_long_total:=to_number(trim(reg_detail.LONGITUD));
-                      v_long_parte_decimal:=0;
-                    end if;
-                    UTL_FILE.put_line(fich_salida_pkg, 'nvl(' || '          --' || reg_detail.TABLE_COLUMN);
-                    UTL_FILE.put_line(fich_salida_pkg, 'case when instr(' || columna || ', ''-'') = 0 then  --numero positivo' );
-                    UTL_FILE.put_line(fich_salida_pkg, '  case when instr(' || columna || ', ''.'') = 0 then lpad(' || columna || ',' || v_long_total || '''0''');
-                    UTL_FILE.put_line(fich_salida_pkg, '  else lpad(rpad(' || columna || ', length(' || columna || ') + (' || v_long_parte_decimal || '-(length(' || columna || ')-instr(' || columna || ', ''.''))), ''0''),' || v_long_total || ', ''0'')');
-                    UTL_FILE.put_line(fich_salida_pkg, '  end');
-                    UTL_FILE.put_line(fich_salida_pkg, 'else  --numero negativo');
-                    UTL_FILE.put_line(fich_salida_pkg, '  case when instr(' || columna || ', ''.'') = 0 then concat(''-'',lpad(substr(' || columna ||', 2), ' || v_long_total || '-1, ''0''))');
-                    UTL_FILE.put_line(fich_salida_pkg, '  else concat(''-'', lpad(rpad(substr(' || columna || ', 2), ' || v_long_parte_decimal || '-(length(substr(' || columna || ', 2))-instr(substr(' || columna || ', 2), ''.'')), ''0''), ' || v_long_total || '-1, ''0''))'); 
-                    UTL_FILE.put_line(fich_salida_pkg, '  end');
-                    UTL_FILE.put_line(fich_salida_pkg, 'end');
-                    UTL_FILE.put_line(fich_salida_pkg, ', rpad('' '', ' || v_long_total || ', '' '')');
-                    UTL_FILE.put_line(fich_salida_pkg, ')');
+                      if (instr(reg_detail.VALUE, '-') = 0) then
+                      /* Si el numero que se hardcodea es positivo */
+                        --UTL_FILE.put_line(fich_salida_pkg, 'NVL(LPAD(' || columna || ', ' || reg_detail.LONGITUD || ', ''0''), RPAD('' '', ' || reg_detail.LONGITUD || ', '' ''))' || '          --' || reg_detail.TABLE_COLUMN);
+                        UTL_FILE.put_line(fich_salida_pkg, 'LPAD(' || columna || ', ' || reg_detail.LONGITUD || ', ''0'')' || '          --' || reg_detail.TABLE_COLUMN);
+                      else
+                        /* Si el numero que se hardcodea es negativo */
+                        if (instr(reg_detail.LONGITUD, ',') > 0 ) then
+                          /* Quiere decir que en la longitud aparecen zona de decimales */
+                          /* Aqui el algoritmo de justificacion es complicado */
+                          if (instr(reg_detail.LONGITUD, ',') > 0 ) then
+                            /* Quiere decir que en la longitud aparecen zona de decimales */
+                            v_long_total := to_number (substr(reg_detail.LONGITUD, 1, instr(reg_detail.LONGITUD, ',') -1));
+                            v_long_parte_decimal := to_number (trim(substr(reg_detail.LONGITUD, instr(reg_detail.LONGITUD, ',') +1)));
+                          else
+                            v_long_total:=to_number(trim(reg_detail.LONGITUD));
+                            v_long_parte_decimal:=0;
+                          end if;
+                          UTL_FILE.put_line(fich_salida_pkg, 'nvl(' || '          --' || reg_detail.TABLE_COLUMN);
+                          UTL_FILE.put_line(fich_salida_pkg, 'case when instr(' || columna || ', ''-'') = 0 then  --numero positivo' );
+                          UTL_FILE.put_line(fich_salida_pkg, '  case when instr(' || columna || ', ''.'') = 0 then lpad(' || columna || ',' || v_long_total || '''0''');
+                          UTL_FILE.put_line(fich_salida_pkg, '  else lpad(rpad(' || columna || ', length(' || columna || ') + (' || v_long_parte_decimal || '-(length(' || columna || ')-instr(' || columna || ', ''.''))), ''0''),' || v_long_total || ', ''0'')');
+                          UTL_FILE.put_line(fich_salida_pkg, '  end');
+                          UTL_FILE.put_line(fich_salida_pkg, 'else  --numero negativo');
+                          UTL_FILE.put_line(fich_salida_pkg, '  case when instr(' || columna || ', ''.'') = 0 then concat(''-'',lpad(substr(' || columna ||', 2), ' || v_long_total || '-1, ''0''))');
+                          UTL_FILE.put_line(fich_salida_pkg, '  else concat(''-'', lpad(rpad(substr(' || columna || ', 2), ' || v_long_parte_decimal || '-(length(substr(' || columna || ', 2))-instr(substr(' || columna || ', 2), ''.'')), ''0''), ' || v_long_total || '-1, ''0''))'); 
+                          UTL_FILE.put_line(fich_salida_pkg, '  end');
+                          UTL_FILE.put_line(fich_salida_pkg, 'end');
+                          UTL_FILE.put_line(fich_salida_pkg, ', rpad('' '', ' || v_long_total || ', '' '')');
+                          UTL_FILE.put_line(fich_salida_pkg, ')');
+                        else
+                          /* Quiere decir que en la longitud no aparece zona de decimales */
+                          v_long_total := to_number (trim(reg_detail.LONGITUD))-1;  /* Le quito uno dado que existe un signo - */
+                          v_long_parte_decimal := 0;
+                          UTL_FILE.put_line (fich_salida_pkg, '-' || 'LPAD(' || columna || ', ' || v_long_total || ', ''0'')' || '          --' || reg_detail.TABLE_COLUMN);
+                        end if;
+                      end if;
                   end if;
                 when reg_detail.TYPE = 'IM' then
                   /*(20160503) Angel Ruiz */
                   /* Se trata de un valor de tipo importe */
                   /* Aqui el algoritmode justificacion es complicado */
-                  if (instr(reg_detail.LONGITUD, ',') > 0 ) then
-                    /* Quiere decir que en la longitud aparecen zona de decimales */
-                    v_long_total := to_number (substr(reg_detail.LONGITUD, 1, instr(reg_detail.LONGITUD, ',') -1));
-                    v_long_parte_decimal := to_number (trim(substr(reg_detail.LONGITUD, instr(reg_detail.LONGITUD, ',') +1)));
+
+                  if (instr(reg_detail.VALUE, '-') = 0) then
+                  /* Si el numero que se hardcodea es positivo */
+                    --UTL_FILE.put_line(fich_salida_pkg, 'NVL(LPAD(' || columna || ', ' || reg_detail.LONGITUD || ', ''0''), RPAD('' '', ' || reg_detail.LONGITUD || ', '' ''))' || '          --' || reg_detail.TABLE_COLUMN);
+                    UTL_FILE.put_line(fich_salida_pkg, 'LPAD(' || columna || ', ' || reg_detail.LONGITUD || ', ''0'')' || '          --' || reg_detail.TABLE_COLUMN);
                   else
-                    v_long_total:=to_number(trim(reg_detail.LONGITUD));
-                    v_long_parte_decimal:=0;
+                    /* Si el numero que se hardcodea es negativo */
+                    if (instr(reg_detail.LONGITUD, ',') > 0 ) then
+                      /* Quiere decir que en la longitud aparecen zona de decimales */
+                      /* Aqui el algoritmo de justificacion es complicado */
+                      if (instr(reg_detail.LONGITUD, ',') > 0 ) then
+                        /* Quiere decir que en la longitud aparecen zona de decimales */
+                        v_long_total := to_number (substr(reg_detail.LONGITUD, 1, instr(reg_detail.LONGITUD, ',') -1));
+                        v_long_parte_decimal := to_number (trim(substr(reg_detail.LONGITUD, instr(reg_detail.LONGITUD, ',') +1)));
+                      else
+                        v_long_total:=to_number(trim(reg_detail.LONGITUD));
+                        v_long_parte_decimal:=0;
+                      end if;
+                      UTL_FILE.put_line(fich_salida_pkg, 'nvl(' || '          --' || reg_detail.TABLE_COLUMN);
+                      UTL_FILE.put_line(fich_salida_pkg, 'case when instr(' || columna || ', ''-'') = 0 then  --numero positivo' );
+                      UTL_FILE.put_line(fich_salida_pkg, '  case when instr(' || columna || ', ''.'') = 0 then lpad(' || columna || ',' || v_long_total || '''0''');
+                      UTL_FILE.put_line(fich_salida_pkg, '  else lpad(rpad(' || columna || ', length(' || columna || ') + (' || v_long_parte_decimal || '-(length(' || columna || ')-instr(' || columna || ', ''.''))), ''0''),' || v_long_total || ', ''0'')');
+                      UTL_FILE.put_line(fich_salida_pkg, '  end');
+                      UTL_FILE.put_line(fich_salida_pkg, 'else  --numero negativo');
+                      UTL_FILE.put_line(fich_salida_pkg, '  case when instr(' || columna || ', ''.'') = 0 then concat(''-'',lpad(substr(' || columna ||', 2), ' || v_long_total || '-1, ''0''))');
+                      UTL_FILE.put_line(fich_salida_pkg, '  else concat(''-'', lpad(rpad(substr(' || columna || ', 2), ' || v_long_parte_decimal || '-(length(substr(' || columna || ', 2))-instr(substr(' || columna || ', 2), ''.'')), ''0''), ' || v_long_total || '-1, ''0''))'); 
+                      UTL_FILE.put_line(fich_salida_pkg, '  end');
+                      UTL_FILE.put_line(fich_salida_pkg, 'end');
+                      UTL_FILE.put_line(fich_salida_pkg, ', rpad('' '', ' || v_long_total || ', '' '')');
+                      UTL_FILE.put_line(fich_salida_pkg, ')');
+                    else
+                      /* Quiere decir que en la longitud no aparece zona de decimales */
+                      v_long_total := to_number (trim(reg_detail.LONGITUD))-1;  /* Le quito uno dado que existe un signo - */
+                      v_long_parte_decimal := 0;
+                      UTL_FILE.put_line (fich_salida_pkg, '-' || 'LPAD(' || columna || ', ' || v_long_total || ', ''0'')' || '          --' || reg_detail.TABLE_COLUMN);
+                    end if;
                   end if;
-                  UTL_FILE.put_line(fich_salida_pkg, 'nvl(' || '          --' || reg_detail.TABLE_COLUMN);
-                  UTL_FILE.put_line(fich_salida_pkg, 'case when instr(' || columna || ', ''-'') = 0 then  --numero positivo' );
-                  UTL_FILE.put_line(fich_salida_pkg, '  case when instr(' || columna || ', ''.'') = 0 then lpad(' || columna || ',' || v_long_total || '''0''');
-                  UTL_FILE.put_line(fich_salida_pkg, '  else lpad(rpad(' || columna || ', length(' || columna || ') + (' || v_long_parte_decimal || '-(length(' || columna || ')-instr(' || columna || ', ''.''))), ''0''),' || v_long_total || ', ''0'')');
-                  UTL_FILE.put_line(fich_salida_pkg, '  end');
-                  UTL_FILE.put_line(fich_salida_pkg, 'else  --numero negativo');
-                  UTL_FILE.put_line(fich_salida_pkg, '  case when instr(' || columna || ', ''.'') = 0 then concat(''-'',lpad(substr(' || columna ||', 2), ' || v_long_total || '-1, ''0''))');
-                  UTL_FILE.put_line(fich_salida_pkg, '  else concat(''-'', lpad(rpad(substr(' || columna || ', 2), ' || v_long_parte_decimal || '-(length(substr(' || columna || ', 2))-instr(substr(' || columna || ', 2), ''.'')), ''0''), ' || v_long_total || '-1, ''0''))'); 
-                  UTL_FILE.put_line(fich_salida_pkg, '  end');
-                  UTL_FILE.put_line(fich_salida_pkg, 'end');
-                  UTL_FILE.put_line(fich_salida_pkg, ', rpad('' '', ' || v_long_total || ', '' '')');
-                  UTL_FILE.put_line(fich_salida_pkg, ')');
                 when reg_detail.TYPE = 'FE' then
                   /* Se trata de un valor de tipo fecha */
                   if (reg_detail.LONGITUD = 8) then
                     --UTL_FILE.put_line(fich_salida_pkg, '|| CASE WHEN ' || columna || ' IS NULL THEN RPAD('' '',' || reg_detail.LONGITUD ||', '' '') ELSE TO_CHAR(' || columna || ', ''YYYYMMDD'') END' || '          --' || reg_detail.TABLE_COLUMN);
-                    UTL_FILE.put_line(fich_salida_pkg, 'NVL(date_format(' || columna || ', ''yyyyMMdd''), RPAD('' '',' || reg_detail.LONGITUD ||', '' ''))' || '          --' || reg_detail.TABLE_COLUMN);
+                    UTL_FILE.put_line(fich_salida_pkg, 'NVL(date_format(' || columna || ', ''yyyy-MM-dd''), RPAD('' '',' || reg_detail.LONGITUD ||', '' ''))' || '          --' || reg_detail.TABLE_COLUMN);
                   else
                     --UTL_FILE.put_line(fich_salida_pkg, '|| CASE WHEN ' || columna || ' IS NULL THEN RPAD('' '',' || reg_detail.LONGITUD ||', '' '') ELSE TO_CHAR(' || columna || ', ''YYYYMMDDHH24MISS'') END' || '          --' || reg_detail.TABLE_COLUMN);
-                    UTL_FILE.put_line(fich_salida_pkg, 'NVL(date_format(' || columna || ', ''yyyyMMddHHmmss''), RPAD('' '',' || reg_detail.LONGITUD ||', '' ''))' || '          --' || reg_detail.TABLE_COLUMN);
+                    UTL_FILE.put_line(fich_salida_pkg, 'NVL(date_format(' || columna || ', ''yyyy-MM-dd HH:mm:ss''), RPAD('' '',' || reg_detail.LONGITUD ||', '' ''))' || '          --' || reg_detail.TABLE_COLUMN);
                   end if;
                 when reg_detail.TYPE = 'TI' then
                   /* Se trata de un valor de tipo TIME HHMISS */
@@ -2888,59 +2937,89 @@ begin
                     end if;
                   else
                     /* Aqui el algoritmo de justificacion es complicado */
-                    if (instr(reg_detail.LONGITUD, ',') > 0 ) then
-                      /* Quiere decir que en la longitud aparecen zona de decimales */
-                      v_long_total := to_number (substr(reg_detail.LONGITUD, 1, instr(reg_detail.LONGITUD, ',') -1));
-                      v_long_parte_decimal := to_number (trim(substr(reg_detail.LONGITUD, instr(reg_detail.LONGITUD, ',') +1)));
+                    if (instr(reg_detail.VALUE, '-') = 0) then
+                    /* si el valor que vamos a hardcodear no es negativo */
+                      UTL_FILE.put_line(fich_salida_pkg, '|| NVL(LPAD(' || columna || ', ' || reg_detail.LONGITUD || ', ''0''), RPAD('' '', ' || reg_detail.LONGITUD || ', '' ''))' || '          --' || reg_detail.TABLE_COLUMN);
                     else
-                      v_long_total:=to_number(trim(reg_detail.LONGITUD));
-                      v_long_parte_decimal:=0;
+                    /* si el valor que vamos a hardcodear es negativo */
+                      if (instr(reg_detail.LONGITUD, ',') > 0 ) then
+                        /* Quiere decir que en la longitud aparecen zona de decimales */
+                        /* Preparo la mascara */
+                        if (instr(reg_detail.LONGITUD, ',') > 0 ) then
+                          /* Quiere decir que en la longitud aparecen zona de decimales */
+                          v_long_total := to_number (substr(reg_detail.LONGITUD, 1, instr(reg_detail.LONGITUD, ',') -1));
+                          v_long_parte_decimal := to_number (trim(substr(reg_detail.LONGITUD, instr(reg_detail.LONGITUD, ',') +1)));
+                        else
+                          v_long_total:=to_number(trim(reg_detail.LONGITUD));
+                          v_long_parte_decimal:=0;
+                        end if;
+                        UTL_FILE.put_line(fich_salida_pkg, '|| nvl(' || '          --' || reg_detail.TABLE_COLUMN);
+                        UTL_FILE.put_line(fich_salida_pkg, 'case when instr(' || columna || ', ''-'') = 0 then  --numero positivo' );
+                        UTL_FILE.put_line(fich_salida_pkg, '  case when instr(' || columna || ', ''.'') = 0 then lpad(' || columna || ',' || v_long_total || '''0''');
+                        UTL_FILE.put_line(fich_salida_pkg, '  else lpad(rpad(' || columna || ', length(' || columna || ') + (' || v_long_parte_decimal || '-(length(' || columna || ')-instr(' || columna || ', ''.''))), ''0''),' || v_long_total || ', ''0'')');
+                        UTL_FILE.put_line(fich_salida_pkg, '  end');
+                        UTL_FILE.put_line(fich_salida_pkg, 'else  --numero negativo');
+                        UTL_FILE.put_line(fich_salida_pkg, '  case when instr(' || columna || ', ''.'') = 0 then concat(''-'',lpad(substr(' || columna ||', 2), ' || v_long_total || '-1, ''0''))');
+                        UTL_FILE.put_line(fich_salida_pkg, '  else concat(''-'', lpad(rpad(substr(' || columna || ', 2), ' || v_long_parte_decimal || '-(length(substr(' || columna || ', 2))-instr(substr(' || columna || ', 2), ''.'')), ''0''), ' || v_long_total || '-1, ''0''))'); 
+                        UTL_FILE.put_line(fich_salida_pkg, '  end');
+                        UTL_FILE.put_line(fich_salida_pkg, 'end');
+                        UTL_FILE.put_line(fich_salida_pkg, ', rpad('' '', ' || v_long_total || ', '' '')');
+                        UTL_FILE.put_line(fich_salida_pkg, ')');
+                      else
+                        /* Quiere decir que en la longitud no aparece zona de decimales */
+                        v_long_total := to_number (trim(reg_detail.LONGITUD))-1;  /* Le quito uno dado que existe un signo - */
+                        v_long_parte_decimal := 0;
+                        UTL_FILE.put_line (fich_salida_pkg, '|| -' || 'LPAD(' || columna || ', ' || v_long_total || ', ''0'')' || '          --' || reg_detail.TABLE_COLUMN);
+                      end if;
                     end if;
-                    UTL_FILE.put_line(fich_salida_pkg, '|| nvl(' || '          --' || reg_detail.TABLE_COLUMN);
-                    UTL_FILE.put_line(fich_salida_pkg, 'case when instr(' || columna || ', ''-'') = 0 then  --numero positivo' );
-                    UTL_FILE.put_line(fich_salida_pkg, '  case when instr(' || columna || ', ''.'') = 0 then lpad(' || columna || ',' || v_long_total || '''0''');
-                    UTL_FILE.put_line(fich_salida_pkg, '  else lpad(rpad(' || columna || ', length(' || columna || ') + (' || v_long_parte_decimal || '-(length(' || columna || ')-instr(' || columna || ', ''.''))), ''0''),' || v_long_total || ', ''0'')');
-                    UTL_FILE.put_line(fich_salida_pkg, '  end');
-                    UTL_FILE.put_line(fich_salida_pkg, 'else  --numero negativo');
-                    UTL_FILE.put_line(fich_salida_pkg, '  case when instr(' || columna || ', ''.'') = 0 then concat(''-'',lpad(substr(' || columna ||', 2), ' || v_long_total || '-1, ''0''))');
-                    UTL_FILE.put_line(fich_salida_pkg, '  else concat(''-'', lpad(rpad(substr(' || columna || ', 2), ' || v_long_parte_decimal || '-(length(substr(' || columna || ', 2))-instr(substr(' || columna || ', 2), ''.'')), ''0''), ' || v_long_total || '-1, ''0''))'); 
-                    UTL_FILE.put_line(fich_salida_pkg, '  end');
-                    UTL_FILE.put_line(fich_salida_pkg, 'end');
-                    UTL_FILE.put_line(fich_salida_pkg, ', rpad('' '', ' || v_long_total || ', '' '')');
-                    UTL_FILE.put_line(fich_salida_pkg, ')');
                   end if;
                 when reg_detail.TYPE = 'IM' then
                   /*(20160503) Angel Ruiz */
                   /* Se trata de un valor de tipo importe */
                   /* Aqui el algoritmo de justificacion es complicado */
-                  if (instr(reg_detail.LONGITUD, ',') > 0 ) then
-                    /* Quiere decir que en la longitud aparecen zona de decimales */
-                    v_long_total := to_number (substr(reg_detail.LONGITUD, 1, instr(reg_detail.LONGITUD, ',') -1));
-                    v_long_parte_decimal := to_number (trim(substr(reg_detail.LONGITUD, instr(reg_detail.LONGITUD, ',') +1)));
+                  if (instr(reg_detail.VALUE, '-') = 0) then
+                  /* si el valor que vamos a hardcodear no es negativo */
+                    UTL_FILE.put_line(fich_salida_pkg, '|| NVL(LPAD(' || columna || ', ' || reg_detail.LONGITUD || ', ''0''), RPAD('' '', ' || reg_detail.LONGITUD || ', '' ''))' || '          --' || reg_detail.TABLE_COLUMN);
                   else
-                    v_long_total:=to_number(trim(reg_detail.LONGITUD));
-                    v_long_parte_decimal:=0;
+                  /* si el valor que vamos a hardcodear es negativo */
+                    if (instr(reg_detail.LONGITUD, ',') > 0 ) then
+                      /* Quiere decir que en la longitud aparecen zona de decimales */
+                      /* Preparo la mascara */
+                      if (instr(reg_detail.LONGITUD, ',') > 0 ) then
+                        /* Quiere decir que en la longitud aparecen zona de decimales */
+                        v_long_total := to_number (substr(reg_detail.LONGITUD, 1, instr(reg_detail.LONGITUD, ',') -1));
+                        v_long_parte_decimal := to_number (trim(substr(reg_detail.LONGITUD, instr(reg_detail.LONGITUD, ',') +1)));
+                      else
+                        v_long_total:=to_number(trim(reg_detail.LONGITUD));
+                        v_long_parte_decimal:=0;
+                      end if;
+                      UTL_FILE.put_line(fich_salida_pkg, '|| nvl(' || '          --' || reg_detail.TABLE_COLUMN);
+                      UTL_FILE.put_line(fich_salida_pkg, 'case when instr(' || columna || ', ''-'') = 0 then  --numero positivo' );
+                      UTL_FILE.put_line(fich_salida_pkg, '  case when instr(' || columna || ', ''.'') = 0 then lpad(' || columna || ',' || v_long_total || '''0''');
+                      UTL_FILE.put_line(fich_salida_pkg, '  else lpad(rpad(' || columna || ', length(' || columna || ') + (' || v_long_parte_decimal || '-(length(' || columna || ')-instr(' || columna || ', ''.''))), ''0''),' || v_long_total || ', ''0'')');
+                      UTL_FILE.put_line(fich_salida_pkg, '  end');
+                      UTL_FILE.put_line(fich_salida_pkg, 'else  --numero negativo');
+                      UTL_FILE.put_line(fich_salida_pkg, '  case when instr(' || columna || ', ''.'') = 0 then concat(''-'',lpad(substr(' || columna ||', 2), ' || v_long_total || '-1, ''0''))');
+                      UTL_FILE.put_line(fich_salida_pkg, '  else concat(''-'', lpad(rpad(substr(' || columna || ', 2), ' || v_long_parte_decimal || '-(length(substr(' || columna || ', 2))-instr(substr(' || columna || ', 2), ''.'')), ''0''), ' || v_long_total || '-1, ''0''))'); 
+                      UTL_FILE.put_line(fich_salida_pkg, '  end');
+                      UTL_FILE.put_line(fich_salida_pkg, 'end');
+                      UTL_FILE.put_line(fich_salida_pkg, ', rpad('' '', ' || v_long_total || ', '' '')');
+                      UTL_FILE.put_line(fich_salida_pkg, ')');
+                    else
+                      /* Quiere decir que en la longitud no aparece zona de decimales */
+                      v_long_total := to_number (trim(reg_detail.LONGITUD))-1;  /* Le quito uno dado que existe un signo - */
+                      v_long_parte_decimal := 0;
+                      UTL_FILE.put_line (fich_salida_pkg, '|| -' || 'LPAD(' || columna || ', ' || v_long_total || ', ''0'')' || '          --' || reg_detail.TABLE_COLUMN);
+                    end if;
                   end if;
-                  UTL_FILE.put_line(fich_salida_pkg, '|| nvl(' || '          --' || reg_detail.TABLE_COLUMN);
-                  UTL_FILE.put_line(fich_salida_pkg, 'case when instr(' || columna || ', ''-'') = 0 then  --numero positivo' );
-                  UTL_FILE.put_line(fich_salida_pkg, '  case when instr(' || columna || ', ''.'') = 0 then lpad(' || columna || ',' || v_long_total || '''0''');
-                  UTL_FILE.put_line(fich_salida_pkg, '  else lpad(rpad(' || columna || ', length(' || columna || ') + (' || v_long_parte_decimal || '-(length(' || columna || ')-instr(' || columna || ', ''.''))), ''0''),' || v_long_total || ', ''0'')');
-                  UTL_FILE.put_line(fich_salida_pkg, '  end');
-                  UTL_FILE.put_line(fich_salida_pkg, 'else  --numero negativo');
-                  UTL_FILE.put_line(fich_salida_pkg, '  case when instr(' || columna || ', ''.'') = 0 then concat(''-'',lpad(substr(' || columna ||', 2), ' || v_long_total || '-1, ''0''))');
-                  UTL_FILE.put_line(fich_salida_pkg, '  else concat(''-'', lpad(rpad(substr(' || columna || ', 2), ' || v_long_parte_decimal || '-(length(substr(' || columna || ', 2))-instr(substr(' || columna || ', 2), ''.'')), ''0''), ' || v_long_total || '-1, ''0''))'); 
-                  UTL_FILE.put_line(fich_salida_pkg, '  end');
-                  UTL_FILE.put_line(fich_salida_pkg, 'end');
-                  UTL_FILE.put_line(fich_salida_pkg, ', rpad('' '', ' || v_long_total || ', '' '')');
-                  UTL_FILE.put_line(fich_salida_pkg, ')');
                 when reg_detail.TYPE = 'FE' then
                   /* Se trata de un valor de tipo fecha */
                   if (reg_detail.LONGITUD = 8) then
                     --UTL_FILE.put_line(fich_salida_pkg, '|| CASE WHEN ' || columna || ' IS NULL THEN RPAD('' '',' || reg_detail.LONGITUD ||', '' '') ELSE TO_CHAR(' || columna || ', ''YYYYMMDD'') END' || '          --' || reg_detail.TABLE_COLUMN);
-                    UTL_FILE.put_line(fich_salida_pkg, '|| NVL(date_format(' || columna || ', ''yyyyMMdd''), RPAD('' '',' || reg_detail.LONGITUD ||', '' ''))' || '          --' || reg_detail.TABLE_COLUMN);
+                    UTL_FILE.put_line(fich_salida_pkg, '|| NVL(date_format(' || columna || ', ''yyyy-MM-dd''), RPAD('' '',' || reg_detail.LONGITUD ||', '' ''))' || '          --' || reg_detail.TABLE_COLUMN);
                   else
                     --UTL_FILE.put_line(fich_salida_pkg, '|| CASE WHEN ' || columna || ' IS NULL THEN RPAD('' '',' || reg_detail.LONGITUD ||', '' '') ELSE TO_CHAR(' || columna || ', ''YYYYMMDDHH24MISS'') END' || '          --' || reg_detail.TABLE_COLUMN);
-                    UTL_FILE.put_line(fich_salida_pkg, '|| NVL(date_format(' || columna || ', ''yyyyMMddHHmmss''), RPAD('' '',' || reg_detail.LONGITUD ||', '' ''))' || '          --' || reg_detail.TABLE_COLUMN);
+                    UTL_FILE.put_line(fich_salida_pkg, '|| NVL(date_format(' || columna || ', ''yyyy-MM-dd HH:mm:ss''), RPAD('' '',' || reg_detail.LONGITUD ||', '' ''))' || '          --' || reg_detail.TABLE_COLUMN);
                   end if;
                 when reg_detail.TYPE = 'TI' then
                   /* Se trata de un valor de tipo TIME HHMISS */
@@ -3142,10 +3221,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, 'InsertaFinFallido()');
     UTL_FILE.put_line(fich_salida_load, '{');
     UTL_FILE.put_line(fich_salida_load, 'sqlplus -s ${BD_USR}/${BD_PWD}@${BD_SID} <<!eof');
-    UTL_FILE.put_line(fich_salida_load, 'whenever sqlerror exit 1');
-    UTL_FILE.put_line(fich_salida_load, 'set pagesize 0');
-    UTL_FILE.put_line(fich_salida_load, 'set heading off');
-    UTL_FILE.put_line(fich_salida_load, 'begin');
+    UTL_FILE.put_line(fich_salida_load, 'mysql -Ns -u ${BD_USR} -p${BD_PWD} -D ${BD_SID} 2> /dev/null << !eof');
     UTL_FILE.put_line(fich_salida_load, '  INSERT INTO ' || OWNER_MTDT || '.MTDT_MONITOREO');
     UTL_FILE.put_line(fich_salida_load, '  (');
     UTL_FILE.put_line(fich_salida_load, '    CVE_PROCESO,');
@@ -3163,13 +3239,13 @@ begin
     UTL_FILE.put_line(fich_salida_load, '    mtdt_proceso.cve_proceso,');
     UTL_FILE.put_line(fich_salida_load, '    1,');
     UTL_FILE.put_line(fich_salida_load, '    1,');
-    UTL_FILE.put_line(fich_salida_load, '    to_date(''${INICIO_PASO_TMR}'', ''YYYYMMDDHH24MISS''),');
-    UTL_FILE.put_line(fich_salida_load, '    sysdate,');
-    UTL_FILE.put_line(fich_salida_load, '    to_date(''${FECHA}'', ''yyyymmdd''),');
-    UTL_FILE.put_line(fich_salida_load, '    to_date(''${FECHA}'', ''yyyymmdd''),');
+    UTL_FILE.put_line(fich_salida_load, '    date_format(''${INICIO_PASO_TMR}'', ''%Y%m%d%H%i%S''),');
+    UTL_FILE.put_line(fich_salida_load, '    sysdate(),');
+    UTL_FILE.put_line(fich_salida_load, '    date_format(''${FECHA}'', ''%Y%m%d''),');
+    UTL_FILE.put_line(fich_salida_load, '    date_format(''${FECHA}'', ''%Y%m%d''),');
     UTL_FILE.put_line(fich_salida_load, '    ${CONTEO_ARCHIVO},');
     UTL_FILE.put_line(fich_salida_load, '    ${B_CONTEO_BD},');
-    UTL_FILE.put_line(fich_salida_load, '    sysdate');
+    UTL_FILE.put_line(fich_salida_load, '    sysdate()');
     UTL_FILE.put_line(fich_salida_load, '  FROM');
     UTL_FILE.put_line(fich_salida_load, '  ' || OWNER_MTDT || '.MTDT_PROCESO');
     UTL_FILE.put_line(fich_salida_load, '  WHERE');
@@ -3197,11 +3273,12 @@ begin
     UTL_FILE.put_line(fich_salida_load, '################################################################################');    
     UTL_FILE.put_line(fich_salida_load, 'InsertaFinOK()');
     UTL_FILE.put_line(fich_salida_load, '{');
-    UTL_FILE.put_line(fich_salida_load, 'sqlplus -s ${BD_USR}/${BD_PWD}@${BD_SID} <<!eof');
-    UTL_FILE.put_line(fich_salida_load, 'whenever sqlerror exit 1');
-    UTL_FILE.put_line(fich_salida_load, 'set pagesize 0');
-    UTL_FILE.put_line(fich_salida_load, 'set heading off');
-    UTL_FILE.put_line(fich_salida_load, 'begin');
+    --UTL_FILE.put_line(fich_salida_load, 'sqlplus -s ${BD_USR}/${BD_PWD}@${BD_SID} <<!eof');
+    UTL_FILE.put_line(fich_salida_load, 'mysql -Ns -u ${BD_USR} -p${BD_PWD} -D ${BD_SID} 2> /dev/null << !eof');
+    --UTL_FILE.put_line(fich_salida_load, 'whenever sqlerror exit 1');
+    --UTL_FILE.put_line(fich_salida_load, 'set pagesize 0');
+    --UTL_FILE.put_line(fich_salida_load, 'set heading off');
+    --UTL_FILE.put_line(fich_salida_load, 'begin');
     UTL_FILE.put_line(fich_salida_load, '  INSERT INTO ' || OWNER_MTDT || '.MTDT_MONITOREO');
     UTL_FILE.put_line(fich_salida_load, '  (');
     UTL_FILE.put_line(fich_salida_load, '    CVE_PROCESO,');
@@ -3219,13 +3296,13 @@ begin
     UTL_FILE.put_line(fich_salida_load, '    mtdt_proceso.cve_proceso,');
     UTL_FILE.put_line(fich_salida_load, '    1,');
     UTL_FILE.put_line(fich_salida_load, '    0,');
-    UTL_FILE.put_line(fich_salida_load, '    to_date(''${INICIO_PASO_TMR}'', ''YYYYMMDDHH24MISS''),');
-    UTL_FILE.put_line(fich_salida_load, '    sysdate,');
-    UTL_FILE.put_line(fich_salida_load, '    to_date(''${FECHA}'', ''yyyymmdd''),');
-    UTL_FILE.put_line(fich_salida_load, '    to_date(''${FECHA}'', ''yyyymmdd''),');
+    UTL_FILE.put_line(fich_salida_load, '    date_format(''${INICIO_PASO_TMR}'', ''%Y%m%d%H%i%S''),');
+    UTL_FILE.put_line(fich_salida_load, '    sysdate(),');
+    UTL_FILE.put_line(fich_salida_load, '    date_format(''${FECHA}'', ''%Y%m%d''),');
+    UTL_FILE.put_line(fich_salida_load, '    date_format(''${FECHA}'', ''%Y%m%d''),');
     UTL_FILE.put_line(fich_salida_load, '    ${CONTEO_ARCHIVO},');
     UTL_FILE.put_line(fich_salida_load, '    ${B_CONTEO_BD},');
-    UTL_FILE.put_line(fich_salida_load, '    sysdate');
+    UTL_FILE.put_line(fich_salida_load, '    sysdate()');
     UTL_FILE.put_line(fich_salida_load, '  FROM');
     UTL_FILE.put_line(fich_salida_load, '  ' || OWNER_MTDT || '.MTDT_PROCESO');
     UTL_FILE.put_line(fich_salida_load, '  WHERE');
@@ -3234,9 +3311,10 @@ begin
     --UTL_FILE.put_line(fich_salida_load, '  MTDT_PROCESO.NOMBRE_PROCESO = ''' || 'ONIX' || '_' || reg_tabla.TABLE_NAME || '.sh'';');
     /* (20160817) Angel Ruiz FIN Cambio temporal para adecuarse a la entrega de produccion*/
     UTL_FILE.put_line(fich_salida_load, '  commit;');
-    UTL_FILE.put_line(fich_salida_load, 'end;');
-    UTL_FILE.put_line(fich_salida_load, '/');
-    UTL_FILE.put_line(fich_salida_load, 'exit 0;');
+    --UTL_FILE.put_line(fich_salida_load, 'end;');
+    --UTL_FILE.put_line(fich_salida_load, '/');
+    --UTL_FILE.put_line(fich_salida_load, 'exit 0;');
+    UTL_FILE.put_line(fich_salida_load, 'quit');
     UTL_FILE.put_line(fich_salida_load, '!eof');
     UTL_FILE.put_line(fich_salida_load, '  if [ $? -ne 0 ]');
     UTL_FILE.put_line(fich_salida_load, '  then');
@@ -3344,9 +3422,9 @@ begin
     --UTL_FILE.put_line(fich_salida_load, '    mes=`echo ${$1} | cut -c 5-6`');
     --UTL_FILE.put_line(fich_salida_load, '    dia=`echo ${$1} | cut -c 7-8`');
     --UTL_FILE.put_line(fich_salida_load, '    fch_fmt_hive="${anyo}-${mes}-${dia}"');
-    UTL_FILE.put_line(fich_salida_load, '    fch_fmt_hive=`echo ${$1} | awk ''{ printf "%s-%s-%s", substr($1,0,4), substr($1,5,2), substr($1,7,2) ; }''`');
+    UTL_FILE.put_line(fich_salida_load, '    FCH_FMT_HIVE=`echo ${$1} | awk ''{ printf "%s-%s-%s", substr($1,0,4), substr($1,5,2), substr($1,7,2) ; }''`');
     
-    UTL_FILE.put_line(fich_salida_load, '    FECHA=`beeline -u jdbc:hive2://localhost:10000/${BD} -n ${USER} -p ${PASSWORD} --silent=true --showHeader=false --outputformat=dsv -e "select date_format(''${fch_fmt_hive}'', ''yyyy-MM-dd'') from dual"`');
+    UTL_FILE.put_line(fich_salida_load, '    FECHA=`beeline -u jdbc:hive2://localhost:10000/${BD} -n ${USER} -p ${PASSWORD} --silent=true --showHeader=false --outputformat=dsv -e "select date_format(''${FCH_FMT_HIVE}'', ''yyyy-MM-dd'') from dual"`');
     UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
     UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
     UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
@@ -3356,7 +3434,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, '    fi');
     if (v_fecha_ini_param = true and v_fecha_fin_param = true) then
       /* (20160419) Angel Ruiz. Si tenemos parametros de FCH_INI y FCH_FIN tenmos que generar codigo para recuperar la fecha Inicial */
-      UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=`beeline -u jdbc:hive2://localhost:10000/${BD} -n ${USER} -p ${PASSWORD} --silent=true --showHeader=false --outputformat=dsv -e "select date_format(''${fch_fmt_hive}'', ''yyyy-MM-dd'') from dual"`');
+      UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=`beeline -u jdbc:hive2://localhost:10000/${BD} -n ${USER} -p ${PASSWORD} --silent=true --showHeader=false --outputformat=dsv -e "select date_format(''${FCH_FMT_HIVE}'', ''yyyy-MM-dd'') from dual"`');
       UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
       UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
       UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha final o el parametro no es un formato de fecha YYYYMMDD." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
@@ -3406,6 +3484,23 @@ begin
     else
       UTL_FILE.put_line(fich_salida_load, 'ObtenInterfaz()');
     end if;
+
+    if v_tabla_dinamica = true then
+      dbms_output.put_line ('El valor de v_tabla_dinamica es: true');
+    else
+      dbms_output.put_line ('El valor de v_tabla_dinamica es: false');
+    end if;
+    if v_fecha_ini_param = true then
+      dbms_output.put_line ('El valor de v_fecha_ini_param es: true');
+    else
+      dbms_output.put_line ('El valor de v_fecha_ini_param es: false');
+    end if;
+    if v_fecha_fin_param = true then
+      dbms_output.put_line ('El valor de v_fecha_fin_param es: true');
+    else
+      dbms_output.put_line ('El valor de v_fecha_fin_param es: false');
+    end if;
+    
     UTL_FILE.put_line(fich_salida_load, '{');
     --UTL_FILE.put_line(fich_salida_load, '  ARCHIVO_SALIDA="${NOM_INTERFAZ}_${FECHA}"');
     if (v_type_validation <> 'I') then
@@ -3427,7 +3522,7 @@ begin
         /* (20160607) Angel Ruiz. Si se trata de validacion I desde la extraccion */
         /* va a las tablas de Stagin sin pasar por ficehro plano */
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}${ARCHIVO_SQL} ${FECHA_MES}');
-        UTL_FILE.put_line(fich_salida_load, '  sed -e "s/&' || '1/${FECHA_MES}/g" ${PATH_SQL}${ARCHIVO_SQL} > ${PATH_SQL}${ARCHIVO_SQL_TMP}');
+        UTL_FILE.put_line(fich_salida_load, '  sed -e "s/&' || '1/${FECHA_MES}/g" -e "s/&' || '6/${FECHA}/g"' || ' ${PATH_SQL}${ARCHIVO_SQL} > ${PATH_SQL}${ARCHIVO_SQL_TMP}');
         UTL_FILE.put_line(fich_salida_load, '  hplsql -f ${PATH_SQL}${ARCHIVO_SQL_TMP}');
       else
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}${ARCHIVO_SQL} ${PATH_SALIDA}${ARCHIVO_SALIDA} ${FECHA_MES}');
@@ -3440,11 +3535,11 @@ begin
         /* (20160607) Angel Ruiz. Si se trata de validacion I desde la extraccion */
         /* va a las tablas de Stagin sin pasar por ficehro plano */
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}${ARCHIVO_SQL} ${FECHA_MES} ${FECHA} ${FECHA_FIN}');
-        UTL_FILE.put_line(fich_salida_load, '  sed -e "s/&' || '1/${FECHA_MES}/g" -e "s/&' || '2/${FECHA}" -e "s/&' || '3/${FECHA_FIN}" ${PATH_SQL}${ARCHIVO_SQL} > ${PATH_SQL}${ARCHIVO_SQL_TMP}');
+        UTL_FILE.put_line(fich_salida_load, '  sed -e "s/&' || '1/${FECHA_MES}/g" -e "s/&' || '2/${FECHA}/g" -e "s/&' || '3/${FECHA_FIN}/g" -e "s/&' || '6/${FECHA}/g" ${PATH_SQL}${ARCHIVO_SQL} > ${PATH_SQL}${ARCHIVO_SQL_TMP}');
         UTL_FILE.put_line(fich_salida_load, '  hplsql -f ${PATH_SQL}${ARCHIVO_SQL_TMP}');
       else
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}${ARCHIVO_SQL} ${PATH_SALIDA}${ARCHIVO_SALIDA} ${FECHA_MES} ${FECHA} ${FECHA_FIN}');
-        UTL_FILE.put_line(fich_salida_load, '  sed -e "s/&' || '2/${FECHA_MES}/g" -e "s/&' || '3/${FECHA}" -e "s/&' || '4/${FECHA_FIN}" ${PATH_SQL}${ARCHIVO_SQL} > ${PATH_SQL}${ARCHIVO_SQL_TMP}');
+        UTL_FILE.put_line(fich_salida_load, '  sed -e "s/&' || '2/${FECHA_MES}/g" -e "s/&' || '3/${FECHA}/g" -e "s/&' || '4/${FECHA_FIN}/g" ${PATH_SQL}${ARCHIVO_SQL} > ${PATH_SQL}${ARCHIVO_SQL_TMP}');
         UTL_FILE.put_line(fich_salida_load, '  hplsql -f ${PATH_SQL}${ARCHIVO_SQL_TMP} > ${PATH_SALIDA}${ARCHIVO_SALIDA}');
       end if;
     elsif (v_tabla_dinamica = true and v_fecha_ini_param = true and v_fecha_fin_param = false) then
@@ -3452,11 +3547,11 @@ begin
         /* (20160607) Angel Ruiz. Si se trata de validacion I desde la extraccion */
         /* va a las tablas de Stagin sin pasar por ficehro plano */
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}${ARCHIVO_SQL} ${FECHA_MES} ${FECHA}');
-        UTL_FILE.put_line(fich_salida_load, '  sed -e "s/&' || '1/${FECHA_MES}/g" -e "s/&' || '2/${FECHA}" ${PATH_SQL}${ARCHIVO_SQL} > ${PATH_SQL}${ARCHIVO_SQL_TMP}');
+        UTL_FILE.put_line(fich_salida_load, '  sed -e "s/&' || '1/${FECHA_MES}/g" -e "s/&' || '2/${FECHA}/g" -e "s/&' || '6/${FECHA}/g" ${PATH_SQL}${ARCHIVO_SQL} > ${PATH_SQL}${ARCHIVO_SQL_TMP}');
         UTL_FILE.put_line(fich_salida_load, '  hplsql -f ${PATH_SQL}${ARCHIVO_SQL_TMP}');
       else
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}${ARCHIVO_SQL} ${PATH_SALIDA}${ARCHIVO_SALIDA} ${FECHA_MES} ${FECHA}');
-        UTL_FILE.put_line(fich_salida_load, '  sed -e "s/&' || '2/${FECHA_MES}/g" -e "s/&' || '3/${FECHA}" ${PATH_SQL}${ARCHIVO_SQL} > ${PATH_SQL}${ARCHIVO_SQL_TMP}');
+        UTL_FILE.put_line(fich_salida_load, '  sed -e "s/&' || '2/${FECHA_MES}/g" -e "s/&' || '3/${FECHA}/g" ${PATH_SQL}${ARCHIVO_SQL} > ${PATH_SQL}${ARCHIVO_SQL_TMP}');
         UTL_FILE.put_line(fich_salida_load, '  hplsql -f ${PATH_SQL}${ARCHIVO_SQL_TMP} > ${PATH_SALIDA}${ARCHIVO_SALIDA}');
         
       end if;
@@ -3465,11 +3560,11 @@ begin
         /* (20160607) Angel Ruiz. Si se trata de validacion I desde la extraccion */
         /* va a las tablas de Stagin sin pasar por ficehro plano */
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}${ARCHIVO_SQL} ${FECHA} ${FECHA_FIN}');
-        UTL_FILE.put_line(fich_salida_load, '  sed -e "s/&' || '1/${FECHA}/g" -e "s/&' || '2/${FECHA_FIN}" ${PATH_SQL}${ARCHIVO_SQL} > ${PATH_SQL}${ARCHIVO_SQL_TMP}');
+        UTL_FILE.put_line(fich_salida_load, '  sed -e "s/&' || '1/${FECHA}/g" -e "s/&' || '2/${FECHA_FIN}/g" -e "s/&' || '6/${FECHA}/g" ${PATH_SQL}${ARCHIVO_SQL} > ${PATH_SQL}${ARCHIVO_SQL_TMP}');
         UTL_FILE.put_line(fich_salida_load, '  hplsql -f ${PATH_SQL}${ARCHIVO_SQL_TMP}');
       else
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}${ARCHIVO_SQL} ${PATH_SALIDA}${ARCHIVO_SALIDA} ${FECHA} ${FECHA_FIN}');
-        UTL_FILE.put_line(fich_salida_load, '  sed -e "s/&' || '2/${FECHA}/g" -e "s/&' || '3/${FECHA_FIN}" ${PATH_SQL}${ARCHIVO_SQL} > ${PATH_SQL}${ARCHIVO_SQL_TMP}');
+        UTL_FILE.put_line(fich_salida_load, '  sed -e "s/&' || '2/${FECHA}/g" -e "s/&' || '3/${FECHA_FIN}/g" ${PATH_SQL}${ARCHIVO_SQL} > ${PATH_SQL}${ARCHIVO_SQL_TMP}');
         UTL_FILE.put_line(fich_salida_load, '  hplsql -f ${PATH_SQL}${ARCHIVO_SQL_TMP} > ${PATH_SALIDA}${ARCHIVO_SALIDA}');
       end if;
     elsif (v_tabla_dinamica = false and v_fecha_ini_param = true and v_fecha_fin_param = false) then
@@ -3477,7 +3572,7 @@ begin
         /* (20160607) Angel Ruiz. Si se trata de validacion I desde la extraccion */
         /* va a las tablas de Stagin sin pasar por ficehro plano */
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}${ARCHIVO_SQL} ${FECHA}');
-        UTL_FILE.put_line(fich_salida_load, '  sed -e "s/&' || '1/${FECHA}/g" ${PATH_SQL}${ARCHIVO_SQL} > ${PATH_SQL}${ARCHIVO_SQL_TMP}');
+        UTL_FILE.put_line(fich_salida_load, '  sed -e "s/&' || '1/${FECHA}/g" -e "s/&' || '6/${FECHA}/g ${PATH_SQL}${ARCHIVO_SQL} > ${PATH_SQL}${ARCHIVO_SQL_TMP}');
         UTL_FILE.put_line(fich_salida_load, '  hplsql -f ${PATH_SQL}${ARCHIVO_SQL_TMP}');        
       else
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}${ARCHIVO_SQL} ${PATH_SALIDA}${ARCHIVO_SALIDA} ${FECHA}');
@@ -3489,7 +3584,8 @@ begin
         /* (20160607) Angel Ruiz. Si se trata de validacion I desde la extraccion */
         /* va a las tablas de Stagin sin pasar por ficehro plano */
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}${ARCHIVO_SQL}');
-        UTL_FILE.put_line(fich_salida_load, '  hplsql -f ${PATH_SQL}${ARCHIVO_SQL}');        
+        UTL_FILE.put_line(fich_salida_load, '  sed -e "s/&' || '6/${FECHA}/g" ${PATH_SQL}${ARCHIVO_SQL} > ${PATH_SQL}${ARCHIVO_SQL_TMP}');
+        UTL_FILE.put_line(fich_salida_load, '  hplsql -f ${PATH_SQL}${ARCHIVO_SQL_TMP}');        
       else
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}${ARCHIVO_SQL} ${PATH_SALIDA}${ARCHIVO_SALIDA}');
         UTL_FILE.put_line(fich_salida_load, '  hplsql -f ${PATH_SQL}${ARCHIVO_SQL} > ${PATH_SALIDA}${ARCHIVO_SALIDA}');        
@@ -3509,6 +3605,12 @@ begin
     if (v_tabla_dinamica = true or v_fecha_ini_param = true or v_fecha_fin_param = true) then
     /* Si hay parametros entonces hemos creado un fichero .sql temporal al vuelo */
       UTL_FILE.put_line(fich_salida_load, '  rm ${PATH_SQL}${ARCHIVO_SQL_TMP}');
+    else
+      if (v_type_validation = 'I') then
+      /* Solo cuando no existen parametros de fecha, pero se trata de validacion I */
+      /* se genera tambien fichero temporal ya que hay sustitucion de la particion */
+        UTL_FILE.put_line(fich_salida_load, '  rm ${PATH_SQL}${ARCHIVO_SQL_TMP}');
+      end if;
     end if;
     if (v_type_validation <> 'I') then
       /* (20160607) Angel Ruiz. Si se trata de validacion I desde la extraccion */
@@ -3530,7 +3632,9 @@ begin
       --UTL_FILE.put_line(fich_salida_load, '  ARCHIVO_SALIDA="${NOM_INTERFAZ}_${FECHA}"');
       UTL_FILE.put_line(fich_salida_load, '  ARCHIVO_SALIDA="' || nombre_interface_a_cargar || '"');
       UTL_FILE.put_line(fich_salida_load, '  ARCHIVO_SQL="${REQ_NUM}_' || 'FROM_SA_' || reg_tabla.TABLE_NAME || '.sql"');
-      UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}${ARCHIVO_SQL} ${PATH_SALIDA}${ARCHIVO_SALIDA}');
+      --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}${ARCHIVO_SQL} ${PATH_SALIDA}${ARCHIVO_SALIDA}');
+      UTL_FILE.put_line(fich_salida_load, '  hplsql -f ${PATH_SQL}${ARCHIVO_SQL} > ${PATH_SALIDA}${ARCHIVO_SALIDA}');        
+
       UTL_FILE.put_line(fich_salida_load, '  if [ $? -ne 0 ]; then');
       UTL_FILE.put_line(fich_salida_load, '    SUBJECT="${REQ_NUM}:  ERROR: Al generar la interfaz ${ARCHIVO_SQL} (ERROR al ejecutar sqlplus)."');
       UTL_FILE.put_line(fich_salida_load, '    echo "Surgio un error al generar la interfaz ${ARCHIVO_SALIDA} (El error surgio al ejecutar sqlplus)." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
@@ -3721,7 +3825,7 @@ begin
     else
       UTL_FILE.put_line(fich_salida_load, 'EnviaArchivos');
     end if;
-    UTL_FILE.put_line(fich_salida_load, 'InsertaFinOK');
+    --UTL_FILE.put_line(fich_salida_load, 'InsertaFinOK');
     UTL_FILE.put_line(fich_salida_load, '################################################################################');
     UTL_FILE.put_line(fich_salida_load, '# FIN DEL SHELL                                                                #');
     UTL_FILE.put_line(fich_salida_load, '################################################################################');
@@ -3745,24 +3849,24 @@ begin
       nombre_fich_pkg_desde_stage := REQ_NUMBER || '_FROM_SA_' || reg_tabla.TABLE_NAME || '.sql';
       fich_salida_pkg_desde_stage := UTL_FILE.FOPEN ('SALIDA',nombre_fich_pkg_desde_stage,'W');
       
-      UTL_FILE.put_line (fich_salida_pkg_desde_stage,'WHENEVER SQLERROR EXIT 1;');
-      UTL_FILE.put_line (fich_salida_pkg_desde_stage,'WHENEVER OSERROR EXIT 2;');
-      if (v_type = 'P') then
-        UTL_FILE.put_line (fich_salida_pkg_desde_stage,'SET LINESIZE ' || v_line_size || ';');
-      end if;
-      UTL_FILE.put_line (fich_salida_pkg_desde_stage,'SET PAGESIZE 0;');
-      UTL_FILE.put_line (fich_salida_pkg_desde_stage,'SET FEEDBACK OFF;');
-      UTL_FILE.put_line (fich_salida_pkg_desde_stage,'SET VERIFY OFF;');
-      UTL_FILE.put_line (fich_salida_pkg_desde_stage,'SET HEADING OFF;');
-      UTL_FILE.put_line (fich_salida_pkg_desde_stage,'SET DOC OFF;');
-      UTL_FILE.put_line (fich_salida_pkg_desde_stage,'SET ECHO OFF;');
-      UTL_FILE.put_line (fich_salida_pkg_desde_stage,'SET TRIMSPOOL OFF;');
-      UTL_FILE.put_line (fich_salida_pkg_desde_stage,'SET TERM OFF;');
-      UTL_FILE.put_line (fich_salida_pkg_desde_stage,'SET TRIMS OFF;');
-      UTL_FILE.put_line (fich_salida_pkg_desde_stage,'SET ARRAYSIZE 2500;');
-      UTL_FILE.put_line (fich_salida_pkg_desde_stage,'');
-      UTL_FILE.put_line (fich_salida_pkg_desde_stage,'SPOOL &' || '1');
-      UTL_FILE.put_line (fich_salida_pkg_desde_stage,'');
+      --UTL_FILE.put_line (fich_salida_pkg_desde_stage,'WHENEVER SQLERROR EXIT 1;');
+      --UTL_FILE.put_line (fich_salida_pkg_desde_stage,'WHENEVER OSERROR EXIT 2;');
+      --if (v_type = 'P') then
+        --UTL_FILE.put_line (fich_salida_pkg_desde_stage,'SET LINESIZE ' || v_line_size || ';');
+      --end if;
+      --UTL_FILE.put_line (fich_salida_pkg_desde_stage,'SET PAGESIZE 0;');
+      --UTL_FILE.put_line (fich_salida_pkg_desde_stage,'SET FEEDBACK OFF;');
+      --UTL_FILE.put_line (fich_salida_pkg_desde_stage,'SET VERIFY OFF;');
+      --UTL_FILE.put_line (fich_salida_pkg_desde_stage,'SET HEADING OFF;');
+      --UTL_FILE.put_line (fich_salida_pkg_desde_stage,'SET DOC OFF;');
+      --UTL_FILE.put_line (fich_salida_pkg_desde_stage,'SET ECHO OFF;');
+      --UTL_FILE.put_line (fich_salida_pkg_desde_stage,'SET TRIMSPOOL OFF;');
+      --UTL_FILE.put_line (fich_salida_pkg_desde_stage,'SET TERM OFF;');
+      --UTL_FILE.put_line (fich_salida_pkg_desde_stage,'SET TRIMS OFF;');
+      --UTL_FILE.put_line (fich_salida_pkg_desde_stage,'SET ARRAYSIZE 2500;');
+      --UTL_FILE.put_line (fich_salida_pkg_desde_stage,'');
+      --UTL_FILE.put_line (fich_salida_pkg_desde_stage,'SPOOL &' || '1');
+      --UTL_FILE.put_line (fich_salida_pkg_desde_stage,'');
       /******/
       /* COMIEZO LA GENERACION DEL SQL */
       select trim(SEPARATOR) into v_separador_campos from MTDT_INTERFACE_SUMMARY where CONCEPT_NAME = reg_tabla.TABLE_NAME;
@@ -3788,46 +3892,92 @@ begin
                 UTL_FILE.put_line(fich_salida_pkg_desde_stage, 'RPAD(NVL(' || reg_interface_detail.COLUMNA || ','' ''), ' || reg_interface_detail.LENGTH || ', '' '')');
               when reg_interface_detail.TYPE = 'NU' then
                 /* Se trata de un valor de tipo numerico */
-                --UTL_FILE.put_line(fich_salida_pkg, 'CASE WHEN ' || columna || ' IS NULL THEN RPAD('' '',' || reg_detail.LONGITUD || ', '' '') ELSE LPAD(' || columna || ', ' || reg_detail.LONGITUD || ', ''0'') END' || '          --' || reg_detail.TABLE_COLUMN);
-                UTL_FILE.put_line(fich_salida_pkg_desde_stage, 'NVL(LPAD(' || reg_interface_detail.COLUMNA || ', ' || reg_interface_detail.LENGTH || ', ''0''), RPAD('' '', ' || reg_interface_detail.LENGTH || ', '' ''))');
+                /* He de usar el mismo algoritmo que para los importes */
+                /* en caso de que el numero que se hardcodea sea negativo */
+                if (instr(reg_detail.VALUE, '-') = 0) then
+                /* Si el numero que se hardcodea es positivo */
+                  --UTL_FILE.put_line(fich_salida_pkg, 'NVL(LPAD(' || columna || ', ' || reg_detail.LONGITUD || ', ''0''), RPAD('' '', ' || reg_detail.LONGITUD || ', '' ''))' || '          --' || reg_detail.TABLE_COLUMN);
+                  UTL_FILE.put_line(fich_salida_pkg_desde_stage, 'LPAD(' || columna || ', ' || reg_detail.LONGITUD || ', ''0'')' || '          --' || reg_detail.TABLE_COLUMN);
+                else
+                  /* Si el numero que se hardcodea es negativo */
+                  if (instr(reg_detail.LONGITUD, ',') > 0 ) then
+                    /* Quiere decir que en la longitud aparecen zona de decimales */
+                    /* Aqui el algoritmo de justificacion es complicado */
+                    if (instr(reg_detail.LONGITUD, ',') > 0 ) then
+                      /* Quiere decir que en la longitud aparecen zona de decimales */
+                      v_long_total := to_number (substr(reg_detail.LONGITUD, 1, instr(reg_detail.LONGITUD, ',') -1));
+                      v_long_parte_decimal := to_number (trim(substr(reg_detail.LONGITUD, instr(reg_detail.LONGITUD, ',') +1)));
+                    else
+                      v_long_total:=to_number(trim(reg_detail.LONGITUD));
+                      v_long_parte_decimal:=0;
+                    end if;
+                    UTL_FILE.put_line(fich_salida_pkg_desde_stage, 'nvl(' || '          --' || reg_detail.TABLE_COLUMN);
+                    UTL_FILE.put_line(fich_salida_pkg_desde_stage, 'case when instr(' || columna || ', ''-'') = 0 then  --numero positivo' );
+                    UTL_FILE.put_line(fich_salida_pkg_desde_stage, '  case when instr(' || columna || ', ''.'') = 0 then lpad(' || columna || ',' || v_long_total || '''0''');
+                    UTL_FILE.put_line(fich_salida_pkg_desde_stage, '  else lpad(rpad(' || columna || ', length(' || columna || ') + (' || v_long_parte_decimal || '-(length(' || columna || ')-instr(' || columna || ', ''.''))), ''0''),' || v_long_total || ', ''0'')');
+                    UTL_FILE.put_line(fich_salida_pkg_desde_stage, '  end');
+                    UTL_FILE.put_line(fich_salida_pkg_desde_stage, 'else  --numero negativo');
+                    UTL_FILE.put_line(fich_salida_pkg_desde_stage, '  case when instr(' || columna || ', ''.'') = 0 then concat(''-'',lpad(substr(' || columna ||', 2), ' || v_long_total || '-1, ''0''))');
+                    UTL_FILE.put_line(fich_salida_pkg_desde_stage, '  else concat(''-'', lpad(rpad(substr(' || columna || ', 2), ' || v_long_parte_decimal || '-(length(substr(' || columna || ', 2))-instr(substr(' || columna || ', 2), ''.'')), ''0''), ' || v_long_total || '-1, ''0''))'); 
+                    UTL_FILE.put_line(fich_salida_pkg_desde_stage, '  end');
+                    UTL_FILE.put_line(fich_salida_pkg_desde_stage, 'end');
+                    UTL_FILE.put_line(fich_salida_pkg_desde_stage, ', rpad('' '', ' || v_long_total || ', '' '')');
+                    UTL_FILE.put_line(fich_salida_pkg_desde_stage, ')');
+                  else
+                    /* Quiere decir que en la longitud no aparece zona de decimales */
+                    v_long_total := to_number (trim(reg_detail.LONGITUD))-1;  /* Le quito uno dado que existe un signo - */
+                    v_long_parte_decimal := 0;
+                    UTL_FILE.put_line (fich_salida_pkg_desde_stage, '-' || 'LPAD(' || columna || ', ' || v_long_total || ', ''0'')' || '          --' || reg_detail.TABLE_COLUMN);
+                  end if;
+                end if;
               when reg_interface_detail.TYPE = 'IM' then
                 /*(20160503) Angel Ruiz */
                 /* Se trata de un valor de tipo importe */
-                if (instr(reg_interface_detail.LENGTH, ',') > 0 ) then
-                  /* Quiere decir que en la longitud aparecen zona de decimales */
-                  /* Preparo la mascara */
-                  v_long_total := to_number(substr(reg_interface_detail.LENGTH, 1, instr(reg_interface_detail.LENGTH, ',') -1));
-                  v_long_parte_decimal := to_number(trim(substr(reg_interface_detail.LENGTH, instr(reg_interface_detail.LENGTH, ',') +1)));
-                  v_mascara := 'S';
-                  for indice in  1..(v_long_total-v_long_parte_decimal-2)
-                  loop
-                    v_mascara := v_mascara || '0';
-                  end loop;
-                  v_mascara := v_mascara || '.';
-                  for indice in  1..v_long_parte_decimal
-                  loop
-                    v_mascara := v_mascara || '0';
-                  end loop;
-                  UTL_FILE.put_line(fich_salida_pkg_desde_stage, 'NVL(TO_CHAR(' || reg_interface_detail.LENGTH || ', ''' || v_mascara || '''), RPAD('' '', ' || to_char(to_number(substr(reg_interface_detail.LENGTH, 1, instr(reg_interface_detail.LENGTH, ',') -1))) || ', '' ''))');
+                /* Aqui el algoritmode justificacion es complicado */
+                if (instr(reg_detail.VALUE, '-') = 0) then
+                /* Si el numero que se hardcodea es positivo */
+                  --UTL_FILE.put_line(fich_salida_pkg, 'NVL(LPAD(' || columna || ', ' || reg_detail.LONGITUD || ', ''0''), RPAD('' '', ' || reg_detail.LONGITUD || ', '' ''))' || '          --' || reg_detail.TABLE_COLUMN);
+                  UTL_FILE.put_line(fich_salida_pkg, 'LPAD(' || columna || ', ' || reg_detail.LONGITUD || ', ''0'')' || '          --' || reg_detail.TABLE_COLUMN);
                 else
-                  /* Quiere decir que en la longitud no aparece zona de decimales */
-                  v_long_total := to_number (trim(reg_interface_detail.LENGTH));
-                  v_long_parte_decimal := 0;
-                  v_mascara := 'S';
-                  for indice in  1..(v_long_total-v_long_parte_decimal-1)
-                  loop
-                    v_mascara := v_mascara || '0';
-                  end loop;
-                  UTL_FILE.put_line(fich_salida_pkg_desde_stage, 'NVL(TO_CHAR(' || reg_interface_detail.COLUMNA || ', ''' || v_mascara || '''), RPAD('' '', ' || reg_interface_detail.LENGTH || ', '' ''))');
+                  /* Si el numero que se hardcodea es negativo */
+                  if (instr(reg_detail.LONGITUD, ',') > 0 ) then
+                    /* Quiere decir que en la longitud aparecen zona de decimales */
+                    /* Aqui el algoritmo de justificacion es complicado */
+                    if (instr(reg_detail.LONGITUD, ',') > 0 ) then
+                      /* Quiere decir que en la longitud aparecen zona de decimales */
+                      v_long_total := to_number (substr(reg_detail.LONGITUD, 1, instr(reg_detail.LONGITUD, ',') -1));
+                      v_long_parte_decimal := to_number (trim(substr(reg_detail.LONGITUD, instr(reg_detail.LONGITUD, ',') +1)));
+                    else
+                      v_long_total:=to_number(trim(reg_detail.LONGITUD));
+                      v_long_parte_decimal:=0;
+                    end if;
+                    UTL_FILE.put_line(fich_salida_pkg, 'nvl(' || '          --' || reg_detail.TABLE_COLUMN);
+                    UTL_FILE.put_line(fich_salida_pkg, 'case when instr(' || columna || ', ''-'') = 0 then  --numero positivo' );
+                    UTL_FILE.put_line(fich_salida_pkg, '  case when instr(' || columna || ', ''.'') = 0 then lpad(' || columna || ',' || v_long_total || '''0''');
+                    UTL_FILE.put_line(fich_salida_pkg, '  else lpad(rpad(' || columna || ', length(' || columna || ') + (' || v_long_parte_decimal || '-(length(' || columna || ')-instr(' || columna || ', ''.''))), ''0''),' || v_long_total || ', ''0'')');
+                    UTL_FILE.put_line(fich_salida_pkg, '  end');
+                    UTL_FILE.put_line(fich_salida_pkg, 'else  --numero negativo');
+                    UTL_FILE.put_line(fich_salida_pkg, '  case when instr(' || columna || ', ''.'') = 0 then concat(''-'',lpad(substr(' || columna ||', 2), ' || v_long_total || '-1, ''0''))');
+                    UTL_FILE.put_line(fich_salida_pkg, '  else concat(''-'', lpad(rpad(substr(' || columna || ', 2), ' || v_long_parte_decimal || '-(length(substr(' || columna || ', 2))-instr(substr(' || columna || ', 2), ''.'')), ''0''), ' || v_long_total || '-1, ''0''))'); 
+                    UTL_FILE.put_line(fich_salida_pkg, '  end');
+                    UTL_FILE.put_line(fich_salida_pkg, 'end');
+                    UTL_FILE.put_line(fich_salida_pkg, ', rpad('' '', ' || v_long_total || ', '' '')');
+                    UTL_FILE.put_line(fich_salida_pkg, ')');
+                  else
+                    /* Quiere decir que en la longitud no aparece zona de decimales */
+                    v_long_total := to_number (trim(reg_detail.LONGITUD))-1;  /* Le quito uno dado que existe un signo - */
+                    v_long_parte_decimal := 0;
+                    UTL_FILE.put_line (fich_salida_pkg, '-' || 'LPAD(' || columna || ', ' || v_long_total || ', ''0'')' || '          --' || reg_detail.TABLE_COLUMN);
+                  end if;
                 end if;
               when reg_interface_detail.TYPE = 'FE' then
                 /* Se trata de un valor de tipo fecha */
-                if (reg_interface_detail.LENGTH = 8) then
+                if (reg_detail.LONGITUD = 8) then
                   --UTL_FILE.put_line(fich_salida_pkg, '|| CASE WHEN ' || columna || ' IS NULL THEN RPAD('' '',' || reg_detail.LONGITUD ||', '' '') ELSE TO_CHAR(' || columna || ', ''YYYYMMDD'') END' || '          --' || reg_detail.TABLE_COLUMN);
-                  UTL_FILE.put_line(fich_salida_pkg_desde_stage, 'NVL(TO_CHAR(' || reg_interface_detail.COLUMNA || ', ''YYYYMMDD''), RPAD('' '',' || reg_interface_detail.LENGTH ||', '' ''))');
+                  UTL_FILE.put_line(fich_salida_pkg, 'NVL(date_format(' || columna || ', ''yyyy-MM-dd''), RPAD('' '',' || reg_detail.LONGITUD ||', '' ''))' || '          --' || reg_detail.TABLE_COLUMN);
                 else
                   --UTL_FILE.put_line(fich_salida_pkg, '|| CASE WHEN ' || columna || ' IS NULL THEN RPAD('' '',' || reg_detail.LONGITUD ||', '' '') ELSE TO_CHAR(' || columna || ', ''YYYYMMDDHH24MISS'') END' || '          --' || reg_detail.TABLE_COLUMN);
-                  UTL_FILE.put_line(fich_salida_pkg_desde_stage, 'NVL(TO_CHAR(' || reg_interface_detail.COLUMNA || ', ''YYYYMMDDHH24MISS''), RPAD('' '',' || reg_interface_detail.LENGTH ||', '' ''))');
+                  UTL_FILE.put_line(fich_salida_pkg, 'NVL(date_format(' || columna || ', ''yyyy-MM-dd HH:mm:ss''), RPAD('' '',' || reg_detail.LONGITUD ||', '' ''))' || '          --' || reg_detail.TABLE_COLUMN);
                 end if;
               when reg_interface_detail.TYPE = 'TI' then
                 /* Se trata de un valor de tipo TIME HHMISS */
@@ -3838,7 +3988,7 @@ begin
         else
           if (v_type = 'S') then
             /* Se trata de un fichero plano con separador */
-                UTL_FILE.put_line(fich_salida_pkg_desde_stage, '||' || v_separador_campos || reg_interface_detail.COLUMNA);
+            UTL_FILE.put_line(fich_salida_pkg_desde_stage, '||' || '''' || reg_scenario.SEPARATOR || '''||' || reg_interface_detail.COLUMNA);
           else    /* Se trata de un fichero plano por posicion */
             case
               when reg_interface_detail.TYPE = 'AN' then
@@ -3846,46 +3996,86 @@ begin
                 UTL_FILE.put_line(fich_salida_pkg_desde_stage, '|| RPAD(NVL(' || reg_interface_detail.COLUMNA || ', '' ''), ' || reg_interface_detail.LENGTH || ', '' '')');
               when reg_interface_detail.TYPE = 'NU' then
                 /* Se trata de un valor de tipo numerico */
-                UTL_FILE.put_line(fich_salida_pkg_desde_stage, '|| NVL(LPAD(' || reg_interface_detail.COLUMNA || ', ' || reg_interface_detail.LENGTH || ', ''0''), RPAD('' '', ' || reg_interface_detail.LENGTH || ', '' ''))');
+                if (instr(reg_detail.VALUE, '-') = 0) then
+                /* si el valor que vamos a hardcodear no es negativo */
+                  UTL_FILE.put_line(fich_salida_pkg, '|| NVL(LPAD(' || columna || ', ' || reg_detail.LONGITUD || ', ''0''), RPAD('' '', ' || reg_detail.LONGITUD || ', '' ''))' || '          --' || reg_detail.TABLE_COLUMN);
+                else
+                /* si el valor que vamos a hardcodear es negativo */
+                  if (instr(reg_detail.LONGITUD, ',') > 0 ) then
+                    /* Quiere decir que en la longitud aparecen zona de decimales */
+                    /* Preparo la mascara */
+                    if (instr(reg_detail.LONGITUD, ',') > 0 ) then
+                      /* Quiere decir que en la longitud aparecen zona de decimales */
+                      v_long_total := to_number (substr(reg_detail.LONGITUD, 1, instr(reg_detail.LONGITUD, ',') -1));
+                      v_long_parte_decimal := to_number (trim(substr(reg_detail.LONGITUD, instr(reg_detail.LONGITUD, ',') +1)));
+                    else
+                      v_long_total:=to_number(trim(reg_detail.LONGITUD));
+                      v_long_parte_decimal:=0;
+                    end if;
+                    UTL_FILE.put_line(fich_salida_pkg, '|| nvl(' || '          --' || reg_detail.TABLE_COLUMN);
+                    UTL_FILE.put_line(fich_salida_pkg, 'case when instr(' || columna || ', ''-'') = 0 then  --numero positivo' );
+                    UTL_FILE.put_line(fich_salida_pkg, '  case when instr(' || columna || ', ''.'') = 0 then lpad(' || columna || ',' || v_long_total || '''0''');
+                    UTL_FILE.put_line(fich_salida_pkg, '  else lpad(rpad(' || columna || ', length(' || columna || ') + (' || v_long_parte_decimal || '-(length(' || columna || ')-instr(' || columna || ', ''.''))), ''0''),' || v_long_total || ', ''0'')');
+                    UTL_FILE.put_line(fich_salida_pkg, '  end');
+                    UTL_FILE.put_line(fich_salida_pkg, 'else  --numero negativo');
+                    UTL_FILE.put_line(fich_salida_pkg, '  case when instr(' || columna || ', ''.'') = 0 then concat(''-'',lpad(substr(' || columna ||', 2), ' || v_long_total || '-1, ''0''))');
+                    UTL_FILE.put_line(fich_salida_pkg, '  else concat(''-'', lpad(rpad(substr(' || columna || ', 2), ' || v_long_parte_decimal || '-(length(substr(' || columna || ', 2))-instr(substr(' || columna || ', 2), ''.'')), ''0''), ' || v_long_total || '-1, ''0''))'); 
+                    UTL_FILE.put_line(fich_salida_pkg, '  end');
+                    UTL_FILE.put_line(fich_salida_pkg, 'end');
+                    UTL_FILE.put_line(fich_salida_pkg, ', rpad('' '', ' || v_long_total || ', '' '')');
+                    UTL_FILE.put_line(fich_salida_pkg, ')');
+                  else
+                    /* Quiere decir que en la longitud no aparece zona de decimales */
+                    v_long_total := to_number (trim(reg_detail.LONGITUD))-1;  /* Le quito uno dado que existe un signo - */
+                    v_long_parte_decimal := 0;
+                    UTL_FILE.put_line (fich_salida_pkg, '|| -' || 'LPAD(' || columna || ', ' || v_long_total || ', ''0'')' || '          --' || reg_detail.TABLE_COLUMN);
+                  end if;
+                end if;
               when reg_interface_detail.TYPE = 'IM' then
                 /***************************************/
                 /*(20160503) Angel Ruiz */
                 /* Se trata de un valor de tipo importe */
-                if (instr(reg_interface_detail.LENGTH, ',') > 0 ) then
-                  /* Quiere decir que en la longitud aparecen zona de decimales */
-                  /* Preparo la mascara */
-                  v_long_total := to_number(substr(reg_interface_detail.LENGTH, 1, instr(reg_interface_detail.LENGTH, ',') -1));
-                  v_long_parte_decimal := to_number(trim(substr(reg_interface_detail.LENGTH, instr(reg_interface_detail.LENGTH, ',') +1)));
-                  v_mascara := 'S';
-                  for indice in  1..(v_long_total-v_long_parte_decimal-2)
-                  loop
-                    v_mascara := v_mascara || '0';
-                  end loop;
-                  v_mascara := v_mascara || '.';
-                  for indice in  1..v_long_parte_decimal
-                  loop
-                    v_mascara := v_mascara || '0';
-                  end loop;
-                  UTL_FILE.put_line(fich_salida_pkg_desde_stage, '|| NVL(TO_CHAR(' || reg_interface_detail.COLUMNA || ', ''' || v_mascara || '''), RPAD('' '', ' || to_char(to_number(substr(reg_interface_detail.LENGTH, 1, instr(reg_interface_detail.LENGTH, ',') -1))) || ', '' ''))');
+                if (instr(reg_detail.VALUE, '-') = 0) then
+                /* si el valor que vamos a hardcodear no es negativo */
+                  UTL_FILE.put_line(fich_salida_pkg, '|| NVL(LPAD(' || columna || ', ' || reg_detail.LONGITUD || ', ''0''), RPAD('' '', ' || reg_detail.LONGITUD || ', '' ''))' || '          --' || reg_detail.TABLE_COLUMN);
                 else
-                  /* Quiere decir que en la longitud no aparece zona de decimales */
-                  v_long_total := to_number (trim(reg_interface_detail.LENGTH));
-                  v_long_parte_decimal := 0;
-                  v_mascara := 'S';
-                  for indice in  1..(v_long_total-v_long_parte_decimal-1)
-                  loop
-                    v_mascara := v_mascara || '0';
-                  end loop;
-                  UTL_FILE.put_line(fich_salida_pkg_desde_stage, '|| NVL(TO_CHAR(' || reg_interface_detail.COLUMNA || ', ''' || v_mascara || '''), RPAD('' '', ' || reg_interface_detail.LENGTH || ', '' ''))');
+                /* si el valor que vamos a hardcodear es negativo */
+                  if (instr(reg_detail.LONGITUD, ',') > 0 ) then
+                    /* Quiere decir que en la longitud aparecen zona de decimales */
+                    /* Preparo la mascara */
+                    if (instr(reg_detail.LONGITUD, ',') > 0 ) then
+                      /* Quiere decir que en la longitud aparecen zona de decimales */
+                      v_long_total := to_number (substr(reg_detail.LONGITUD, 1, instr(reg_detail.LONGITUD, ',') -1));
+                      v_long_parte_decimal := to_number (trim(substr(reg_detail.LONGITUD, instr(reg_detail.LONGITUD, ',') +1)));
+                    else
+                      v_long_total:=to_number(trim(reg_detail.LONGITUD));
+                      v_long_parte_decimal:=0;
+                    end if;
+                    UTL_FILE.put_line(fich_salida_pkg, '|| nvl(' || '          --' || reg_detail.TABLE_COLUMN);
+                    UTL_FILE.put_line(fich_salida_pkg, 'case when instr(' || columna || ', ''-'') = 0 then  --numero positivo' );
+                    UTL_FILE.put_line(fich_salida_pkg, '  case when instr(' || columna || ', ''.'') = 0 then lpad(' || columna || ',' || v_long_total || '''0''');
+                    UTL_FILE.put_line(fich_salida_pkg, '  else lpad(rpad(' || columna || ', length(' || columna || ') + (' || v_long_parte_decimal || '-(length(' || columna || ')-instr(' || columna || ', ''.''))), ''0''),' || v_long_total || ', ''0'')');
+                    UTL_FILE.put_line(fich_salida_pkg, '  end');
+                    UTL_FILE.put_line(fich_salida_pkg, 'else  --numero negativo');
+                    UTL_FILE.put_line(fich_salida_pkg, '  case when instr(' || columna || ', ''.'') = 0 then concat(''-'',lpad(substr(' || columna ||', 2), ' || v_long_total || '-1, ''0''))');
+                    UTL_FILE.put_line(fich_salida_pkg, '  else concat(''-'', lpad(rpad(substr(' || columna || ', 2), ' || v_long_parte_decimal || '-(length(substr(' || columna || ', 2))-instr(substr(' || columna || ', 2), ''.'')), ''0''), ' || v_long_total || '-1, ''0''))'); 
+                    UTL_FILE.put_line(fich_salida_pkg, '  end');
+                    UTL_FILE.put_line(fich_salida_pkg, 'end');
+                    UTL_FILE.put_line(fich_salida_pkg, ', rpad('' '', ' || v_long_total || ', '' '')');
+                    UTL_FILE.put_line(fich_salida_pkg, ')');
+                  else
+                    /* Quiere decir que en la longitud no aparece zona de decimales */
+                    v_long_total := to_number (trim(reg_detail.LONGITUD))-1;  /* Le quito uno dado que existe un signo - */
+                    v_long_parte_decimal := 0;
+                    UTL_FILE.put_line (fich_salida_pkg, '|| -' || 'LPAD(' || columna || ', ' || v_long_total || ', ''0'')' || '          --' || reg_detail.TABLE_COLUMN);
+                  end if;
                 end if;
               when reg_interface_detail.TYPE = 'FE' then
                 /* Se trata de un valor de tipo fecha */
-                if (reg_interface_detail.LENGTH = 8) then
-                  --UTL_FILE.put_line(fich_salida_pkg, '|| CASE WHEN ' || columna || ' IS NULL THEN RPAD('' '',' || reg_detail.LONGITUD ||', '' '') ELSE TO_CHAR(' || columna || ', ''YYYYMMDD'') END' || '          --' || reg_detail.TABLE_COLUMN);
-                  UTL_FILE.put_line(fich_salida_pkg_desde_stage, '|| NVL(TO_CHAR(' || reg_interface_detail.COLUMNA || ', ''YYYYMMDD''), RPAD('' '',' || reg_interface_detail.LENGTH ||', '' ''))');
+                if (reg_detail.LONGITUD = 8) then
+                  UTL_FILE.put_line(fich_salida_pkg, '|| NVL(date_format(' || columna || ', ''yyyy-MM-dd''), RPAD('' '',' || reg_detail.LONGITUD ||', '' ''))' || '          --' || reg_detail.TABLE_COLUMN);
                 else
-                  --UTL_FILE.put_line(fich_salida_pkg, '|| CASE WHEN ' || columna || ' IS NULL THEN RPAD('' '',' || reg_detail.LONGITUD ||', '' '') ELSE TO_CHAR(' || columna || ', ''YYYYMMDDHH24MISS'') END' || '          --' || reg_detail.TABLE_COLUMN);
-                  UTL_FILE.put_line(fich_salida_pkg_desde_stage, '|| NVL(TO_CHAR(' || reg_interface_detail.COLUMNA || ', ''YYYYMMDDHH24MISS''), RPAD('' '',' || reg_interface_detail.LENGTH ||', '' ''))');
+                  UTL_FILE.put_line(fich_salida_pkg, '|| NVL(date_format(' || columna || ', ''yyyy-MM-dd HH:mm:ss''), RPAD('' '',' || reg_detail.LONGITUD ||', '' ''))' || '          --' || reg_detail.TABLE_COLUMN);
                 end if;
               when reg_interface_detail.TYPE = 'TI' then
                 /* Se trata de un valor de tipo TIME HHMISS */
@@ -3901,8 +4091,9 @@ begin
       UTL_FILE.put_line(fich_salida_pkg_desde_stage, '');
       /* (20160606) Angel Ruiz. NF: Se trata de la validacion en la que en lugar de ir a un fichero plano */
       /* va directamente a las tablas de Stagin */
-      UTL_FILE.put_line(fich_salida_pkg_desde_stage, 'SPOOL OFF;');
-      UTL_FILE.put_line(fich_salida_pkg_desde_stage, 'exit SUCCESS;');
+      --UTL_FILE.put_line(fich_salida_pkg_desde_stage, 'SPOOL OFF;');
+      --UTL_FILE.put_line(fich_salida_pkg_desde_stage, 'exit SUCCESS;');
+      UTL_FILE.put_line(fich_salida_pkg_desde_stage, '!quit');
       UTL_FILE.put_line(fich_salida_pkg_desde_stage, '');
 
       UTL_FILE.FCLOSE (fich_salida_pkg_desde_stage);
