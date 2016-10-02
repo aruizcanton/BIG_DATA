@@ -490,7 +490,7 @@ BEGIN
     /* (20160816) Angel Ruiz. FIN. Comento lo relacionado con la escritura en el metadato */      
     UTL_FILE.put_line(fich_salida_sh, '# Llamada a beeline');
     UTL_FILE.put_line(fich_salida_sh, 'FCH_FMT_HIVE=`echo ${FCH_CARGA} | awk ''{ printf "%s-%s-%s", substr($1,0,4), substr($1,5,2), substr($1,7,2) ; }''`');
-    UTL_FILE.put_line(fich_salida_sh, 'beeline -u jdbc:hive2://localhost:10000/${BD_SID} -n ${BD_USUARIO} -p ${BD_CLAVE} -e "LOAD DATA LOCAL INPATH ''${NOMBRE_FICH_CARGA}' || ''' OVERWRITE INTO TABLE ${BD_SID}.SA_' || reg_summary.CONCEPT_NAME ||' PARTITION (FCH_CARGA=''${FCH_FMT_HIVE}'')" >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+    UTL_FILE.put_line(fich_salida_sh, 'beeline -u jdbc:hive2://localhost:10000/${BD_SID} -n ${BD_USUARIO} -p ${BD_CLAVE} -e "LOAD DATA LOCAL INPATH ''file://${NOMBRE_FICH_CARGA}' || ''' OVERWRITE INTO TABLE ${BD_SID}.SA_' || reg_summary.CONCEPT_NAME ||' PARTITION (FCH_CARGA=''${FCH_FMT_HIVE}'')" >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
     --UTL_FILE.put_line(fich_salida_sh, '"LOAD DATA LOCAL INPATH ''${NOMBRE_FICH_CARGA}' || ''' \');
     --UTL_FILE.put_line(fich_salida_sh, 'OVERWRITE INTO TABLE ${BD_SID}.SA_' || reg_summary.CONCEPT_NAME || ' \');
     --UTL_FILE.put_line(fich_salida_sh, 'PARTITION (FCH_CARGA=''${FCH_CARGA}'')" >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
