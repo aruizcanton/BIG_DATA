@@ -118,11 +118,11 @@ BEGIN
     if (reg_summary.TYPE_VALIDATION = 'T' or reg_summary.TYPE_VALIDATION = 'I' or reg_summary.TYPE_VALIDATION is null) then
       /* (20160523) Se trata de la creacion de una Tabla de Staging NORMAL */
         --DBMS_OUTPUT.put_line('CREATE TABLE IF NOT EXISTS ' || OWNER_SA || '.SA_' || reg_summary.CONCEPT_NAME);
-        DBMS_OUTPUT.put_line('CREATE TABLE IF NOT EXISTS ' || NAME_DM || '.SA_' || reg_summary.CONCEPT_NAME);
+        DBMS_OUTPUT.put_line('CREATE TABLE IF NOT EXISTS ' || OWNER_SA || '.SA_' || reg_summary.CONCEPT_NAME);
     else
       /* Se trata de una tabla externa */
         --DBMS_OUTPUT.put_line('CREATE EXTERNAL TABLE IF NOT EXISTS ' || OWNER_SA || '.SA_' || reg_summary.CONCEPT_NAME);
-        DBMS_OUTPUT.put_line('CREATE EXTERNAL TABLE IF NOT EXISTS ' || NAME_DM || '.SA_' || reg_summary.CONCEPT_NAME);
+        DBMS_OUTPUT.put_line('CREATE EXTERNAL TABLE IF NOT EXISTS ' || OWNER_SA || '.SA_' || reg_summary.CONCEPT_NAME);
     end if;
     DBMS_OUTPUT.put_line('(');
     OPEN dtd_interfaz_detail (reg_summary.CONCEPT_NAME, reg_summary.SOURCE);
@@ -205,6 +205,45 @@ BEGIN
       lista_par.DELETE;
       /* (20151118) Angel Ruiz. NF: Creacion de tablas para inyeccion SAD */
       /* (20151118) Angel Ruiz. FIN NF. Tablas para inyeccion SAD_ */
+    end if;
+    /* (20160929) Angel Ruiz. Carga de tablas de longitud fija */
+    /* Cuando se cargan tablas de longitud fija primero creamos una tabla de un solo campo */
+    /* donde se carga toda la linea del fichero plano */
+    if (upper(reg_summary.TYPE) = 'P') then
+    /* Se trata de un fichero por posicion */
+    /* creamos la tabla auxiliar donde se va a cargar toda la linea */
+      DBMS_OUTPUT.put_line('CREATE TABLE IF NOT EXISTS ' || OWNER_SA || '.SA_' || reg_summary.CONCEPT_NAME || '_01');
+      DBMS_OUTPUT.put_line('(');
+      DBMS_OUTPUT.put_line('fila_completa STRING');
+      DBMS_OUTPUT.put_line(')');
+      IF (lista_par.COUNT = 0) THEN
+        /* (20160811) No hay particionado explicito aunque si que esta el particionado */
+        /* que toda tabla lleva */
+        DBMS_OUTPUT.put_line('PARTITIONED BY (FCH_CARGA STRING)');
+        DBMS_OUTPUT.put_line('ROW FORMAT DELIMITED');
+        DBMS_OUTPUT.put_line('FIELDS TERMINATED BY ''' || '|' || '''');
+        DBMS_OUTPUT.put_line('STORED AS TEXTFILE;');
+      END IF;
+      
+      if (lista_par.COUNT > 0) then
+        FOR indx IN lista_par.FIRST .. lista_par.LAST
+        LOOP
+          IF indx = lista_par.FIRST THEN
+            lista_campos_particion:= lista_par (indx);
+          ELSE
+            lista_campos_particion:=lista_campos_particion || lista_par (indx);
+          END IF;
+        END LOOP;
+        DBMS_OUTPUT.put_line('PARTITIONED BY');
+        DBMS_OUTPUT.put_line('(FCH_CARGA STRING' || lista_campos_particion || ')');
+        DBMS_OUTPUT.put_line('ROW FORMAT DELIMITED');
+        DBMS_OUTPUT.put_line('FIELDS TERMINATED BY ''' || '|' || '''');
+        DBMS_OUTPUT.put_line('STORED AS TEXTFILE;');
+        DBMS_OUTPUT.put_line('');
+        lista_par.DELETE;
+        /* (20151118) Angel Ruiz. NF: Creacion de tablas para inyeccion SAD */
+        /* (20151118) Angel Ruiz. FIN NF. Tablas para inyeccion SAD_ */
+      end if;
     end if;
   END LOOP;
   CLOSE dtd_interfaz_summary;
