@@ -100,10 +100,9 @@ BEGIN
         /* COMENZAMOS EL BUCLE QUE GENERARA LAS COLUMNAS */
         /* (20160916) Angel Ruiz. En HIVE cuando una columna es por la que se particiona, */
         /* esta columna no puede formar aprte del create de los camos */
-        if ((upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) <> 'CVE_DIA' or
-        regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??F_',1,'i') =0) or
-        (upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) <> 'CVE_MES' or
-        regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4) ,'??F_',1,'i') =0 or
+        if ((upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) <> 'CVE_DIA' and
+        upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) <> 'CVE_MES') or
+        (regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??F_',1,'i') =0 and
         regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??A_',1,'i') =0)) then
           IF primera_col = 1 THEN /* Si es primera columna */
             CASE
@@ -128,6 +127,10 @@ BEGIN
               ELSE  /* se trata de Fecha  */
                 DBMS_OUTPUT.put_line(', ' || r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME || '          ' || r_mtdt_modelo_logico_COLUMNA.DATA_TYPE);
             END CASE;
+          END IF;
+          IF upper(trim(r_mtdt_modelo_logico_COLUMNA.PK)) = 'S' then
+            lista_pk.EXTEND;
+            lista_pk(lista_pk.LAST) := r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME;
           END IF;
         end if;
         /* (20160916) FIN */
@@ -193,7 +196,19 @@ BEGIN
           DBMS_OUTPUT.put_line('PARTITION BY (CVE_MES INT)');
         end if;
       end if;
-      DBMS_OUTPUT.put_line('STORED AS ORC TBLPROPERTIES ("orc.compress"="NONE")');
+      IF lista_pk.COUNT > 0 THEN
+        DBMS_OUTPUT.put_line('CLUSTERED BY (');
+        FOR indx IN lista_pk.FIRST .. lista_pk.LAST
+        LOOP
+          IF indx = lista_pk.LAST THEN
+            DBMS_OUTPUT.put_line(lista_pk (indx) || ') ');
+          ELSE
+            DBMS_OUTPUT.put_line(lista_pk (indx) || ',');
+          END IF;
+        END LOOP;
+        DBMS_OUTPUT.put_line('INTO 1 BUCKETS');
+      END IF;
+      DBMS_OUTPUT.put_line('STORED AS ORC TBLPROPERTIES (''transactional''=''true'', ''orc.compress''=''ZLIB'', ''orc.create.index''=''true'')');
       DBMS_OUTPUT.put_line (';');
       
       lista_pk.DELETE;      /* Borramos los elementos de la lista */
@@ -239,10 +254,10 @@ BEGIN
                 DBMS_OUTPUT.put_line(', ' || r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME || '          ' || r_mtdt_modelo_logico_COLUMNA.DATA_TYPE);
               END CASE;
           END IF;
-          --IF upper(trim(r_mtdt_modelo_logico_COLUMNA.PK)) = 'S' then
-            --lista_pk.EXTEND;
-            --lista_pk(lista_pk.LAST) := r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME;
-          --END IF;
+          IF upper(trim(r_mtdt_modelo_logico_COLUMNA.PK)) = 'S' then
+            lista_pk.EXTEND;
+            lista_pk(lista_pk.LAST) := r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME;
+          END IF;
           /* (20160324) Angel Ruiz. NF: INdices en el modelo */
           --IF upper(trim(r_mtdt_modelo_logico_COLUMNA.INDICE)) = 'S' then
             --lista_ind.EXTEND;
@@ -250,19 +265,20 @@ BEGIN
           --END IF;
         END LOOP; 
         CLOSE c_mtdt_modelo_logico_COLUMNA;
-        --IF lista_pk.COUNT > 0 THEN
-          --DBMS_OUTPUT.put_line(',' || 'CONSTRAINT "T_' || nombre_tabla_reducido || '_P"' || ' PRIMARY KEY (');
-          --FOR indx IN lista_pk.FIRST .. lista_pk.LAST
-          --LOOP
-            --IF indx = lista_pk.LAST THEN
-              --DBMS_OUTPUT.put_line(lista_pk (indx) || ') ');
-            --ELSE
-              --DBMS_OUTPUT.put_line(lista_pk (indx) || ',');
-            --END IF;
-          --END LOOP;
-        --END IF;
         DBMS_OUTPUT.put_line(')');  /* Parentesis final del create */
-        DBMS_OUTPUT.put_line('STORED AS ORC TBLPROPERTIES ("orc.compress"="NONE")');
+        IF lista_pk.COUNT > 0 THEN
+          DBMS_OUTPUT.put_line('CLUSTERED BY (');
+          FOR indx IN lista_pk.FIRST .. lista_pk.LAST
+          LOOP
+            IF indx = lista_pk.LAST THEN
+              DBMS_OUTPUT.put_line(lista_pk (indx) || ') ');
+            ELSE
+              DBMS_OUTPUT.put_line(lista_pk (indx) || ',');
+            END IF;
+          END LOOP;
+          DBMS_OUTPUT.put_line('INTO 1 BUCKETS');
+        END IF;
+        DBMS_OUTPUT.put_line('STORED AS ORC TBLPROPERTIES (''transactional''=''true'', ''orc.compress''=''ZLIB'', ''orc.create.index''=''true'')');
         DBMS_OUTPUT.put_line (';');
         --if (r_mtdt_modelo_logico_TABLA.TABLESPACE is not null) then
           --DBMS_OUTPUT.put_line('TABLESPACE ' || r_mtdt_modelo_logico_TABLA.TABLESPACE || ';');
@@ -481,7 +497,7 @@ BEGIN
           --DBMS_OUTPUT.put_line('VALUES');
           DBMS_OUTPUT.put_line('select');
           --DBMS_OUTPUT.put_line('(' || cadena_values || ');');
-          DBMS_OUTPUT.put_line(cadena_values || ' from dual;');
+          DBMS_OUTPUT.put_line(cadena_values || ' from ' || OWNER_MTDT ||'.dual;');
           CLOSE c_mtdt_modelo_logico_COLUMNA;
           /* Siguiente insert "GENERICO" */
           DBMS_OUTPUT.put_line('INSERT INTO ' || OWNER_DM || '.' || r_mtdt_modelo_logico_TABLA.TABLE_NAME);
@@ -639,7 +655,7 @@ BEGIN
           --DBMS_OUTPUT.put_line('VALUES');
           DBMS_OUTPUT.put_line('select');
           --DBMS_OUTPUT.put_line('(' || cadena_values || ');');
-          DBMS_OUTPUT.put_line(cadena_values || ' from dual;');
+          DBMS_OUTPUT.put_line(cadena_values || ' from ' || OWNER_MTDT || '.dual;');
           CLOSE c_mtdt_modelo_logico_COLUMNA;
           /* Siguiente INSERT "NO INFORMADO" */
           DBMS_OUTPUT.put_line('INSERT INTO ' || OWNER_DM || '.' || r_mtdt_modelo_logico_TABLA.TABLE_NAME);
@@ -797,7 +813,7 @@ BEGIN
           --DBMS_OUTPUT.put_line('VALUES');
           DBMS_OUTPUT.put_line('select');
           --DBMS_OUTPUT.put_line('(' || cadena_values || ');');
-          DBMS_OUTPUT.put_line(cadena_values || ' from dual;');
+          DBMS_OUTPUT.put_line(cadena_values || ' from ' || OWNER_MTDT || '.dual;');
           --DBMS_OUTPUT.put_line('commit;');
           DBMS_OUTPUT.put_line('');
           CLOSE c_mtdt_modelo_logico_COLUMNA;
