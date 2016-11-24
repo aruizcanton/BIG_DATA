@@ -70,6 +70,13 @@ BEGIN
       INTO reg_summary;
       EXIT WHEN dtd_interfaz_summary%NOTFOUND;  
       DBMS_OUTPUT.put_line('DROP TABLE IF EXISTS ' || NAME_DM || '.' || 'SA_' || reg_summary.CONCEPT_NAME || ' PURGE;');
+      /* (20161012) Angel Ruiz. Carga de tablas de longitud fija */
+      /* Cuando se cargan tablas de longitud fija primero creamos una tabla de un solo campo */
+      /* donde se carga toda la linea del fichero plano */
+      /* despues se crea una tabla mas donde se descompone por posicion el fichero plano */
+      if (upper(reg_summary.TYPE) = 'P') then
+        DBMS_OUTPUT.put_line('DROP TABLE IF EXISTS ' || NAME_DM || '.' || 'SA_' || reg_summary.CONCEPT_NAME || '_POS PURGE;');
+      end if;
   END LOOP;
   CLOSE dtd_interfaz_summary;
   DBMS_OUTPUT.put_line('!quit');
