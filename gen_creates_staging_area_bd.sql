@@ -91,6 +91,7 @@
       pos_fin_hora                              PLS_integer;
       num_column PLS_INTEGER;
       v_ulti_pos                        PLS_integer;
+      v_existe_file_name                PLS_integer:=0;
 
       
       
@@ -149,7 +150,14 @@ BEGIN
           --tipo_col := 'VARCHAR (8)';
           tipo_col := 'STRING';
         END CASE;
-        DBMS_OUTPUT.put_line(reg_datail.COLUMNA || '          ' || tipo_col);
+        /* (20161012) Angel Ruiz. Si el campo es FILE_NAME significa que */
+        /* este campo no va a venir en el fichero plano, si no que lo vamos */
+        /* a anyadir nosotros en una trasformacion posterior, por lo que no lo escribimos */
+        /* como parte de la tabla */
+        if (trim(reg_datail.COLUMNA) <> 'FILE_NAME') then
+          v_existe_file_name := 1;
+          DBMS_OUTPUT.put_line(reg_datail.COLUMNA || '          ' || tipo_col);
+        end if;
         primera_col := 0;
       ELSE  /* si no es primera columna */
         CASE 
@@ -169,7 +177,14 @@ BEGIN
           --tipo_col := 'VARCHAR2 (8)';
           tipo_col := 'STRING';
         END CASE;
+        /* (20161012) Angel Ruiz. Si el campo es FILE_NAME significa que */
+        /* este campo no va a venir en el fichero plano, si no que lo vamos */
+        /* a anyadir nosotros en una trasformacion posterior, por lo que no lo escribimos */
+        /* como parte de la tabla */
+        if (trim(reg_datail.COLUMNA) <> 'FILE_NAME') then
+          v_existe_file_name := 1;
           DBMS_OUTPUT.put_line(', ' || reg_datail.COLUMNA || '          '  || tipo_col);
+        end if;
       END IF;
       IF reg_datail.PARTITIONED = 'S' then
         lista_par.EXTEND;
@@ -212,7 +227,7 @@ BEGIN
     if (upper(reg_summary.TYPE) = 'P') then
     /* Se trata de un fichero por posicion */
     /* creamos la tabla auxiliar donde se va a cargar toda la linea */
-      DBMS_OUTPUT.put_line('CREATE TABLE IF NOT EXISTS ' || OWNER_SA || '.SA_' || reg_summary.CONCEPT_NAME || '_01');
+      DBMS_OUTPUT.put_line('CREATE TABLE IF NOT EXISTS ' || OWNER_SA || '.SA_' || reg_summary.CONCEPT_NAME || '_POS');
       DBMS_OUTPUT.put_line('(');
       DBMS_OUTPUT.put_line('fila_completa STRING');
       DBMS_OUTPUT.put_line(')');
