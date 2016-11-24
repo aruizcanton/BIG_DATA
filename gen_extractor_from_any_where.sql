@@ -11,10 +11,9 @@ SELECT
     WHERE
       (trim(MTDT_EXT_SCENARIO.STATUS) = 'P' or trim(MTDT_EXT_SCENARIO.STATUS) = 'D')
       and trim(MTDT_EXT_SCENARIO.TABLE_NAME) in (
-      --'EQUIPO', 'REGION_COMERCIAL_NIVEL3', 'REGION_COMERCIAL_NIVEL2', 'REGION_COMERCIAL_NIVEL1', 'PRIMARY_OFFER'
-      --, 'PARQUE_ABO_MES', 'SUPPLEMENTARY_OFFER', 'BONUS', 'PARQUE_SVA_MES', 'PARQUE_BENEF_MES', 'PSD_RESIDENCIAL'
-      --, 'OFFER_ITEM', 'MOVIMIENTOS_ABO_MES', 'MOVIMIENTO_ABO'
-      'OFFER_ITEM'
+      'EQUIPO', 'REGION_COMERCIAL_NIVEL3', 'REGION_COMERCIAL_NIVEL2', 'REGION_COMERCIAL_NIVEL1', 'PRIMARY_OFFER'
+      , 'PARQUE_ABO_MES', 'SUPPLEMENTARY_OFFER', 'BONUS', 'HANDSET_PRICE', 'PARQUE_SVA_MES', 'PARQUE_BENEF_MES', 'PSD_RESIDENCIAL'
+      , 'OFFER_ITEM', 'MOVIMIENTOS_ABO_MES', 'MOVIMIENTO_ABO'
     );
     
     --and trim(MTDT_EXT_SCENARIO.TABLE_NAME) in ('PARQUE_PROMO_CAMPANA', 'MOV_PROMO_CAMPANA'
@@ -1005,10 +1004,10 @@ SELECT
         /*************************/
         
         /* (20161108) Angel Ruiz. NF. Diferentes #OWNER para la extraccion */
-        pos := regexp_instr(cadena_resul, '#OWNER_[A-Za-z_0-9]');
+        pos := regexp_instr(cadena_resul, '#OWNER_[A-Za-z_0-9]+#');
         if (pos > 0 ) then
           v_hay_usu_owner:=true;
-          v_usuario_owner:= regexp_substr('#OWNER_SIEM#', '#OWNER_[A-Za-z_0-9]+#');
+          v_usuario_owner:= regexp_substr(cadena_resul, '#OWNER_[A-Za-z_0-9]+#');
         end if;
         /*************************/
         
@@ -1125,7 +1124,8 @@ SELECT
   is
     v_cadena_result varchar2(20000);
   begin
-    v_cadena_result := REGEXP_REPLACE(cadena_in, chr(10), ' \\' || chr(10));
+    v_cadena_result := REGEXP_REPLACE(cadena_in,chr(10) || ' *$', ''); /* Suprimo el posible retorno de carro final */
+    v_cadena_result := REGEXP_REPLACE(v_cadena_result, chr(10), ' \\' || chr(10));
     return v_cadena_result;
   end;  
 /*************/
@@ -1981,6 +1981,7 @@ SELECT
         else
             valor_retorno := '     ''' || reg_scenario.INTERFACE_NAME || '''';
         end if;
+        v_fecha_ini_param := true;  /* Ponemos a true este switch ya que vamos a pasar la fecha como parametro al fichero sql */
       when 'VAR' then
         /* Se toma el valor de una variable de entorno */
         if reg_detalle_in.VALUE =  'VAR_FCH_CARGA' then /* Si se trata de la fecha de carga, la podemos coger del parametro de la funcion */
@@ -2359,7 +2360,7 @@ begin
     v_fecha_ini_param := false; /* Por defecto cada interfaz no tiene fecha inicial */
     v_fecha_fin_param := false; /* Por defecto cada interfaz no tiene fecha final */
     v_hay_usu_owner := false; /* Por defecto cada interfaz no tiene usuario owner */
-    dbms_output.put_line ('Estoy en el primero LOOP. La tabla que tengo es: ' || reg_tabla.TABLE_NAME);
+    dbms_output.put_line ('Estoy en el primero LOOP. La tabla que tengo es: $' || reg_tabla.TABLE_NAME || '$');
     
     /* (20160817) Angel Ruiz. Cambio temporal para adecuarse a la entrega de produccion*/
     nombre_fich_carga := REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '.sh';
@@ -2461,6 +2462,15 @@ begin
     if (v_contador > 0) then
       v_tabla_dinamica := true;
     end if;
+    /* Tambien puede aparecer [YYYYMM] en FILTER */
+    v_contador:=0;
+    select count(*) into v_contador from MTDT_EXT_SCENARIO where 
+    trim(MTDT_EXT_SCENARIO.TABLE_NAME) = reg_tabla.TABLE_NAME and 
+    instr(MTDT_EXT_SCENARIO.FILTER, '[YYYYMM]') > 0;
+    if (v_contador > 0) then
+      v_tabla_dinamica := true;
+    end if;
+
     v_contador:=0;
     select count(*) into v_contador from MTDT_EXT_SCENARIO where
     TRIM(MTDT_EXT_SCENARIO.TABLE_NAME) = reg_tabla.TABLE_NAME and
@@ -2900,36 +2910,18 @@ begin
             v_hay_look_up := 'Y';
           END LOOP;
         end if;
-        /* FIN */
-        /* (20161102) Angel Ruiz. Antes de escribir la clausula del FROM hemos de saber si hay clausula WHERE para */
-        /* en funcion de si hay o no hay escribir una barra \ al final de la ultima llinea del FROM o no hacerlo */
-        if (v_hay_look_up = 'N' and reg_scenario.FILTER is null) then
-          /* NO hay clausula WHERE por lo que escribimos las tablas de la cluasula FROM sin el caracter \ final */
-          if (instr (reg_scenario.TABLE_BASE_NAME,'SELECT') > 0 or instr (reg_scenario.TABLE_BASE_NAME,'select') > 0 ) then
-          /* (20160719) Angel Ruiz. BUG. Pueden venir QUERIES en TABLE_BASE_NAME */
-            UTL_FILE.put_line (fich_salida_pkg, '    '  || cambia_fin_linea(procesa_campo_filter(reg_scenario.TABLE_BASE_NAME)));
-          else
-            if (REGEXP_LIKE(trim(reg_scenario.TABLE_BASE_NAME), '^[a-zA-Z_0-9#]+\.[a-zA-Z_0-9]+ +[a-zA-Z0-9_]+$') = true) then
-              /* Comprobamos si la tabla esta calificada */
-              UTL_FILE.put_line (fich_salida_pkg, '    '  || procesa_campo_filter(reg_scenario.TABLE_BASE_NAME));
-            else
-              /* L atabla base no esta calificada, por defecto la calificamos con OWNER_EX */
-              UTL_FILE.put_line (fich_salida_pkg, '    '  || OWNER_EX || '.' || procesa_campo_filter(reg_scenario.TABLE_BASE_NAME));
-            end if;
-          end if;
+        /* Siempre va a haber clausula WHERE ya que es necesario siempre poner la clausula WHERE $CONDITIONS*/
+        if (regexp_instr (reg_scenario.TABLE_BASE_NAME,'[Ss][Ee][Ll][Ee][Cc][Tt]') > 0 ) then
+        /* (20160719) Angel Ruiz. BUG. Pueden venir QUERIES en TABLE_BASE_NAME */
+          UTL_FILE.put_line (fich_salida_pkg, '    '  || cambia_fin_linea(procesa_campo_filter(reg_scenario.TABLE_BASE_NAME)));
         else
-          /* Hay clausula Where por lo que escribimos las tablas de la clausula FROM con el caracter \ final */
-          if (instr (reg_scenario.TABLE_BASE_NAME,'SELECT') > 0 or instr (reg_scenario.TABLE_BASE_NAME,'select') > 0 ) then
-          /* (20160719) Angel Ruiz. BUG. Pueden venir QUERIES en TABLE_BASE_NAME */
-            UTL_FILE.put_line (fich_salida_pkg, '    '  || cambia_fin_linea(procesa_campo_filter(reg_scenario.TABLE_BASE_NAME)));
+          if (REGEXP_LIKE(trim(reg_scenario.TABLE_BASE_NAME), '^[a-zA-Z_0-9#]+\.[a-zA-Z_0-9]+ +[a-zA-Z0-9_]+$') = true) or
+          (REGEXP_LIKE(trim(reg_scenario.TABLE_BASE_NAME), '^[a-zA-Z_0-9#]+\.[a-zA-Z_0-9]+ *') = true) then
+            /* Comprobamos si la tabla esta calificada */
+            UTL_FILE.put_line (fich_salida_pkg, '    '  || procesa_campo_filter(reg_scenario.TABLE_BASE_NAME) || ' \');
           else
-            if (REGEXP_LIKE(trim(reg_scenario.TABLE_BASE_NAME), '^[a-zA-Z_0-9#]+\.[a-zA-Z_0-9]+ +[a-zA-Z0-9_]+$') = true) then
-              /* Comprobamos si la tabla esta calificada */
-              UTL_FILE.put_line (fich_salida_pkg, '    '  || procesa_campo_filter(reg_scenario.TABLE_BASE_NAME) || ' \');
-            else
-              /* L atabla base no esta calificada, por defecto la calificamos con OWNER_EX */
-              UTL_FILE.put_line (fich_salida_pkg, '    '  || OWNER_EX || '.' || procesa_campo_filter(reg_scenario.TABLE_BASE_NAME) || ' \');
-            end if;
+            /* L atabla base no esta calificada, por defecto la calificamos con OWNER_EX */
+            UTL_FILE.put_line (fich_salida_pkg, '    '  || OWNER_EX || '.' || procesa_campo_filter(reg_scenario.TABLE_BASE_NAME) || ' \');
           end if;
         end if;
         --UTL_FILE.put_line(fich_salida_pkg,'    ' || v_FROM);
@@ -2979,6 +2971,9 @@ begin
               end if;
             END LOOP;
             /* FIN */
+          else
+            /* No tenemos contenido en el el campo FILTER y tampoco tenemos tablas de LookUp */
+            UTL_FILE.put_line(fich_salida_pkg,'    WHERE $CONDITIONS');
           end if;
         end if;
         /*(20160510) Angel Ruiz. Antes de comenzar a generar el FROM comprobamos si existe */
@@ -3623,8 +3618,8 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  -m 1');
       else
         /* Previamente hay que sustituir los $1 $2 $3 ... por los correspondientes valores en el fichero .sql que se va a usar para cargar */
-        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '1/${FECHA_MES}/g" ${PATH_SQL}/${ARCHIVO_SQL} > ${PATH_TMP}/${ARCHIVO_SQL}.1');
-        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '2/${FECHA}/g" ${PATH_TMP}/${ARCHIVO_SQL}.1 > ${PATH_TMP}/${ARCHIVO_SQL}.2');
+        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '2/${FECHA_MES}/g" ${PATH_SQL}/${ARCHIVO_SQL} > ${PATH_TMP}/${ARCHIVO_SQL}.1');
+        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '3/${FECHA}/g" ${PATH_TMP}/${ARCHIVO_SQL}.1 > ${PATH_TMP}/${ARCHIVO_SQL}.2');
         if (v_hay_usu_owner = true) then
           /* (20161109) Angel Ruiz. Puede ocurrir que el fichero .sql generado posea cadenas del tipo #OWNER_*# */
           UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${PATH_TMP}/${ARCHIVO_SQL}.2 > ${PATH_TMP}/${ARCHIVO_SQL}.2.tmp');
