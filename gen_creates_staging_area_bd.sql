@@ -4,27 +4,28 @@
   IS
     SELECT 
       TRIM(CONCEPT_NAME) "CONCEPT_NAME",
-      SOURCE,
+      TRIM(SOURCE) "SOURCE",
       TRIM(INTERFACE_NAME) "INTERFACE_NAME",
       trim(COUNTRY) "COUNTRY",
-      TYPE,
-      SEPARATOR,
-      DELAYED,
+      TRIM(TYPE) "TYPE",
+      TRIM(SEPARATOR) "SEPARATOR",
+      TRIM(DELAYED) "DELAYED",
       upper(trim(TYPE_VALIDATION)) TYPE_VALIDATION
   FROM MTDT_INTERFACE_SUMMARY
-  WHERE SOURCE <> 'SA';
+  WHERE TRIM(SOURCE) <> 'SA' and TRIM(SOURCE) <> 'MAN' and
+  (TRIM(STATUS) ='P' OR TRIM(STATUS) = 'D');
   --where CONCEPT_NAME = 'CICLO';
 
   CURSOR dtd_interfaz_summary_history
   IS
     SELECT 
       TRIM(CONCEPT_NAME) "CONCEPT_NAME",
-      SOURCE,
-      INTERFACE_NAME,
-      TYPE,
-      SEPARATOR,
-      DELAYED,
-      HISTORY
+      TRIM(SOURCE) "SOURCE",
+      TRIM(INTERFACE_NAME) "INTERFACE_NAME",
+      TRIM(TYPE) "TYPE",
+      TRIM(SEPARATOR) "SEPARATOR",
+      TRIM(DELAYED) "DELAYED",
+      TRIM(HISTORY) "HISTORY"
     FROM MTDT_INTERFACE_SUMMARY
     where HISTORY is not null;
   
@@ -32,13 +33,13 @@
   IS
     SELECT 
       TRIM(CONCEPT_NAME) "CONCEPT_NAME",
-      SOURCE,
-      COLUMNA,
-      KEY,
-      TYPE,
-      LENGTH,
-      NULABLE,
-      PARTITIONED,
+      TRIM(SOURCE) "SOURCE",
+      TRIM(COLUMNA) "COLUMNA",
+      TRIM(KEY) "KEY",
+      TRIM(TYPE) "TYPE",
+      TRIM(LENGTH) "LENGTH",
+      TRIM(NULABLE) "NULABLE",
+      TRIM(PARTITIONED) "PARTITIONED",
       POSITION
     FROM
       MTDT_INTERFACE_DETAIL
@@ -92,6 +93,7 @@
       num_column PLS_INTEGER;
       v_ulti_pos                        PLS_integer;
       v_existe_file_name                PLS_integer:=0;
+      
 
       
       
@@ -115,6 +117,14 @@ BEGIN
     FETCH dtd_interfaz_summary
     INTO reg_summary;
     EXIT WHEN dtd_interfaz_summary%NOTFOUND;
+    
+    /* (20161125) Angel Ruiz. Ocurre que en las tablas de Staging podemos tener un campo para almacenar el nombre */
+    /* del fichero del que las cargamos. Ese nombre del ficehro puede venir en el fichero plano previamente extraido */
+    /* o bien ser añadido ese nombre al carga en la tabla de Staging aunque no viene en el ficehro plano*/
+    /* Si no viene en el fichero plano, este campo no puede crearse en la tabla de Staging en la que se va cargar el mismo */
+    /* Si viene en el fichero plano, entonces hay que crear la tabla de estagin con este campo */
+    SELECT COUNT(*) INTO v_existe_file_name FROM MTDT_EXT_DETAIL WHERE TRIM(TABLE_NAME) = reg_summary.CONCEPT_NAME AND TRIM(TABLE_COLUMN) = 'FILE_NAME';
+    
     /* (20160523) Angel Ruiz. NF: Funcionalidad para la creacion de Tablas Externas */
     if (reg_summary.TYPE_VALIDATION = 'T' or reg_summary.TYPE_VALIDATION = 'I' or reg_summary.TYPE_VALIDATION is null) then
       /* (20160523) Se trata de la creacion de una Tabla de Staging NORMAL */
@@ -142,7 +152,11 @@ BEGIN
         WHEN reg_datail.TYPE = 'DE' THEN
           tipo_col := 'DECIMAL (' || reg_datail.LENGTH || ')';
         WHEN reg_datail.TYPE = 'FE' THEN
-          tipo_col := 'DATE';
+          if reg_datail.LENGTH = '14' then
+            tipo_col := 'TIMESTAMP';
+          else
+            tipo_col := 'DATE';
+          end if;
         WHEN reg_datail.TYPE = 'IM' THEN
           tipo_col := 'DECIMAL (' || reg_datail.LENGTH || ')';
           --tipo_col := 'NUMBER (15, 3)';
@@ -150,13 +164,21 @@ BEGIN
           --tipo_col := 'VARCHAR (8)';
           tipo_col := 'STRING';
         END CASE;
-        /* (20161012) Angel Ruiz. Si el campo es FILE_NAME significa que */
-        /* este campo no va a venir en el fichero plano, si no que lo vamos */
-        /* a anyadir nosotros en una trasformacion posterior, por lo que no lo escribimos */
-        /* como parte de la tabla */
+        /* (20161125) Angel Ruiz. Si el campo es FILE_NAME significa que */
+        /* tenemos que mirar si este campo va a venir en el fichero plano o no. */
+        /* Si viene en el fichero plano, entonces el campo FILE_NAME tambien hay que crearlo */
+        /* si no viene, entonces no lo creamos en la tabla de Staging ya que no viene en el fichero  */
+        /* sera cargado en un paso posterior en una carga temporal de Staging */
         if (trim(reg_datail.COLUMNA) <> 'FILE_NAME') then
-          v_existe_file_name := 1;
+          --v_existe_file_name := 1;
           DBMS_OUTPUT.put_line(reg_datail.COLUMNA || '          ' || tipo_col);
+        else
+          /* (20161125) Angel Ruiz. Se trata del campo FILE_NAME */
+          if (v_existe_file_name > 0) then
+            /* (20161125) Angel Ruiz. El fichero va a venir desde la extraccion ya que asi lo hemos especificado en MTDT_EXT_DETAIL */
+            /* POR LO QUE LO CREAMOS EN LA TABLA DE STAGING */
+            DBMS_OUTPUT.put_line(reg_datail.COLUMNA || '          ' || tipo_col);
+          end if;
         end if;
         primera_col := 0;
       ELSE  /* si no es primera columna */
@@ -169,7 +191,11 @@ BEGIN
         WHEN reg_datail.TYPE = 'DE' THEN
           tipo_col := 'DECIMAL (' || reg_datail.LENGTH || ')';
         WHEN reg_datail.TYPE = 'FE' THEN
-          tipo_col := 'DATE';
+          if (reg_datail.LENGTH = '14') then
+            tipo_col := 'TIMESTAMP';
+          else
+            tipo_col := 'DATE';
+          end if;
         WHEN reg_datail.TYPE = 'IM' THEN
           tipo_col := 'DECIMAL (' || reg_datail.LENGTH || ')';
           --tipo_col := 'NUMBER (15, 3)';
@@ -177,13 +203,21 @@ BEGIN
           --tipo_col := 'VARCHAR2 (8)';
           tipo_col := 'STRING';
         END CASE;
-        /* (20161012) Angel Ruiz. Si el campo es FILE_NAME significa que */
-        /* este campo no va a venir en el fichero plano, si no que lo vamos */
-        /* a anyadir nosotros en una trasformacion posterior, por lo que no lo escribimos */
-        /* como parte de la tabla */
+        /* (20161125) Angel Ruiz. Si el campo es FILE_NAME significa que */
+        /* tenemos que mirar si este campo va a venir en el fichero plano o no. */
+        /* Si viene en el fichero plano, entonces el campo FILE_NAME tambien hay que crearlo */
+        /* si no viene, entonces no lo creamos en la tabla de Staging ya que no viene en el fichero  */
+        /* sera cargado en un paso posterior en una carga temporal de Staging */
         if (trim(reg_datail.COLUMNA) <> 'FILE_NAME') then
-          v_existe_file_name := 1;
+          --v_existe_file_name := 1;
           DBMS_OUTPUT.put_line(', ' || reg_datail.COLUMNA || '          '  || tipo_col);
+        else
+          /* (20161125) Angel Ruiz. Se trata del campo FILE_NAME */
+          if (v_existe_file_name > 0) then
+            /* (20161125) Angel Ruiz. El fichero va a venir desde la extraccion ya que asi lo hemos especificado en MTDT_EXT_DETAIL */
+            /* POR LO QUE LO CREAMOS EN LA TABLA DE STAGING */
+            DBMS_OUTPUT.put_line(', ' || reg_datail.COLUMNA || '          '  || tipo_col);
+          end if;
         end if;
       END IF;
       IF reg_datail.PARTITIONED = 'S' then
