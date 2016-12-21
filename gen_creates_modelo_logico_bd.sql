@@ -24,7 +24,8 @@ DECLARE
       TRIM(INDICE) "INDICE"
     FROM MTDT_MODELO_DETAIL
     WHERE
-      TABLE_NAME = table_name_in;
+      TABLE_NAME = table_name_in
+    ORDER BY POSITION ASC;
   /* (20150907) Angel Ruiz . FIN NF: Se crea una tabla de metadato MTDT_MODELO_SUMMARY y otra MTDT_MODELO_DETAIL */
 
   r_mtdt_modelo_logico_TABLA                                          c_mtdt_modelo_logico_TABLA%rowtype;
@@ -40,7 +41,7 @@ DECLARE
   longitud_campo INTEGER;
   clave_foranea INTEGER;  /* 0 Si la tabla no tiene clave foranea. 1 si la tiene  */
   primera_col INTEGER;
-  cadena_values VARCHAR2(500);
+  cadena_values VARCHAR2(2000);
   concept_name VARCHAR2 (30);
   nombre_tabla_reducido VARCHAR2(30);
   v_nombre_particion VARCHAR2(30);
@@ -207,8 +208,10 @@ BEGIN
           END IF;
         END LOOP;
         DBMS_OUTPUT.put_line('INTO 1 BUCKETS');
+        DBMS_OUTPUT.put_line('STORED AS ORC TBLPROPERTIES (''transactional''=''true'', ''orc.compress''=''ZLIB'', ''orc.create.index''=''true'')');
+      ELSE
+        DBMS_OUTPUT.put_line('STORED AS ORC TBLPROPERTIES (''orc.compress''=''ZLIB'', ''orc.create.index''=''true'')');
       END IF;
-      DBMS_OUTPUT.put_line('STORED AS ORC TBLPROPERTIES (''transactional''=''true'', ''orc.compress''=''ZLIB'', ''orc.create.index''=''true'')');
       DBMS_OUTPUT.put_line (';');
       
       lista_pk.DELETE;      /* Borramos los elementos de la lista */
@@ -277,8 +280,10 @@ BEGIN
             END IF;
           END LOOP;
           DBMS_OUTPUT.put_line('INTO 1 BUCKETS');
+          DBMS_OUTPUT.put_line('STORED AS ORC TBLPROPERTIES (''transactional''=''true'', ''orc.compress''=''ZLIB'', ''orc.create.index''=''true'')');
+        ELSE
+          DBMS_OUTPUT.put_line('STORED AS ORC TBLPROPERTIES (''orc.compress''=''ZLIB'', ''orc.create.index''=''true'')');
         END IF;
-        DBMS_OUTPUT.put_line('STORED AS ORC TBLPROPERTIES (''transactional''=''true'', ''orc.compress''=''ZLIB'', ''orc.create.index''=''true'')');
         DBMS_OUTPUT.put_line (';');
         --if (r_mtdt_modelo_logico_TABLA.TABLESPACE is not null) then
           --DBMS_OUTPUT.put_line('TABLESPACE ' || r_mtdt_modelo_logico_TABLA.TABLESPACE || ';');
