@@ -13,11 +13,11 @@ SELECT
       and trim(MTDT_EXT_SCENARIO.TABLE_NAME) in (
       'EQUIPO', 'REGION_COMERCIAL_NIVEL3', 'REGION_COMERCIAL_NIVEL2', 'REGION_COMERCIAL_NIVEL1', 'PRIMARY_OFFER'
       , 'PARQUE_ABO_MES', 'SUPPLEMENTARY_OFFER', 'BONUS', 'HANDSET_PRICE', 'PARQUE_SVA_MES', 'PARQUE_BENEF_MES', 'PSD_RESIDENCIAL'
-      , 'OFFER_ITEM', 'MOVIMIENTOS_ABO_MES', 'MOVIMIENTO_ABO'
-    );
+      , 'OFFER_ITEM', 'MOVIMIENTOS_ABO_MES', 'MOVIMIENTO_ABO', 'COMIS_POS_ABO_MES', 'AJUSTE_ABO_MES'
+      );
     
     --and trim(MTDT_EXT_SCENARIO.TABLE_NAME) in ('PARQUE_PROMO_CAMPANA', 'MOV_PROMO_CAMPANA'
-    --);
+    --  );
       --and trim(MTDT_EXT_SCENARIO.TABLE_NAME) in ('PARQUE_ABO_PRE', 'PARQUE_ABO_POST', 'CLIENTE', 'CUENTA', 
     --'MOVIMIENTO_ABO', 'PLAN_TARIFARIO',
     --'CATEGORIA_CLIENTE', 'CICLO', 'ESTATUS_OPERACION', 'FORMA_PAGO', 'PROMOCION', 'SEGMENTO_CLIENTE', 
@@ -3032,8 +3032,11 @@ begin
     WHERE
     TRIM(CONCEPT_NAME) = reg_tabla.TABLE_NAME and
     (trim(STATUS) = 'P' or trim(STATUS) = 'D');
+    
 
-    if (v_num_campos_interfaz > 0) then
+    if (v_num_campos_interfaz > 0 and v_type_validation = 'I') then
+      /* (20170111) ANGEL RUIZ. Compruebo si se trata de una validación de tipo T con lo que si hay que */
+      /* generar la parte de --map-column-hive. Si es tipo I esto no ocurre */
       UTL_FILE.put_line(fich_salida_pkg, '#');
       UTL_FILE.put_line(fich_salida_pkg, '# CAMPOS TABLA HIVE');
       UTL_FILE.put_line(fich_salida_pkg, '#');
@@ -3292,8 +3295,8 @@ begin
       UTL_FILE.put_line(fich_salida_load, '      exit 3');
       UTL_FILE.put_line(fich_salida_load, '    elif [ $CodErr -eq 4 ]');
       UTL_FILE.put_line(fich_salida_load, '    then');
-      UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: Error al generar el reporte ${REPORTE}, [Error de Oracle]"');
-      UTL_FILE.put_line(fich_salida_load, '      echo "El reporte: ${REPORTE}, contiene errores de oracle." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
+      UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: Error al generar el reporte ${REPORTE}, [Error de Hive]"');
+      UTL_FILE.put_line(fich_salida_load, '      echo "El reporte: ${REPORTE}, contiene errores de hive." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
       UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
       UTL_FILE.put_line(fich_salida_load, '      exit 4');
       UTL_FILE.put_line(fich_salida_load, '    else');
@@ -3315,6 +3318,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, '  TraeUserExt $1');
     UTL_FILE.put_line(fich_salida_load, '  TraePassExt $1 ${BD_USR_EXT}');
     UTL_FILE.put_line(fich_salida_load, '  TraeCadConexExt $1 ${BD_USR_EXT}');
+    UTL_FILE.put_line(fich_salida_load, '  TraeOwnerExt $1 ${BD_USR_EXT}');
     UTL_FILE.put_line(fich_salida_load, '  if [ "${BD_USR_EXT}" = "" ] ; then');
     UTL_FILE.put_line(fich_salida_load, '    SUBJECT="Error BD ${REQ_NUM} (`date +%d/%m/%Y`)"');
     UTL_FILE.put_line(fich_salida_load, '    echo "Error no se pudo obtener el usuario para el sistema fuente $1" | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
@@ -3336,6 +3340,14 @@ begin
     --UTL_FILE.put_line(fich_salida_load, '    InsertaFinFallido');
     UTL_FILE.put_line(fich_salida_load, '    exit 1;');
     UTL_FILE.put_line(fich_salida_load, '  fi');
+    UTL_FILE.put_line(fich_salida_load, '  if [ "${OWNER_EXT}" = "" ] ; then');
+    UTL_FILE.put_line(fich_salida_load, '    SUBJECT="Error BD ${REQ_NUM} (`date +%d/%m/%Y`)"');
+    UTL_FILE.put_line(fich_salida_load, '    echo "Error no se pudo obtener el propietario para el sistema fuente $1" | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
+    UTL_FILE.put_line(fich_salida_load, '    echo `date`');
+    --UTL_FILE.put_line(fich_salida_load, '    InsertaFinFallido');
+    UTL_FILE.put_line(fich_salida_load, '    exit 1;');
+    UTL_FILE.put_line(fich_salida_load, '  fi');
+    
     --UTL_FILE.put_line(fich_salida_load, '  # Validamos la conexion a la base de datos');
     --UTL_FILE.put_line(fich_salida_load, '  ChkConexion $1 $2 ${PASSWORD}');
     --UTL_FILE.put_line(fich_salida_load, '  if [ $? -ne 0 ]; then');
@@ -3498,41 +3510,43 @@ begin
         /* (20160607) Angel Ruiz. Si se trata de validacion I desde la extraccion */
         /* va a las tablas de Stagin sin pasar por ficehro plano */
         /* Previamente hay que sustituir los $1 $2 $3 ... por los correspondientes valores en el fichero .sql que se va a usar para cargar */
-        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '1/${FECHA_MES}/g" ${PATH_SQL}/${ARCHIVO_SQL} > ${PATH_TMP}/${ARCHIVO_SQL}.1');
+        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '1/${FECHA_MES}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL} > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1');
         if (v_hay_usu_owner = true) then
           /* (20161109) Angel Ruiz. Puede ocurrir que el fichero .sql generado posea cadenas del tipo #OWNER_*# */
-          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${PATH_TMP}/${ARCHIVO_SQL}.1 > ${PATH_TMP}/${ARCHIVO_SQL}.1.tmp');
-          UTL_FILE.put_line(fich_salida_load, '  mv ${PATH_TMP}/${ARCHIVO_SQL}.1.tmp  ${PATH_TMP}/${ARCHIVO_SQL}.1');
+          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${OWNER_EXT}/g" ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1 > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1.tmp');
+          UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1.tmp  ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1');
         end if;
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}/${ARCHIVO_SQL} ${FECHA_MES}');
         UTL_FILE.put_line(fich_salida_load, '  sqoop import \');
         UTL_FILE.put_line(fich_salida_load, '  --connect ${CAD_CONEX_EXT} \');
         UTL_FILE.put_line(fich_salida_load, '  --username ${BD_USR_EXT} \');
         UTL_FILE.put_line(fich_salida_load, '  --password ${BD_PWD} \');
-        UTL_FILE.put_line(fich_salida_load, '  --options-file ${PATH_TMP}/${ARCHIVO_SQL}.1 \');
+        UTL_FILE.put_line(fich_salida_load, '  --options-file ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1 \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-import \');
+        UTL_FILE.put_line(fich_salida_load, '  --delete-target-dir \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-table ' || '${ESQUEMA_ST}.SA_' || reg_tabla.TABLE_NAME || ' \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-partition-key fch_carga \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-partition-value "${FECHA_FMT_HIVE}" \');
-        UTL_FILE.put_line(fich_salida_load, '  --target-dir ${PATH_TMP}/${INTERFAZ} \');
+        UTL_FILE.put_line(fich_salida_load, '  --target-dir ${' || NAME_DM || '_TMP}/${INTERFAZ} \');
         UTL_FILE.put_line(fich_salida_load, '  --null-non-string ''\\N'' \');
         UTL_FILE.put_line(fich_salida_load, '  --null-string ''\\N'' \');
         UTL_FILE.put_line(fich_salida_load, '  -m 1');
       else
         /* Previamente hay que sustituir los $1 $2 $3 ... por los correspondientes valores en el fichero .sql que se va a usar para cargar */
-        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '2/${FECHA_MES}/g" ${PATH_SQL}/${ARCHIVO_SQL} > ${PATH_TMP}/${ARCHIVO_SQL}.1');
+        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '2/${FECHA_MES}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL} > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1');
         if (v_hay_usu_owner = true) then
           /* (20161109) Angel Ruiz. Puede ocurrir que el fichero .sql generado posea cadenas del tipo #OWNER_*# */
-          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${PATH_TMP}/${ARCHIVO_SQL}.1 > ${PATH_TMP}/${ARCHIVO_SQL}.1.tmp');
-          UTL_FILE.put_line(fich_salida_load, '  mv ${PATH_TMP}/${ARCHIVO_SQL}.1.tmp  ${PATH_TMP}/${ARCHIVO_SQL}.1');
+          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${OWNER_EXT}/g" ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1 > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1.tmp');
+          UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1.tmp  ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1');
         end if;
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}/${ARCHIVO_SQL} ${PATH_SALIDA}/${ARCHIVO_SALIDA} ${FECHA_MES}');
         UTL_FILE.put_line(fich_salida_load, '  sqoop import \');
         UTL_FILE.put_line(fich_salida_load, '  --connect ${CAD_CONEX_EXT} \');
         UTL_FILE.put_line(fich_salida_load, '  --username ${BD_USR} \');
         UTL_FILE.put_line(fich_salida_load, '  --password ${BD_PWD} \');
-        UTL_FILE.put_line(fich_salida_load, '  --options-file ${PATH_TMP}/${ARCHIVO_SQL}.1 \');
-        UTL_FILE.put_line(fich_salida_load, '  --target-dir ${PATH_TMP}/${INTERFAZ} \');
+        UTL_FILE.put_line(fich_salida_load, '  --delete-target-dir \');
+        UTL_FILE.put_line(fich_salida_load, '  --options-file ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1 \');
+        UTL_FILE.put_line(fich_salida_load, '  --target-dir ${' || NAME_DM || '_TMP}/${INTERFAZ} \');
         UTL_FILE.put_line(fich_salida_load, '  --fields-terminated-by ''' || v_separator || ''' \');
         UTL_FILE.put_line(fich_salida_load, '  --null-non-string ''\\N'' \');
         UTL_FILE.put_line(fich_salida_load, '  --null-string ''\\N'' \');
@@ -3544,13 +3558,13 @@ begin
         /* (20160607) Angel Ruiz. Si se trata de validacion I desde la extraccion */
         /* va a las tablas de Stagin sin pasar por ficehro plano */
         /* Previamente hay que sustituir los $1 $2 $3 ... por los correspondientes valores en el fichero .sql que se va a usar para cargar */
-        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '1/${FECHA_MES}/g" ${PATH_SQL}/${ARCHIVO_SQL} > ${PATH_TMP}/${ARCHIVO_SQL}.1');
-        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '2/${FECHA}/g" ${PATH_TMP}/${ARCHIVO_SQL}.1 > ${PATH_TMP}/${ARCHIVO_SQL}.2');
-        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '3/${FECHA_FIN}/g" ${PATH_TMP}/${ARCHIVO_SQL}.2 > ${PATH_TMP}/${ARCHIVO_SQL}.3');
+        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '1/${FECHA_MES}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL} > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1');
+        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '2/${FECHA}/g" ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1 > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2');
+        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '3/${FECHA_FIN}/g" ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2 > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.3');
         if (v_hay_usu_owner = true) then
           /* (20161109) Angel Ruiz. Puede ocurrir que el fichero .sql generado posea cadenas del tipo #OWNER_*# */
-          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${PATH_TMP}/${ARCHIVO_SQL}.3 > ${PATH_TMP}/${ARCHIVO_SQL}.3.tmp');
-          UTL_FILE.put_line(fich_salida_load, '  mv ${PATH_TMP}/${ARCHIVO_SQL}.3.tmp  ${PATH_TMP}/${ARCHIVO_SQL}.3');
+          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.3 > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.3.tmp');
+          UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.3.tmp  ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.3');
         end if;
         
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}/${ARCHIVO_SQL} ${FECHA_MES} ${FECHA} ${FECHA_FIN}');
@@ -3558,23 +3572,24 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  --connect ${CAD_CONEX_EXT} \');
         UTL_FILE.put_line(fich_salida_load, '  --username ${BD_USR} \');
         UTL_FILE.put_line(fich_salida_load, '  --password ${BD_PWD} \');
-        UTL_FILE.put_line(fich_salida_load, '  --options-file ${PATH_TMP}/${ARCHIVO_SQL}.3 \');
+        UTL_FILE.put_line(fich_salida_load, '  --options-file ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.3 \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-import \');
+        UTL_FILE.put_line(fich_salida_load, '  --delete-target-dir \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-table ' || '${ESQUEMA_ST}.SA_' || reg_tabla.TABLE_NAME || ' \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-partition-key fch_carga \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-partition-value "${FECHA_FMT_HIVE}" \');
-        UTL_FILE.put_line(fich_salida_load, '  --target-dir ${PATH_TMP}/${INTERFAZ} \');
+        UTL_FILE.put_line(fich_salida_load, '  --target-dir ${' || NAME_DM || '_TMP}/${INTERFAZ} \');
         UTL_FILE.put_line(fich_salida_load, '  --null-non-string ''\\N'' \');
         UTL_FILE.put_line(fich_salida_load, '  --null-string ''\\N'' \');
         UTL_FILE.put_line(fich_salida_load, '  -m 1');
       else
-        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '2/${FECHA_MES}/g" ${PATH_SQL}/${ARCHIVO_SQL} > ${PATH_TMP}/${ARCHIVO_SQL}.1');        
-        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '3/${FECHA}/g" ${PATH_TMP}/${ARCHIVO_SQL}.1 > ${PATH_TMP}/${ARCHIVO_SQL}.2');        
-        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '4/${FECHA_FIN}/g" ${PATH_TMP}/${ARCHIVO_SQL}.2 > ${PATH_TMP}/${ARCHIVO_SQL}.3');        
+        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '2/${FECHA_MES}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL} > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1');        
+        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '3/${FECHA}/g" ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1 > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2');        
+        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '4/${FECHA_FIN}/g" ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2 > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.3');        
         if (v_hay_usu_owner = true) then
           /* (20161109) Angel Ruiz. Puede ocurrir que el fichero .sql generado posea cadenas del tipo #OWNER_*# */
-          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${PATH_TMP}/${ARCHIVO_SQL}.3 > ${PATH_TMP}/${ARCHIVO_SQL}.3.tmp');
-          UTL_FILE.put_line(fich_salida_load, '  mv ${PATH_TMP}/${ARCHIVO_SQL}.3.tmp  ${PATH_TMP}/${ARCHIVO_SQL}.3');
+          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.3 > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.3.tmp');
+          UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.3.tmp  ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.3');
         end if;
       
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}/${ARCHIVO_SQL} ${PATH_SALIDA}/${ARCHIVO_SALIDA} ${FECHA_MES} ${FECHA} ${FECHA_FIN}');
@@ -3582,8 +3597,9 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  --connect ${CAD_CONEX_EXT} \');
         UTL_FILE.put_line(fich_salida_load, '  --username ${BD_USR_EXT} \');
         UTL_FILE.put_line(fich_salida_load, '  --password ${BD_PWD} \');
-        UTL_FILE.put_line(fich_salida_load, '  --options-file ${PATH_TMP}/${ARCHIVO_SQL}.3 \');
-        UTL_FILE.put_line(fich_salida_load, '  --target-dir ${PATH_TMP}/${INTERFAZ} \');
+        UTL_FILE.put_line(fich_salida_load, '  --delete-target-dir \');        
+        UTL_FILE.put_line(fich_salida_load, '  --options-file ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.3 \');
+        UTL_FILE.put_line(fich_salida_load, '  --target-dir ${' || NAME_DM || '_TMP}/${INTERFAZ} \');
         UTL_FILE.put_line(fich_salida_load, '  --fields-terminated-by ''' || v_separator || ''' \');
         UTL_FILE.put_line(fich_salida_load, '  --null-non-string ''\\N'' \');
         UTL_FILE.put_line(fich_salida_load, '  --null-string ''\\N'' \');
@@ -3594,12 +3610,12 @@ begin
         /* (20160607) Angel Ruiz. Si se trata de validacion I desde la extraccion */
         /* va a las tablas de Stagin sin pasar por ficehro plano */
         /* Previamente hay que sustituir los $1 $2 $3 ... por los correspondientes valores en el fichero .sql que se va a usar para cargar */
-        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '1/${FECHA_MES}/g" ${PATH_SQL}/${ARCHIVO_SQL} > ${PATH_TMP}/${ARCHIVO_SQL}.1');
-        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '2/${FECHA}/g" ${PATH_TMP}/${ARCHIVO_SQL}.1 > ${PATH_TMP}/${ARCHIVO_SQL}.2');
+        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '1/${FECHA_MES}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL} > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1');
+        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '2/${FECHA}/g" ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1 > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2');
         if (v_hay_usu_owner = true) then
           /* (20161109) Angel Ruiz. Puede ocurrir que el fichero .sql generado posea cadenas del tipo #OWNER_*# */
-          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${PATH_TMP}/${ARCHIVO_SQL}.2 > ${PATH_TMP}/${ARCHIVO_SQL}.2.tmp');
-          UTL_FILE.put_line(fich_salida_load, '  mv ${PATH_TMP}/${ARCHIVO_SQL}.2.tmp  ${PATH_TMP}/${ARCHIVO_SQL}.2');
+          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2 > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2.tmp');
+          UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2.tmp  ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2');
         end if;
         
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}/${ARCHIVO_SQL} ${FECHA_MES} ${FECHA}');
@@ -3607,23 +3623,24 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  --connect ${CAD_CONEX_EXT} \');
         UTL_FILE.put_line(fich_salida_load, '  --username ${BD_USR_EXT} \');
         UTL_FILE.put_line(fich_salida_load, '  --password ${BD_PWD} \');
-        UTL_FILE.put_line(fich_salida_load, '  --options-file ${PATH_TMP}/${ARCHIVO_SQL}.2 \');
+        UTL_FILE.put_line(fich_salida_load, '  --options-file ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2 \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-import \');
+        UTL_FILE.put_line(fich_salida_load, '  --delete-target-dir \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-table ' || '${ESQUEMA_ST}.SA_' || reg_tabla.TABLE_NAME || ' \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-partition-key fch_carga \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-partition-value "${FECHA_FMT_HIVE}" \');
-        UTL_FILE.put_line(fich_salida_load, '  --target-dir ${PATH_TMP}/${INTERFAZ} \');
+        UTL_FILE.put_line(fich_salida_load, '  --target-dir ${' || NAME_DM || '_TMP}/${INTERFAZ} \');
         UTL_FILE.put_line(fich_salida_load, '  --null-non-string ''\\N'' \');
         UTL_FILE.put_line(fich_salida_load, '  --null-string ''\\N'' \');
         UTL_FILE.put_line(fich_salida_load, '  -m 1');
       else
         /* Previamente hay que sustituir los $1 $2 $3 ... por los correspondientes valores en el fichero .sql que se va a usar para cargar */
-        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '2/${FECHA_MES}/g" ${PATH_SQL}/${ARCHIVO_SQL} > ${PATH_TMP}/${ARCHIVO_SQL}.1');
-        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '3/${FECHA}/g" ${PATH_TMP}/${ARCHIVO_SQL}.1 > ${PATH_TMP}/${ARCHIVO_SQL}.2');
+        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '2/${FECHA_MES}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL} > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1');
+        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '3/${FECHA}/g" ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1 > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2');
         if (v_hay_usu_owner = true) then
           /* (20161109) Angel Ruiz. Puede ocurrir que el fichero .sql generado posea cadenas del tipo #OWNER_*# */
-          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${PATH_TMP}/${ARCHIVO_SQL}.2 > ${PATH_TMP}/${ARCHIVO_SQL}.2.tmp');
-          UTL_FILE.put_line(fich_salida_load, '  mv ${PATH_TMP}/${ARCHIVO_SQL}.2.tmp  ${PATH_TMP}/${ARCHIVO_SQL}.2');
+          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2 > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2.tmp');
+          UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2.tmp  ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2');
         end if;
         
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}/${ARCHIVO_SQL} ${PATH_SALIDA}/${ARCHIVO_SALIDA} ${FECHA_MES} ${FECHA}');
@@ -3631,8 +3648,9 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  --connect ${CAD_CONEX_EXT} \');
         UTL_FILE.put_line(fich_salida_load, '  --username ${BD_USR_EXT} \');
         UTL_FILE.put_line(fich_salida_load, '  --password ${BD_PWD} \');
-        UTL_FILE.put_line(fich_salida_load, '  --options-file ${PATH_TMP}/${ARCHIVO_SQL}.2 \');
-        UTL_FILE.put_line(fich_salida_load, '  --target-dir ${PATH_TMP}/${INTERFAZ} \');
+        UTL_FILE.put_line(fich_salida_load, '  --delete-target-dir \');        
+        UTL_FILE.put_line(fich_salida_load, '  --options-file ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2 \');
+        UTL_FILE.put_line(fich_salida_load, '  --target-dir ${' || NAME_DM || '_TMP}/${INTERFAZ} \');
         UTL_FILE.put_line(fich_salida_load, '  --fields-terminated-by ''' || v_separator || ''' \');
         UTL_FILE.put_line(fich_salida_load, '  --null-non-string ''\\N'' \');
         UTL_FILE.put_line(fich_salida_load, '  --null-string ''\\N'' \');
@@ -3643,12 +3661,12 @@ begin
         /* (20160607) Angel Ruiz. Si se trata de validacion I desde la extraccion */
         /* va a las tablas de Stagin sin pasar por ficehro plano */
         /* Previamente hay que sustituir los $1 $2 $3 ... por los correspondientes valores en el fichero .sql que se va a usar para cargar */
-        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '1/${FECHA}/g" ${PATH_SQL}/${ARCHIVO_SQL} > ${PATH_TMP}/${ARCHIVO_SQL}.1');
-        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '2/${FECHA_FIN}/g" ${PATH_TMP}/${ARCHIVO_SQL}.1 > ${PATH_TMP}/${ARCHIVO_SQL}.2');
+        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '1/${FECHA}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL} > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1');
+        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '2/${FECHA_FIN}/g" ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1 > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2');
         if (v_hay_usu_owner = true) then
           /* (20161109) Angel Ruiz. Puede ocurrir que el fichero .sql generado posea cadenas del tipo #OWNER_*# */
-          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${PATH_TMP}/${ARCHIVO_SQL}.2 > ${PATH_TMP}/${ARCHIVO_SQL}.2.tmp');
-          UTL_FILE.put_line(fich_salida_load, '  mv ${PATH_TMP}/${ARCHIVO_SQL}.2.tmp  ${PATH_TMP}/${ARCHIVO_SQL}.2');
+          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2 > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2.tmp');
+          UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2.tmp  ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2');
         end if;
         
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}/${ARCHIVO_SQL} ${FECHA} ${FECHA_FIN}');
@@ -3656,32 +3674,34 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  --connect ${CAD_CONEX_EXT} \');
         UTL_FILE.put_line(fich_salida_load, '  --username ${BD_USR_EXT} \');
         UTL_FILE.put_line(fich_salida_load, '  --password ${BD_PWD} \');
-        UTL_FILE.put_line(fich_salida_load, '  --options-file ${PATH_TMP}/${ARCHIVO_SQL}.2 \');
+        UTL_FILE.put_line(fich_salida_load, '  --options-file ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2 \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-import \');
+        UTL_FILE.put_line(fich_salida_load, '  --delete-target-dir \');        
         UTL_FILE.put_line(fich_salida_load, '  --hive-table ' || '${ESQUEMA_ST}.SA_' || reg_tabla.TABLE_NAME || ' \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-partition-key fch_carga \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-partition-value "${FECHA_FMT_HIVE}" \');
-        UTL_FILE.put_line(fich_salida_load, '  --target-dir ${PATH_TMP}/${INTERFAZ} \');
+        UTL_FILE.put_line(fich_salida_load, '  --target-dir ${' || NAME_DM || '_TMP}/${INTERFAZ} \');
         UTL_FILE.put_line(fich_salida_load, '  --null-non-string ''\\N'' \');
         UTL_FILE.put_line(fich_salida_load, '  --null-string ''\\N'' \');
         UTL_FILE.put_line(fich_salida_load, '  -m 1');
         
       else
         /* Previamente hay que sustituir los $1 $2 $3 ... por los correspondientes valores en el fichero .sql que se va a usar para cargar */
-        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '2/${FECHA}/g" ${PATH_SQL}/${ARCHIVO_SQL} > ${PATH_TMP}/${ARCHIVO_SQL}.1');
-        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '3/${FECHA_FIN}/g" ${PATH_TMP}/${ARCHIVO_SQL}.1 > ${PATH_TMP}/${ARCHIVO_SQL}.2');
+        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '2/${FECHA}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL} > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1');
+        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '3/${FECHA_FIN}/g" ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1 > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2');
         if (v_hay_usu_owner = true) then
           /* (20161109) Angel Ruiz. Puede ocurrir que el fichero .sql generado posea cadenas del tipo #OWNER_*# */
-          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${PATH_TMP}/${ARCHIVO_SQL}.2 > ${PATH_TMP}/${ARCHIVO_SQL}.2.tmp');
-          UTL_FILE.put_line(fich_salida_load, '  mv ${PATH_TMP}/${ARCHIVO_SQL}.2.tmp  ${PATH_TMP}/${ARCHIVO_SQL}.2');
+          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2 > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2.tmp');
+          UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2.tmp  ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2');
         end if;
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}/${ARCHIVO_SQL} ${PATH_SALIDA}/${ARCHIVO_SALIDA} ${FECHA} ${FECHA_FIN}');
         UTL_FILE.put_line(fich_salida_load, '  sqoop import \');
         UTL_FILE.put_line(fich_salida_load, '  --connect ${CAD_CONEX_EXT} \');
         UTL_FILE.put_line(fich_salida_load, '  --username ${BD_USR_EXT} \');
         UTL_FILE.put_line(fich_salida_load, '  --password ${BD_PWD} \');
-        UTL_FILE.put_line(fich_salida_load, '  --options-file ${PATH_TMP}/${ARCHIVO_SQL}.2 \');
-        UTL_FILE.put_line(fich_salida_load, '  --target-dir ${PATH_TMP}/${INTERFAZ} \');
+        UTL_FILE.put_line(fich_salida_load, '  --delete-target-dir \');        
+        UTL_FILE.put_line(fich_salida_load, '  --options-file ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.2 \');
+        UTL_FILE.put_line(fich_salida_load, '  --target-dir ${' || NAME_DM || '_TMP}/${INTERFAZ} \');
         UTL_FILE.put_line(fich_salida_load, '  --fields-terminated-by ''' || v_separator || ''' \');
         UTL_FILE.put_line(fich_salida_load, '  --null-non-string ''\\N'' \');
         UTL_FILE.put_line(fich_salida_load, '  --null-string ''\\N'' \');
@@ -3693,41 +3713,43 @@ begin
         /* (20160607) Angel Ruiz. Si se trata de validacion I desde la extraccion */
         /* va a las tablas de Stagin sin pasar por ficehro plano */
         /* Previamente hay que sustituir los $1 $2 $3 ... por los correspondientes valores en el fichero .sql que se va a usar para cargar */
-        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '1/${FECHA}/g" ${PATH_SQL}/${ARCHIVO_SQL} > ${PATH_TMP}/${ARCHIVO_SQL}.1');
+        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '1/${FECHA}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL} > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1');
         if (v_hay_usu_owner = true) then
           /* (20161109) Angel Ruiz. Puede ocurrir que el fichero .sql generado posea cadenas del tipo #OWNER_*# */
-          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${PATH_TMP}/${ARCHIVO_SQL}.1 > ${PATH_TMP}/${ARCHIVO_SQL}.1.tmp');
-          UTL_FILE.put_line(fich_salida_load, '  mv ${PATH_TMP}/${ARCHIVO_SQL}.1.tmp  ${PATH_TMP}/${ARCHIVO_SQL}.1');
+          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1 > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1.tmp');
+          UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1.tmp  ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1');
         end if;        
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}/${ARCHIVO_SQL} ${FECHA}');
         UTL_FILE.put_line(fich_salida_load, '  sqoop import \');
         UTL_FILE.put_line(fich_salida_load, '  --connect ${CAD_CONEX_EXT} \');
         UTL_FILE.put_line(fich_salida_load, '  --username ${BD_USR_EXT} \');
         UTL_FILE.put_line(fich_salida_load, '  --password ${BD_PWD} \');
-        UTL_FILE.put_line(fich_salida_load, '  --options-file ${PATH_TMP}/${ARCHIVO_SQL}.1 \');
+        UTL_FILE.put_line(fich_salida_load, '  --options-file ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1 \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-import \');
+        UTL_FILE.put_line(fich_salida_load, '  --delete-target-dir \');        
         UTL_FILE.put_line(fich_salida_load, '  --hive-table ' || '${ESQUEMA_ST}.SA_' || reg_tabla.TABLE_NAME || ' \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-partition-key fch_carga \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-partition-value "${FECHA_FMT_HIVE}" \');
-        UTL_FILE.put_line(fich_salida_load, '  --target-dir ${PATH_TMP}/${INTERFAZ} \');
+        UTL_FILE.put_line(fich_salida_load, '  --target-dir ${' || NAME_DM || '_TMP}/${INTERFAZ} \');
         UTL_FILE.put_line(fich_salida_load, '  --null-non-string ''\\N'' \');
         UTL_FILE.put_line(fich_salida_load, '  --null-string ''\\N'' \');
         UTL_FILE.put_line(fich_salida_load, '  -m 1');
       else
         /* Previamente hay que sustituir los $1 $2 $3 ... por los correspondientes valores en el fichero .sql que se va a usar para cargar */
-        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '2/${FECHA}/g" ${PATH_SQL}/${ARCHIVO_SQL} > ${PATH_TMP}/${ARCHIVO_SQL}.1');
+        UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '2/${FECHA}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL} > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1');
         if (v_hay_usu_owner = true) then
           /* (20161109) Angel Ruiz. Puede ocurrir que el fichero .sql generado posea cadenas del tipo #OWNER_*# */
-          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${PATH_TMP}/${ARCHIVO_SQL}.1 > ${PATH_TMP}/${ARCHIVO_SQL}.1.tmp');
-          UTL_FILE.put_line(fich_salida_load, '  mv ${PATH_TMP}/${ARCHIVO_SQL}.1.tmp  ${PATH_TMP}/${ARCHIVO_SQL}.1');
+          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1 > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1.tmp');
+          UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1.tmp  ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1');
         end if;                
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}/${ARCHIVO_SQL} ${PATH_SALIDA}/${ARCHIVO_SALIDA} ${FECHA}');
         UTL_FILE.put_line(fich_salida_load, '  sqoop import \');
         UTL_FILE.put_line(fich_salida_load, '  --connect ${CAD_CONEX_EXT} \');
         UTL_FILE.put_line(fich_salida_load, '  --username ${BD_USR_EXT} \');
         UTL_FILE.put_line(fich_salida_load, '  --password ${BD_PWD} \');
-        UTL_FILE.put_line(fich_salida_load, '  --options-file ${PATH_TMP}/${ARCHIVO_SQL}.1 \');
-        UTL_FILE.put_line(fich_salida_load, '  --target-dir ${PATH_TMP}/${INTERFAZ} \');
+        UTL_FILE.put_line(fich_salida_load, '  --delete-target-dir \');        
+        UTL_FILE.put_line(fich_salida_load, '  --options-file ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1 \');
+        UTL_FILE.put_line(fich_salida_load, '  --target-dir ${' || NAME_DM || '_TMP}/${INTERFAZ} \');
         UTL_FILE.put_line(fich_salida_load, '  --fields-terminated-by ''' || v_separator || ''' \');
         UTL_FILE.put_line(fich_salida_load, '  --null-non-string ''\\N'' \');
         UTL_FILE.put_line(fich_salida_load, '  --null-string ''\\N'' \');
@@ -3739,7 +3761,7 @@ begin
         /* va a las tablas de Stagin sin pasar por ficehro plano */
         if (v_hay_usu_owner = true) then
           /* (20161109) Angel Ruiz. Puede ocurrir que el fichero .sql generado posea cadenas del tipo #OWNER_*# */
-          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${PATH_TMP}/${ARCHIVO_SQL} > ${PATH_TMP}/${ARCHIVO_SQL}.1');
+          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL} > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1');
         end if;                
         
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}/${ARCHIVO_SQL}');
@@ -3748,15 +3770,16 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  --username ${BD_USR_EXT} \');
         UTL_FILE.put_line(fich_salida_load, '  --password ${BD_PWD} \');
         if (v_hay_usu_owner = true) then
-          UTL_FILE.put_line(fich_salida_load, '  --options-file ${PATH_TMP}/${ARCHIVO_SQL}.1 \');
+          UTL_FILE.put_line(fich_salida_load, '  --options-file ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1 \');
         else
-          UTL_FILE.put_line(fich_salida_load, '  --options-file ${PATH_TMP}/${ARCHIVO_SQL} \');
+          UTL_FILE.put_line(fich_salida_load, '  --options-file ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL} \');
         end if;
         UTL_FILE.put_line(fich_salida_load, '  --hive-import \');
+        UTL_FILE.put_line(fich_salida_load, '  --delete-target-dir \');        
         UTL_FILE.put_line(fich_salida_load, '  --hive-table ' || '${ESQUEMA_ST}.SA_' || reg_tabla.TABLE_NAME || ' \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-partition-key fch_carga \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-partition-value "${FECHA_FMT_HIVE}" \');
-        UTL_FILE.put_line(fich_salida_load, '  --target-dir ${PATH_TMP}/${INTERFAZ} \');
+        UTL_FILE.put_line(fich_salida_load, '  --target-dir ${' || NAME_DM || '_TMP}/${INTERFAZ} \');
         UTL_FILE.put_line(fich_salida_load, '  --null-non-string ''\\N'' \');
         UTL_FILE.put_line(fich_salida_load, '  --null-string ''\\N'' \');
         UTL_FILE.put_line(fich_salida_load, '  -m 1');
@@ -3764,7 +3787,7 @@ begin
       else
         if (v_hay_usu_owner = true) then
           /* (20161109) Angel Ruiz. Puede ocurrir que el fichero .sql generado posea cadenas del tipo #OWNER_*# */
-          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${PATH_TMP}/${ARCHIVO_SQL} > ${PATH_TMP}/${ARCHIVO_SQL}.1');
+          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL} > ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1');
         end if;                
       
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}/${ARCHIVO_SQL} ${PATH_SALIDA}/${ARCHIVO_SALIDA}');
@@ -3772,12 +3795,13 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  --connect ${CAD_CONEX_EXT} \');
         UTL_FILE.put_line(fich_salida_load, '  --username ${BD_USR_EXT} \');
         UTL_FILE.put_line(fich_salida_load, '  --password ${BD_PWD} \');
+        UTL_FILE.put_line(fich_salida_load, '  --delete-target-dir \');
         if (v_hay_usu_owner = true) then
-          UTL_FILE.put_line(fich_salida_load, '  --options-file ${PATH_TMP}/${ARCHIVO_SQL}.1 \');
+          UTL_FILE.put_line(fich_salida_load, '  --options-file ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}.1 \');
         else
-          UTL_FILE.put_line(fich_salida_load, '  --options-file ${PATH_SQL}/${ARCHIVO_SQL} \');
+          UTL_FILE.put_line(fich_salida_load, '  --options-file ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL} \');
         end if;
-        UTL_FILE.put_line(fich_salida_load, '  --target-dir ${PATH_TMP}/${INTERFAZ} \');
+        UTL_FILE.put_line(fich_salida_load, '  --target-dir ${' || NAME_DM || '_TMP}/${INTERFAZ} \');
         UTL_FILE.put_line(fich_salida_load, '  --fields-terminated-by ''' || v_separator || ''' \');
         UTL_FILE.put_line(fich_salida_load, '  --null-non-string ''\\N'' \');
         UTL_FILE.put_line(fich_salida_load, '  --null-string ''\\N'' \');
@@ -3797,27 +3821,27 @@ begin
       /* va a las tablas de Stagin sin pasar por ficehro plano */
       /* (20161114) Angel Ruiz. NF. Como sqoop deja el fichero en la ruta especificada ${PATH_SALIDA}/ */
       UTL_FILE.put_line(fich_salida_load, '  # Procesamos el fichero obtenido');
-      UTL_FILE.put_line(fich_salida_load, '  hadoop fs -test -d ' || '${PATH_SALIDA}/${INTERFAZ}');      
+      UTL_FILE.put_line(fich_salida_load, '  hadoop fs -test -d ' || '${' || NAME_DM || '_SALIDA}/${INTERFAZ}');      
       UTL_FILE.put_line(fich_salida_load, '  if [ $? -ne 0 ]; then');
       UTL_FILE.put_line(fich_salida_load, '    # El directorio al que se van a copiar los ficheros no existe. Se crea.');
-      UTL_FILE.put_line(fich_salida_load, '    hadoop fs -mkdir ${PATH_SALIDA}/${INTERFAZ}');
+      UTL_FILE.put_line(fich_salida_load, '    hadoop fs -mkdir ${' || NAME_DM || '_SALIDA}/${INTERFAZ}');
       UTL_FILE.put_line(fich_salida_load, '  fi');
-      UTL_FILE.put_line(fich_salida_load, '  NUM_FILES=`hadoop fs -ls ${PATH_TMP}/${INTERFAZ}/part-m-* | wc -l`');
+      UTL_FILE.put_line(fich_salida_load, '  NUM_FILES=`hadoop fs -ls ${' || NAME_DM || '_TMP}/${INTERFAZ}/part-m-* | wc -l`');
       UTL_FILE.put_line(fich_salida_load, '  if [ ${NUM_FILES} -eq 1 ]; then');
-      UTL_FILE.put_line(fich_salida_load, '    hadoop fs -mv ' || '${PATH_TMP}/${INTERFAZ}/part-m-00000 ${PATH_SALIDA}/${INTERFAZ}/${ARCHIVO_SALIDA}');
+      UTL_FILE.put_line(fich_salida_load, '    hadoop fs -mv ' || '${' || NAME_DM || '_TMP}/${INTERFAZ}/part-m-00000 ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${ARCHIVO_SALIDA}');
       UTL_FILE.put_line(fich_salida_load, '    if [ $? -eq 0 ]; then');
-      UTL_FILE.put_line(fich_salida_load, '      hadoop fs -rm -r ' || '${PATH_TMP}/${INTERFAZ}');
+      UTL_FILE.put_line(fich_salida_load, '      hadoop fs -rm -r ' || '${' || NAME_DM || '_TMP}/${INTERFAZ}');
       UTL_FILE.put_line(fich_salida_load, '    fi');
       UTL_FILE.put_line(fich_salida_load, '  else');
-      UTL_FILE.put_line(fich_salida_load, '    hadoop fs -cat ' || '${PATH_TMP}/${INTERFAZ}/part-m-* > ${PATH_SALIDA}/${INTERFAZ}/${ARCHIVO_SALIDA}');
+      UTL_FILE.put_line(fich_salida_load, '    hadoop fs -cat ' || '${' || NAME_DM || '_TMP}/${INTERFAZ}/part-m-* > ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${ARCHIVO_SALIDA}');
       UTL_FILE.put_line(fich_salida_load, '    if [ $? -eq 0 ]; then');
-      UTL_FILE.put_line(fich_salida_load, '      hadoop fs -rm -r ' || '${PATH_TMP}/${INTERFAZ}');
+      UTL_FILE.put_line(fich_salida_load, '      hadoop fs -rm -r ' || '${' || NAME_DM || '_TMP}/${INTERFAZ}');
       UTL_FILE.put_line(fich_salida_load, '    fi');
       UTL_FILE.put_line(fich_salida_load, '  fi');
       UTL_FILE.put_line(fich_salida_load, '  # Borramos el fichero temporal');
-      UTL_FILE.put_line(fich_salida_load, '  rm ${PATH_TMP}/${ARCHIVO_SQL}*');
+      UTL_FILE.put_line(fich_salida_load, '  rm ${' || NAME_DM || '_TMP}/${ARCHIVO_SQL}*');
       UTL_FILE.put_line(fich_salida_load, '');
-      UTL_FILE.put_line(fich_salida_load, '  ValidaInformacionArchivo ${PATH_SALIDA}/${INTERFAZ}/${ARCHIVO_SALIDA}');
+      UTL_FILE.put_line(fich_salida_load, '  ValidaInformacionArchivo ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${ARCHIVO_SALIDA}');
     end if;
     UTL_FILE.put_line(fich_salida_load, '  return 0');
     UTL_FILE.put_line(fich_salida_load, '}');
@@ -3841,7 +3865,7 @@ begin
         --UTL_FILE.put_line(fich_salida_load, 'quit');
         --UTL_FILE.put_line(fich_salida_load, '!eof`');
       else
-        UTL_FILE.put_line(fich_salida_load, '  CONTEO_ARCHIVO=`hadoop fs -cat ${PATH_SALIDA}/${INTERFAZ}/${ARCHIVO_SALIDA} | wc -l`');
+        UTL_FILE.put_line(fich_salida_load, '  CONTEO_ARCHIVO=`hadoop fs -cat ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${ARCHIVO_SALIDA} | wc -l`');
       end if;
       UTL_FILE.put_line(fich_salida_load, '  if [ $? -ne 0 ]; then');
       UTL_FILE.put_line(fich_salida_load, '    SUBJECT="${REQ_NUM}:  ERROR: Al generar el conteo del fichero (ERROR al ejecutar wc)."');
@@ -3887,18 +3911,18 @@ begin
       UTL_FILE.put_line(fich_salida_load, 'GeneraFlag()');
       UTL_FILE.put_line(fich_salida_load, '{');
       UTL_FILE.put_line(fich_salida_load, '  NAME_FLAG=`echo ${ARCHIVO_SALIDA} | sed -e ''s/\.[Dd][Aa][Tt]/\.flag/''`');
-      UTL_FILE.put_line(fich_salida_load, '  echo "INICIA LA CREACION DEL ARCHIVO ${PATH_SALIDA}/${NAME_FLAG} [`date +%d/%m/%Y\ %H:%M:%S`]"');
+      UTL_FILE.put_line(fich_salida_load, '  echo "INICIA LA CREACION DEL ARCHIVO ${' || NAME_DM || '_SALIDA}/${NAME_FLAG} [`date +%d/%m/%Y\ %H:%M:%S`]"');
       UTL_FILE.put_line(fich_salida_load, '  echo ${CONTEO_ARCHIVO}');
       UTL_FILE.put_line(fich_salida_load, '  echo ${B_CONTEO_BD}');
-      UTL_FILE.put_line(fich_salida_load, '  printf "%-50s%015d%015d\n" ${ARCHIVO_SALIDA} ${CONTEO_ARCHIVO} ${B_CONTEO_BD} > ${PATH_TMP_LOCAL}/${NAME_FLAG}');
-      UTL_FILE.put_line(fich_salida_load, '  hadoop fs -put ${PATH_TMP_LOCAL}/${NAME_FLAG} ${PATH_SALIDA}/${INTERFAZ}/${NAME_FLAG}' );
+      UTL_FILE.put_line(fich_salida_load, '  printf "%-50s%015d%015d\n" ${ARCHIVO_SALIDA} ${CONTEO_ARCHIVO} ${B_CONTEO_BD} > ${' || NAME_DM || '_TMP_LOCAL}/${NAME_FLAG}');
+      UTL_FILE.put_line(fich_salida_load, '  hadoop fs -put ${' || NAME_DM || '_TMP_LOCAL}/${NAME_FLAG} ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${NAME_FLAG}' );
       UTL_FILE.put_line(fich_salida_load, '  if [ $? -ne 0 ]; then');
-      UTL_FILE.put_line(fich_salida_load, '    echo "Error al generar el archivo flag ${PATH_SALIDA}/${NAME_FLAG}"');
+      UTL_FILE.put_line(fich_salida_load, '    echo "Error al generar el archivo flag ${' || NAME_DM || '_SALIDA}/${NAME_FLAG}"');
       UTL_FILE.put_line(fich_salida_load, '    InsertaFinFallido');
       UTL_FILE.put_line(fich_salida_load, '    exit 3');
       UTL_FILE.put_line(fich_salida_load, '  fi');
-      UTL_FILE.put_line(fich_salida_load, '  rm ${PATH_TMP_LOCAL}/${NAME_FLAG}');
-      UTL_FILE.put_line(fich_salida_load, '  echo "TERMINA LA CREACION DEL ARCHIVO ${PATH_SALIDA}/${NAME_FLAG} [`date +%d/%m/%Y\ %H:%M:%S`]"');
+      UTL_FILE.put_line(fich_salida_load, '  rm ${' || NAME_DM || '_TMP_LOCAL}/${NAME_FLAG}');
+      UTL_FILE.put_line(fich_salida_load, '  echo "TERMINA LA CREACION DEL ARCHIVO ${' || NAME_DM || '_SALIDA}/${NAME_FLAG} [`date +%d/%m/%Y\ %H:%M:%S`]"');
       UTL_FILE.put_line(fich_salida_load, '}');
       --UTL_FILE.put_line(fich_salida_load, '################################################################################');
       --UTL_FILE.put_line(fich_salida_load, '# REALIZA EL ENVIO DE LOS ARCHIVOS POR SCP                                     #');
@@ -3947,7 +3971,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, '# EJECUCION DEL PROGRAMA                                                       #');
     UTL_FILE.put_line(fich_salida_load, '################################################################################');
     UTL_FILE.put_line(fich_salida_load, '');
-    UTL_FILE.put_line(fich_salida_load, '. ${PATH_ENTORNO}/entornoNGRD_MEX.sh');
+    UTL_FILE.put_line(fich_salida_load, '. ${' || NAME_DM || '_ENTORNO}/entornoNGRD_MEX.sh');
     UTL_FILE.put_line(fich_salida_load, 'set -x');
     UTL_FILE.put_line(fich_salida_load, '#Permite los acentos');
     UTL_FILE.put_line(fich_salida_load, 'export NLS_LANG=AMERICAN_AMERICA.WE8ISO8859P1');
@@ -3993,7 +4017,8 @@ begin
     UTL_FILE.put_line(fich_salida_load, 'else');
     --UTL_FILE.put_line(fich_salida_load, '  OWNER="ONIX"');
     UTL_FILE.put_line(fich_salida_load, '  #CUENTAS PARA MANTENIMIENTO');
-    UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL=`cat ${PATH_REQ}/shells/Utilerias/Correos_Mtto_ReportesBI.txt`');
+    --UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL=`cat ${' || NAME_DM || '_REQ}/shells/Utilerias/Correos_Mtto_ReportesBI.txt`');
+    UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL=`cat ${' || NAME_DM || '_CONFIGURACION}/Correos_Mtto_ReportesBI.txt`');
     UTL_FILE.put_line(fich_salida_load, '  #BASE DONDE SE CARGARA LA INFORMACION');
     --UTL_FILE.put_line(fich_salida_load, '  BD_SID="' || BD_SID || '"');
     --UTL_FILE.put_line(fich_salida_load, '  BD_USR="' || BD_USR || '"');
@@ -4010,18 +4035,18 @@ begin
     UTL_FILE.put_line(fich_salida_load, '################################################################################');
     UTL_FILE.put_line(fich_salida_load, 'if [ -z "${LD_UTILBD}" ] ; then');
     --UTL_FILE.put_line(fich_salida_load, '  . ${PATH_REQ}/shells/Utilerias/UtilBD.sh');
-    UTL_FILE.put_line(fich_salida_load, '  . ${PATH_UTILIDADES}/UtilBD.sh');
+    UTL_FILE.put_line(fich_salida_load, '  . ${' || NAME_DM || '_UTILIDADES}/UtilBD.sh');
     UTL_FILE.put_line(fich_salida_load, 'fi');
     UTL_FILE.put_line(fich_salida_load, 'if [ -z "${LD_UTILArchivo}" ] ; then');
     --UTL_FILE.put_line(fich_salida_load, '  . ${PATH_REQ}/shells/Utilerias/UtilBD.sh');
-    UTL_FILE.put_line(fich_salida_load, '  . ${PATH_UTILIDADES}/UtilArchivo.sh');
+    UTL_FILE.put_line(fich_salida_load, '  . ${' || NAME_DM || '_UTILIDADES}/UtilArchivo.sh');
     UTL_FILE.put_line(fich_salida_load, 'fi');
     --UTL_FILE.put_line(fich_salida_load, 'LdVarOra');
     UTL_FILE.put_line(fich_salida_load, '################################################################################');
     UTL_FILE.put_line(fich_salida_load, '# LLAMADO DE LAS FUNCIONES ESPECIALES                                          #');
     UTL_FILE.put_line(fich_salida_load, '################################################################################');
     if (v_type_validation <> 'I') then
-      UTL_FILE.put_line(fich_salida_load, 'DepuracionDeProducto ${REQ_NUM} ${PATH_SALIDA}/${NOM_INTERFAZ}* 2');
+      UTL_FILE.put_line(fich_salida_load, 'DepuracionDeProducto ${REQ_NUM} ${' || NAME_DM || '_SALIDA}/${NOM_INTERFAZ}* 2');
     end if;
     UTL_FILE.put_line(fich_salida_load, '#OBTIENE LA CONTRASENA DE LA B.D. PARA LA EXTRACCION');
     UTL_FILE.put_line(fich_salida_load, 'ObtenContrasena ${SIST_ORIGEN}');
