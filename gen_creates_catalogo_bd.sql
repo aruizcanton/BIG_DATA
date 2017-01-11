@@ -121,11 +121,12 @@ BEGIN
         --DBMS_OUTPUT.put_line('REFERENCES ' || OWNER_DM || '.' || PREFIJO_DM || 'D_' || substr(reg_per_val. AGREGATION,5) || ' (' || 'CVE_' || substr(reg_per_val. AGREGATION,5) || ')');
       --END IF;
       DBMS_OUTPUT.put_line(')');
-      DBMS_OUTPUT.put_line('CLUSTERED BY (');
-      DBMS_OUTPUT.put_line('CVE_' || reg_per_val.ITEM_NAME);
-      DBMS_OUTPUT.put_line(')');
-      DBMS_OUTPUT.put_line('INTO 1 BUCKETS');
-      DBMS_OUTPUT.put_line('STORED AS ORC TBLPROPERTIES (''transactional''=''true'', ''orc.compress''=''ZLIB'', ''orc.create.index''=''true'')');
+      --DBMS_OUTPUT.put_line('CLUSTERED BY (');
+      --DBMS_OUTPUT.put_line('CVE_' || reg_per_val.ITEM_NAME);
+      --DBMS_OUTPUT.put_line(')');
+      --DBMS_OUTPUT.put_line('INTO 1 BUCKETS');
+      --DBMS_OUTPUT.put_line('STORED AS ORC TBLPROPERTIES (''transactional''=''true'', ''orc.compress''=''ZLIB'', ''orc.create.index''=''true'')');
+      DBMS_OUTPUT.put_line('STORED AS ORC TBLPROPERTIES (''orc.compress''=''ZLIB'', ''orc.create.index''=''true'')');
       DBMS_OUTPUT.put_line(';');
       --DBMS_OUTPUT.put_line('TABLESPACE ' || TABLESPACE_DIM || ';'); /* Parentesis final del create*/      
      
