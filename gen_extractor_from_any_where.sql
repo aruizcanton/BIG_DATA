@@ -1935,8 +1935,8 @@ SELECT
         /* Heos de detactar si son caracter para ponerlas */
         if (reg_detalle_in.TYPE <> 'NU') then
           if instr(reg_detalle_in.VALUE, '''') > 0 then
-            /* realmente trae comillas con lo que no hay que ponerlas */
-            valor_retorno := reg_detalle_in.VALUE;
+            /* realmente trae comillas con lo que me quedo con la parte que no tiene comillas y se las pongo despues */
+            valor_retorno := '''' || regexp_substr(reg_detalle_in.VALUE, '[^'']*') || '''';
           else
             valor_retorno := '''' || reg_detalle_in.VALUE || '''';
           end if;
@@ -2548,6 +2548,7 @@ begin
         /* Inicio generacion parte  SELECT (CAMPO1, CAMPO2, CAMPO3, ...) */
         /****/
         /* Inicializamos las listas que van a contener las tablas del FROM y las clausulas WHERE*/
+        UTL_FILE.put_line (fich_salida_pkg,'-- ESCENARIO: ' || reg_scenario.SCENARIO);
         l_FROM.delete;
         l_WHERE.delete;
         /* Fin de la inicializacion */
