@@ -2975,7 +2975,7 @@ begin
         nombre_proceso := nombre_tabla_reducido;
       end if;
       --nombre_fich_carga := 'load_ne_' || reg_tabla.TABLE_NAME || '.sh';
-      nombre_fich_carga := 'load_' || reg_tabla.TABLE_NAME || '.sh';
+      nombre_fich_carga := 'load_ne_' || reg_tabla.TABLE_NAME || '.sh';
       --nombre_fich_pkg := 'pkg_' || reg_tabla.TABLE_NAME || '.sql';
       nombre_fich_pkg := 'pkg_' || reg_tabla.TABLE_NAME || '.sql'; /* Angel Ruiz (20141201) Hecho porque hay paquetes que no compilan */
       --nombre_fich_exchange := 'load_ex_' || reg_tabla.TABLE_NAME || '.sh';
@@ -3211,16 +3211,7 @@ begin
           /* FIN */
           dbms_output.put_line ('Despues del FROM');
           UTL_FILE.put_line(fich_salida_pkg, 'WHERE ');
-          /* (20170104) Angel Ruiz. Pueden aparecer Queries en TABLE_BASE_NAME */
-          if (regexp_instr (reg_scenario.TABLE_BASE_NAME,'[Ss][Ee][Ll][Ee][Cc][Tt] ') = 0) then
-            /* NO hay queries en TABLE_BASE_NAME. Solo entonces podemos poner la condicion para seleccionar la particion de la que vamos a obtener datos*/
-            /* cuando es una QUERY lo que hay en el TABLE_BASE_NAME, sera dentro de la query donde tendremos que filtrar */
-            UTL_FILE.put_line(fich_salida_pkg, '    ' || reg_scenario.TABLE_BASE_NAME || '.FCH_CARGA = ''#VAR_FCH_CARGA#''');
-            UTL_FILE.put_line(fich_salida_pkg, '    AND ' || reg_detail.TABLE_NAME || '.' || where_table_columns ( where_table_columns.FIRST) || ' IS NULL');
-          else
-            /* Es una quEry lo que viene en TABLE_BASE_NAME. No podemos poner el filtro de la particion de la que vammos a tomar los datos */
-            UTL_FILE.put_line(fich_salida_pkg, '        '  || reg_scenario.TABLE_NAME || '.' || where_table_columns ( where_table_columns.FIRST) || ' IS NULL');
-          end if;
+          UTL_FILE.put_line(fich_salida_pkg, '        '  || reg_scenario.TABLE_NAME || '.' || where_table_columns ( where_table_columns.FIRST) || ' IS NULL');
           
           if (reg_scenario.FILTER is not null) then
             /* Añadimos el campo FILTER */
@@ -3369,14 +3360,7 @@ begin
                 end if;
               end if;
             END LOOP;
-            /* (20170104) Angel Ruiz. Pueden aparecer Queries en TABLE_BASE_NAME */
-            if (regexp_instr (reg_scenario.TABLE_BASE_NAME,'[Ss][Ee][Ll][Ee][Cc][Tt] ') = 0) then
-              /* No es una Query el TABLE_BASE_NAME */
-              UTL_FILE.put_line(fich_salida_pkg, '    AND '  || v_alias_dim_table_base_name || '.FCH_CARGA = ''#VAR_FCH_CARGA#'')');
-            else
-              /* Es una query. No ponemos la condicion para tomar datos de la particion de la fecha de carga ya que tiene que venir dentro de la query */
-              UTL_FILE.put_line(fich_salida_pkg, '        )');
-            end if;
+            UTL_FILE.put_line(fich_salida_pkg, '        )');
           END IF;
 
           /* (20160630) Angel Ruiz. NF: Dimensiones sin funciones cache */
@@ -3531,13 +3515,7 @@ begin
                 end if;
               end if;
             END LOOP;
-            /* (20170104) Angel Ruiz. Pueden aparecer Queries en TABLE_BASE_NAME */
-            if (regexp_instr (reg_scenario.TABLE_BASE_NAME,'[Ss][Ee][Ll][Ee][Cc][Tt] ') = 0) then
-              UTL_FILE.put_line(fich_salida_pkg, '    AND '  || v_alias_dim_table_base_name || '.FCH_CARGA = ''#VAR_FCH_CARGA#'')');
-            else
-              /* Vienen queries en TABLE_BASE_NAME por lo que la condicion para tomar los datos de la particion correcta hiria dentro de la propia query */
-              UTL_FILE.put_line(fich_salida_pkg, '    )');
-            end if;
+            UTL_FILE.put_line(fich_salida_pkg, '    )');
             --UTL_FILE.put_line(fich_salida_pkg, '    AND ' || reg_scenario.TABLE_BASE_NAME || '.' || where_interface_columns(where_interface_columns.FIRST) || ' IS NULL)' );
           END IF;
           
@@ -3901,7 +3879,7 @@ begin
       UTL_FILE.put_line(fich_salida_load, '');
       UTL_FILE.put_line(fich_salida_load, 'sed -e "s/#VAR_FCH_REGISTRO#/${INICIO_PASO_TMR}/g" -e "s/#VAR_FCH_CARGA#/${FCH_CARGA_FMT_HIVE}/g" -e "s/#VAR_FCH_DATOS#/${FCH_DATOS_FMT_HIVE}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '.sql > ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
       
-      UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -f ' || '${NGRD_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+      UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -f ' || '${NGRD_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
       UTL_FILE.put_line(fich_salida_load, 'err_salida=$?');
       UTL_FILE.put_line(fich_salida_load, '');
       UTL_FILE.put_line(fich_salida_load, 'if [ ${err_salida} -ne 0 ]; then');

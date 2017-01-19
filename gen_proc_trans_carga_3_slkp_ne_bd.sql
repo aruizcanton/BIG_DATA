@@ -16,7 +16,7 @@ SELECT
     --trim(MTDT_TC_SCENARIO.TABLE_NAME) = trim(mtdt_modelo_logico.TABLE_NAME) and (20150907) Angel Ruiz NF. Nuevas tablas.
     trim(MTDT_TC_SCENARIO.TABLE_NAME) = trim(mtdt_modelo_summary.TABLE_NAME) and
     trim(MTDT_TC_SCENARIO.TABLE_NAME) in ('NGA_PARQUE_ABO_MES', 'NGA_PARQUE_SVA_MES', 'NGA_PARQUE_BENEF_MES', 'NGG_TRANSACCIONES_DETAIL', 'NGA_COMIS_POS_ABO_MES', 'NGA_AJUSTE_ABO_MES', 'NGA_NOSTNDR_CONTRATOS_MES', 'NGA_ALTAS_CANAL_MES', 'NGF_PERIMETRO', 'NGA_NOSTNDR_PLANTA_MES');
-    --trim(MTDT_TC_SCENARIO.TABLE_NAME) in ('NGG_TRANSACCIONES_DETAIL');
+    --trim(MTDT_TC_SCENARIO.TABLE_NAME) in ('NGA_PARQUE_ABO_MES');
     
   cursor MTDT_SCENARIO (table_name_in IN VARCHAR2)
   is
@@ -3241,51 +3241,6 @@ begin
             campo_filter := procesa_campo_filter(reg_scenario.FILTER);
             UTL_FILE.put_line(fich_salida_pkg, campo_filter);
             dbms_output.put_line ('Despues de procesar el campo FILTER');
-            /* (20161229) Angel Ruiz. Ocurre que nuestras tablas de Staging tienen particiones por dia de carga */
-            /* por lo que hemos de poner la condicion para que carguemos solo los datos de la particion */
-            /* del dia de carga */
-            if (regexp_instr (reg_scenario.TABLE_BASE_NAME,'[Ss][Ee][Ll][Ee][Cc][Tt] ') = 0) then
-              /* No hay una query en TABLE_BASE_NAME. Hay que tener en cuenta que cuando hay una query */
-              /* no podemos añadir la condicion para cargar solo los datos de la particion del dia de carga */
-              if (REGEXP_LIKE(trim(reg_scenario.TABLE_BASE_NAME), '^[a-zA-Z_0-9#\.&]+ +[a-zA-Z_0-9]+$') = true) then
-                /* Posee un alias */
-                v_alias := trim(REGEXP_SUBSTR(reg_scenario.TABLE_BASE_NAME, ' +[a-zA-Z_0-9]+$'));
-                UTL_FILE.put_line(fich_salida_pkg, 'AND ' || v_alias || '.FCH_CARGA = #VAR_FCH_CARGA#');
-              else
-                /* No hay Alias */
-                if (REGEXP_LIKE(reg_scenario.TABLE_BASE_NAME, '^[a-zA-Z_0-9#]+\.[a-zA-Z_0-9&]+') = true) then
-                  /* No hay alias pero la tabla posee un propietario, es decir, esta calificada */
-                  UTL_FILE.put_line(fich_salida_pkg, 'AND ' || substr(reg_scenario.TABLE_BASE_NAME, instr(reg_scenario.TABLE_BASE_NAME, '.')+1) || '.FCH_CARGA = #VAR_FCH_CARGA#');
-                else
-                  UTL_FILE.put_line(fich_salida_pkg, 'AND ' || reg_scenario.TABLE_BASE_NAME || '.FCH_CARGA = #VAR_FCH_CARGA#');
-                end if;
-              end if;
-            end if;
-            /* (20161229) Angel Ruiz. Fin Modificacion*/
-          else
-            /* No hay FILTER, pero hay que poner la condicion para que carguemos solo los datos de la particion del dia de carga*/
-            UTL_FILE.put_line(fich_salida_pkg,'WHERE');
-            /* (20161229) Angel Ruiz. Ocurre que nuestras tablas de Staging tienen particiones por dia de carga */
-            /* por lo que hemos de poner la condicion para que carguemos solo los datos de la particion */
-            /* del dia de carga */
-            if (regexp_instr (reg_scenario.TABLE_BASE_NAME,'[Ss][Ee][Ll][Ee][Cc][Tt] ') = 0) then
-              /* No hay una query en TABLE_BASE_NAME. Hay que tener en cuenta que cuando hay una query */
-              /* no podemos añadir la condicion para cargar solo los datos de la particion del dia de carga */
-              if (REGEXP_LIKE(trim(reg_scenario.TABLE_BASE_NAME), '^[a-zA-Z_0-9#\.&]+ +[a-zA-Z_0-9]+$') = true) then
-                /* Posee un alias */
-                v_alias := trim(REGEXP_SUBSTR(reg_scenario.TABLE_BASE_NAME, ' +[a-zA-Z_0-9]+$'));
-                UTL_FILE.put_line(fich_salida_pkg, 'AND ' || v_alias || '.FCH_CARGA = #VAR_FCH_CARGA#');
-              else
-                /* No hay Alias */
-                if (REGEXP_LIKE(reg_scenario.TABLE_BASE_NAME, '^[a-zA-Z_0-9#]+\.[a-zA-Z_0-9&]+') = true) then
-                  /* No hay alias pero la tabla posee un propietario, es decir, esta calificada */
-                  UTL_FILE.put_line(fich_salida_pkg, 'AND ' || substr(reg_scenario.TABLE_BASE_NAME, instr(reg_scenario.TABLE_BASE_NAME, '.')+1) || '.FCH_CARGA = #VAR_FCH_CARGA#');
-                else
-                  UTL_FILE.put_line(fich_salida_pkg, 'AND ' || reg_scenario.TABLE_BASE_NAME || '.FCH_CARGA = #VAR_FCH_CARGA#');
-                end if;
-              end if;
-            end if;
-            /* (20161229) Angel Ruiz. Fin Modificacion*/
           end if;
           UTL_FILE.put_line(fich_salida_pkg, ';');
           UTL_FILE.put_line(fich_salida_pkg, '');
@@ -3392,33 +3347,6 @@ begin
             --campo_filter := procesa_campo_filter_dinam(reg_scenario.FILTER);
             campo_filter := procesa_campo_filter_dinam(reg_scenario.FILTER);
             UTL_FILE.put_line(fich_salida_pkg, campo_filter);
-            /* (20161229) Angel Ruiz. Ocurre que nuestras tablas de Staging tienen particiones por dia de carga */
-            /* por lo que hemos de poner la condicion para que carguemos solo los datos de la particion */
-            /* del dia de carga */
-            if (regexp_instr (reg_scenario.TABLE_BASE_NAME,'[Ss][Ee][Ll][Ee][Cc][Tt] ') = 0) then
-              /* No hay una query en TABLE_BASE_NAME. Hay que tener en cuenta que cuando hay una query */
-              /* no podemos añadir la condicion para cargar solo los datos de la particion del dia de carga */
-              if (REGEXP_LIKE(trim(reg_scenario.TABLE_BASE_NAME), '^[a-zA-Z_0-9#\.&]+ +[a-zA-Z_0-9]+$') = true) then
-                /* Posee un alias */
-                v_alias := trim(REGEXP_SUBSTR(reg_scenario.TABLE_BASE_NAME, ' +[a-zA-Z_0-9]+$'));
-                UTL_FILE.put_line(fich_salida_pkg, 'AND ' || v_alias || '.FCH_CARGA = ''#VAR_FCH_CARGA#''');
-              else
-                /* No hay Alias */
-                UTL_FILE.put_line(fich_salida_pkg, 'AND ' || reg_scenario.TABLE_BASE_NAME || '.FCH_CARGA = #VAR_FCH_CARGA#');
-              end if;
-            end if;
-            /* (20161229) Angel Ruiz. Fin Modificacion*/
-          else
-            /* NO hay FILTER, pero hay que poner la condicion para cargar solo los datos de la particion del dia de carga */
-            UTL_FILE.put_line(fich_salida_pkg,'WHERE');
-            if (REGEXP_LIKE(trim(reg_scenario.TABLE_BASE_NAME), '^[a-zA-Z_0-9#\.&]+ +[a-zA-Z_0-9]+$') = true) then
-              /* Posee un alias */
-              v_alias := trim(REGEXP_SUBSTR(reg_scenario.TABLE_BASE_NAME, ' +[a-zA-Z_0-9]+$'));
-              UTL_FILE.put_line(fich_salida_pkg, 'AND ' || v_alias || '.FCH_CARGA = ''#VAR_FCH_CARGA#''');
-            else
-              /* No hay Alias */
-              UTL_FILE.put_line(fich_salida_pkg, 'AND ' || reg_scenario.TABLE_BASE_NAME || '.FCH_CARGA = #VAR_FCH_CARGA#');
-            end if;
           end if;
           dbms_output.put_line ('Despues de procesar el campo FILTER');
           UTL_FILE.put_line(fich_salida_pkg, ';');
@@ -3499,7 +3427,7 @@ begin
       end if;
       if ((regexp_count(substr(reg_modelo_logico_col.TABLE_NAME, 1, 4), '??A_',1,'i') >0 or 
       regexp_count(substr(reg_modelo_logico_col.TABLE_NAME, 1, 4), '??G_',1,'i') >0 ) AND
-      (upper(trim(reg_modelo_logico_col.COLUMN_NAME)) = 'CVE_MES' AND v_tipo_particionado= 'M')) then
+      (upper(trim(reg_modelo_logico_col.COLUMN_NAME)) = 'CVE_DIA' AND v_tipo_particionado= 'M')) then
         /* SE TRATA DE UNA TABLA DE AGREGADOS CON COLUMNA CVE_MES y CVE_DIA ==> PARTICIONAMIENTO MENSUAL Y DIARIO */
         v_tipo_particionado := 'MyD';   /* Particionado Mensual y Diario */
         lista_par.extend;
@@ -3534,6 +3462,7 @@ begin
         UTL_FILE.put_line(fich_salida_pkg,'PARTITION (CVE_DIA=#VAR_CVE_DIA#)');
       end if;
     end if;
+    dbms_output.put_line('######El particionado es: ' || v_tipo_particionado);
     UTL_FILE.put_line(fich_salida_pkg, 'SELECT');
     OPEN c_mtdt_modelo_logico_COLUMNA (reg_tabla.TABLE_NAME);
     primera_col := 1;
@@ -3789,7 +3718,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, 'sed -e "s/#VAR_FCH_REGISTRO#/${INICIO_PASO_TMR}/g" -e "s/#VAR_FCH_CARGA#/${FCH_CARGA_FMT_HIVE}/g" -e "s/#VAR_FCH_DATOS#/${FCH_DATOS_FMT_HIVE}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" -e "s/#VAR_CVE_MES#/${FCH_CARGA_MES}/g" -e "s/#VAR_CVE_DIA#/${VAR_FCH_CARGA}/g" ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '.sql > ${NGRD_TMP}/' || 'pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
 
     /***********************************************************************************/
-    UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -f ' || '${NGRD_TMP}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+    UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -f ' || '${NGRD_TMP}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
     UTL_FILE.put_line(fich_salida_load, 'err_salida=$?');
     UTL_FILE.put_line(fich_salida_load, '');
     UTL_FILE.put_line(fich_salida_load, 'if [ ${err_salida} -ne 0 ]; then');
