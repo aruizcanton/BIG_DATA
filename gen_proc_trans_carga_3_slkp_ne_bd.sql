@@ -574,14 +574,14 @@ SELECT
             if (instr(lista_elementos(indx), '''') = 0) then
               /* Se trata de un elemnto tipo ID_CANAL pero situado al final del DECODE */
               if (outer_in = 1) then
-                v_cadena_temp := v_cadena_temp || regexp_replace(lista_elementos(indx), ' *([A-Za-z_]+) *\)', alias_in || '.\1' || ' (+) )'); /* cambio ID_FUENTE por ALIAS.ID_FUENTE */
+                v_cadena_temp := v_cadena_temp || regexp_replace(lista_elementos(indx), ' *([A-Za-z_]+) *\)', alias_in || '.\1' || ' (+))'); /* cambio ID_FUENTE por ALIAS.ID_FUENTE */
               else
-                v_cadena_temp := v_cadena_temp || regexp_replace(lista_elementos(indx), ' *([A-Za-z_]+) *\)', alias_in || '.\1'); /* cambio ID_FUENTE por ALIAS.ID_FUENTE */
+                v_cadena_temp := v_cadena_temp || regexp_replace(lista_elementos(indx), ' *([A-Za-z_]+) *\)', alias_in || '.\1' || ')'); /* cambio ID_FUENTE por ALIAS.ID_FUENTE */
               end if;
             else
               /* Se trata de un elemento literal situado como ultimo elemento del decode, tipo '1' */
               /* Le ponemos doble comillas ya que estamos generando una query deinamica */
-              v_cadena_temp := v_cadena_temp || sustituye_comillas_dinam(lista_elementos(indx));
+              v_cadena_temp := v_cadena_temp || sustituye_comillas_dinam(lista_elementos(indx)) || ')';
             end if;
           else
             /* Se trata del resto de elmentos 'SER', ID_CANAL*/
