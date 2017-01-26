@@ -529,10 +529,10 @@ BEGIN
     --UTL_FILE.put_line(fich_salida_sh, 'for FILE in ${NOMBRE_FICH_CARGA}');
     --UTL_FILE.put_line(fich_salida_sh, 'do');
     --UTL_FILE.put_line(fich_salida_sh, '  REG_LEIDOS=`wc -l ${FILE} | cut -d " " -f 1`');
-    UTL_FILE.put_line(fich_salida_sh, 'REG_LEIDOS=`hadoop fs -cat ${FILE} | wc -l`');
+    UTL_FILE.put_line(fich_salida_sh, 'REG_LEIDOS=`hadoop fs -cat ${NOMBRE_FICH_CARGA} | wc -l`');
     UTL_FILE.put_line(fich_salida_sh, '');
     UTL_FILE.put_line(fich_salida_sh, '# Llamada a beeline para añadir una particion a la tabla de historico de Staging SAH_' || reg_summary.CONCEPT_NAME);
-    UTL_FILE.put_line(fich_salida_sh, 'NOMBRE_FICH_DATOS=`basename ${FILE}`');
+    UTL_FILE.put_line(fich_salida_sh, 'NOMBRE_FICH_DATOS=`basename ${NOMBRE_FICH_CARGA}`');
     /* (20161125) Angel Ruiz. Modifico el camino fuente del que cargo la informacion */
     --UTL_FILE.put_line(fich_salida_sh, '  beeline -u ${CAD_CONEX}/${ESQUEMA_SA} -n ${BD_USUARIO} -p ${BD_CLAVE} -e "LOAD DATA INPATH ''file://${FILE}' || ''' OVERWRITE INTO TABLE ${ESQUEMA_SA}.SA_' || reg_summary.CONCEPT_NAME ||' PARTITION (FCH_CARGA=''${FCH_FMT_HIVE}'');" >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
     --UTL_FILE.put_line(fich_salida_sh, '  beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_SA} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "LOAD DATA INPATH ''${FILE}' || ''' OVERWRITE INTO TABLE ${ESQUEMA_SA}.SA_' || reg_summary.CONCEPT_NAME ||' PARTITION (FCH_CARGA=''${FCH_CARGA_FMT_HIVE}'');" >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
@@ -564,10 +564,34 @@ BEGIN
       INTO reg_datail;
       EXIT WHEN dtd_interfaz_detail%NOTFOUND;
       if primera_col = 1 then /* Si es primera columna */
-        UTL_FILE.put_line(fich_salida_sh, '  ' || reg_datail.COLUMNA);
+        if (trim(reg_datail.COLUMNA) <> 'FILE_NAME') then
+          UTL_FILE.put_line(fich_salida_sh, '  ' || reg_datail.COLUMNA);
+        else
+          if (v_existe_file_name > 0) then
+            /* El nombre del fichero plano viene desde la extraccion, por lo que lo cargamos */
+            /* desde el ficehro plano */
+            UTL_FILE.put_line(fich_salida_sh, '  ' || reg_datail.COLUMNA);
+          else
+            /* El nombre del fichero plano no va a venir desde la extracción */
+            /* por lo que hay que ponerlo */
+            UTL_FILE.put_line(fich_salida_sh, '  ' || '''${NOMBRE_FICH_DATOS}''');
+          end if;
+        end if;
         primera_col := 0;
       else
-        UTL_FILE.put_line(fich_salida_sh, '  ,' || reg_datail.COLUMNA);
+        if (trim(reg_datail.COLUMNA) <> 'FILE_NAME') then
+          UTL_FILE.put_line(fich_salida_sh, '  ,' || reg_datail.COLUMNA);
+        else
+          if (v_existe_file_name > 0) then
+            /* El nombre del fichero plano viene desde la extraccion, por lo que lo cargamos */
+            /* desde el ficehro plano */
+            UTL_FILE.put_line(fich_salida_sh, '  ,' || reg_datail.COLUMNA);
+          else
+            /* El nombre del fichero plano no va a venir desde la extracción */
+            /* por lo que hay que ponerlo */
+            UTL_FILE.put_line(fich_salida_sh, '  ,' || '''${NOMBRE_FICH_DATOS}''');
+          end if;
+        end if;
       end if;
     END LOOP;
     CLOSE dtd_interfaz_detail;
@@ -606,23 +630,6 @@ BEGIN
     UTL_FILE.put_line(fich_salida_sh, 'TOT_LEIDOS=`expr ${TOT_LEIDOS} + ${REG_LEIDOS}`');
     UTL_FILE.put_line(fich_salida_sh, 'TOT_INSERTADOS=`expr ${TOT_INSERTADOS} + ${REG_INSERTADOS}`');
     UTL_FILE.put_line(fich_salida_sh, 'TOT_RECHAZADOS=`expr ${TOT_RECHAZADOS} + ${REG_RECHAZADOS}`');
-    if (v_existe_file_name = 0) then
-      /* (20161125) Angel Ruiz. Existe la columna FILE_NAME especificada en el interfaz pero no en la extraccion. */
-      /* por lo que hay que anyadir el nombre del fichero en la carga de la tabla de Stagin en una tabla temporal */
-      /* para lo cual cargamos una tabla temporal con el nombre del fichero */
-      UTL_FILE.put_line(fich_salida_sh, '# Tenemos que cargar el nombre del fichero en un campo de una tabla temporal creada para ello');
-      UTL_FILE.put_line(fich_salida_sh, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_SA} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "CREATE TABLE ${ESQUEMA_SA}.SA_' || reg_summary.CONCEPT_NAME || '_T01 STORED AS ORC TBLPROPERTIES (''transactional''=''true'', ''orc.compress''=''ZLIB'', ''orc.create.index''=''true'') AS SELECT * , ''${NOMBRE_FICH_DATOS}'' FILE_NAME FROM ${ESQUEMA_SA}.SA_' || reg_summary.CONCEPT_NAME || ' WHERE FCH_CARGA=''${FCH_CARGA_FMT_HIVE}'';" >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
-      UTL_FILE.put_line(fich_salida_sh, 'err_salida=$?');
-      UTL_FILE.put_line(fich_salida_sh, '');
-      UTL_FILE.put_line(fich_salida_sh, 'if [ ${err_salida} -ne 0 ]; then');
-      UTL_FILE.put_line(fich_salida_sh, '  SUBJECT="${INTERFAZ}: Surgio un error a la anyadir el nombre del ficehro a la tabla de staging ' || 'SA_' || reg_summary.CONCEPT_NAME || '. Error:  ${err_salida}."');
-      UTL_FILE.put_line(fich_salida_sh, '  ${SHELL_SMS} "${TELEFONOS_DWH}" "${SUBJECT}"');
-      UTL_FILE.put_line(fich_salida_sh, '  echo ${SUBJECT} >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log');    
-      UTL_FILE.put_line(fich_salida_sh, '  echo `date` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log');
-      UTL_FILE.put_line(fich_salida_sh, '  InsertaFinFallido');
-      UTL_FILE.put_line(fich_salida_sh, '  exit 1');    
-      UTL_FILE.put_line(fich_salida_sh, 'fi');
-    end if;
     --UTL_FILE.put_line(fich_salida_sh, 'done');
     UTL_FILE.put_line(fich_salida_sh, '');
     --UTL_FILE.put_line(fich_salida_sh, '');
@@ -642,7 +649,7 @@ BEGIN
     --UTL_FILE.put_line(fich_salida_sh, '# Movemos el fichero cargado a /' || NAME_DM || '/MEX/DESTINO');
     UTL_FILE.put_line(fich_salida_sh, '');
     --UTL_FILE.put_line(fich_salida_sh, '# Movemos el fichero de flag al directorio destino.' );
-    UTL_FILE.put_line(fich_salida_sh, '# BORRAMOS el fichero de flag.' );
+    --UTL_FILE.put_line(fich_salida_sh, '# BORRAMOS el fichero de flag.' );
     /* (20161125) Angel Ruiz. Cambio la estructura de los directorio fuente y destino suprimiendo la division por fecha de carga */
     --UTL_FILE.put_line(fich_salida_sh, 'if [ ! -d ${' || 'PATH' || '_DESTINO}/${FCH_CARGA} ] ; then');
     --UTL_FILE.put_line(fich_salida_sh, 'hadoop fs -test -d ${' || NAME_DM || '_DESTINO}/' || reg_summary.CONCEPT_NAME);      
@@ -660,7 +667,7 @@ BEGIN
     --UTL_FILE.put_line(fich_salida_sh, 'hadoop fs -mv ${' || 'PATH' || '_FUENTE}/' || reg_summary.CONCEPT_NAME || '/' || nombre_interface_a_cargar || ' ${' || 'PATH' || '_DESTINO}/' || reg_summary.CONCEPT_NAME || ' >> ${' || 'PATH' || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');    
     --UTL_FILE.put_line(fich_salida_sh, 'mv ${' || NAME_DM || '_FUENTE}/${FCH_CARGA}/' || nombre_flag_a_cargar || ' ${' || NAME_DM || '_DESTINO}/${FCH_CARGA} >> ${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
     --UTL_FILE.put_line(fich_salida_sh, 'hadoop fs -mv ${' || NAME_DM || '_FUENTE}/' || reg_summary.CONCEPT_NAME || '/' || '${FCH_CARGA}/' || nombre_flag_a_cargar || ' ${' || NAME_DM || '_DESTINO}/' || reg_summary.CONCEPT_NAME || '/${FCH_CARGA} >> ${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
-    UTL_FILE.put_line(fich_salida_sh, 'hadoop fs -rm ${' || NAME_DM || '_FUENTE}/' || reg_summary.CONCEPT_NAME || '/' || '${FCH_CARGA}/' || nombre_flag_a_cargar || ' >> ${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+    --UTL_FILE.put_line(fich_salida_sh, 'hadoop fs -rm ${' || NAME_DM || '_FUENTE}/' || reg_summary.CONCEPT_NAME || '/' || '${FCH_CARGA}/' || nombre_flag_a_cargar || ' >> ${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
     UTL_FILE.put_line(fich_salida_sh, 'exit 0');    
     UTL_FILE.put_line(fich_salida_sh, '');    
     /******/
