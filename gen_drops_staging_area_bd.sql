@@ -10,7 +10,8 @@
       SEPARATOR,
       DELAYED
     FROM MTDT_INTERFACE_SUMMARY
-    WHERE SOURCE <> 'SA';
+    WHERE SOURCE <> 'SA' and TRIM(SOURCE) <> 'MAN' and
+  (TRIM(STATUS) ='P' OR TRIM(STATUS) = 'D');
     
   CURSOR dtd_interfaz_summary_history
   IS
@@ -69,6 +70,7 @@ BEGIN
     FETCH dtd_interfaz_summary
       INTO reg_summary;
       EXIT WHEN dtd_interfaz_summary%NOTFOUND;  
+      DBMS_OUTPUT.put_line('DROP TABLE IF EXISTS ' || OWNER_SA || '.' || 'SAH_' || reg_summary.CONCEPT_NAME || ' PURGE;');
       DBMS_OUTPUT.put_line('DROP TABLE IF EXISTS ' || OWNER_SA || '.' || 'SA_' || reg_summary.CONCEPT_NAME || ' PURGE;');
       /* (20161012) Angel Ruiz. Carga de tablas de longitud fija */
       /* Cuando se cargan tablas de longitud fija primero creamos una tabla de un solo campo */
