@@ -188,7 +188,7 @@ SELECT
       /* Se trata de que el campo de join posee la funcion NVL */
       if (regexp_instr(cadena_in, ' *[Nn][Vv][Ll] *\( *[A-Za-z_]+ *,') > 0) then
         /* trasformamos el primer operador del NVL */
-        v_cadena_temp := regexp_replace (cadena_in, ' *([Nn][Vv][Ll]) *\( *([A-Za-z_]+) *,', '\1(' || alias_in || '.' || '\2' || ',');
+        v_cadena_temp := regexp_replace (cadena_in, ' *([Nn][Vv][Ll]) *\( *([A-Za-z_]+) *,', ' \1(' || alias_in || '.' || '\2' || ',');
         /* trasformamos el segundo operador del NVL, en caso de que sea un campo y no un literal */
         v_cadena_temp := regexp_replace (v_cadena_temp, ', *([A-Za-z_]+) *\)', ', ' || alias_in || '.' || '\1' || ')');
         v_cadena_result := v_cadena_temp; /* retorno el resultado */
@@ -198,7 +198,7 @@ SELECT
     elsif (regexp_instr(cadena_in, '[Uu][Pp][Pp][Ee][Rr]') > 0) then
       /* Se trata de que el campo de join posee la funcion UPPER */
       if (regexp_instr(cadena_in, ' *[Uu][Pp][Pp][Ee][Rr] *\( *[A-Za-z_]+ *\)') > 0) then
-        v_cadena_temp := regexp_replace (cadena_in, ' *([Uu][Pp][Pp][Ee][Rr]) *\( *([A-Za-z_]+) *\)', '\1(' || alias_in || '.' || '\2' || ')');
+        v_cadena_temp := regexp_replace (cadena_in, ' *([Uu][Pp][Pp][Ee][Rr]) *\( *([A-Za-z_]+) *\)', ' \1(' || alias_in || '.' || '\2' || ')');
         v_cadena_result := v_cadena_temp;
       else
         v_cadena_result := cadena_in;
@@ -206,7 +206,7 @@ SELECT
     elsif (regexp_instr(cadena_in, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) then
       /* Se trata de que el campo de join posee la funcion REPLACE */
       if (regexp_instr(cadena_in, ' *[Rr][Ee][Pp][Ll][Aa][Cc][Ee] *\( *[A-Za-z_]+ *') > 0) then
-        v_cadena_temp := regexp_replace (cadena_in, ' *([Rr][Ee][Pp][Ll][Aa][Cc][Ee]) *\( *([A-Za-z_]+) *,', '\1(' || alias_in || '.' || '\2,');
+        v_cadena_temp := regexp_replace (cadena_in, ' *([Rr][Ee][Pp][Ll][Aa][Cc][Ee]) *\( *([A-Za-z_]+) *,', ' \1(' || alias_in || '.' || '\2,');
         v_cadena_result := v_cadena_temp;
       else
         v_cadena_result := cadena_in;
@@ -790,46 +790,46 @@ SELECT
     cadena_resul:= cadena_in;
     if lon_cadena > 0 then
       /* Busco el signo = o el simbolo != */
-      if (instr(cadena_resul, '!=') > 0) then
+      --if (instr(cadena_resul, '!=') > 0) then
         /* Busco el signo != */
-        sustituto := ' (+)!= ';
-        loop
-          dbms_output.put_line ('Entro en el LOOP de procesa_condicion_lookup. La cadena es: ' || cadena_resul);
-          pos := instr(cadena_resul, '!=', pos+1);
-          exit when pos = 0;
-          dbms_output.put_line ('Pos es mayor que 0');
-          dbms_output.put_line ('Primer valor de Pos: ' || pos);
-          cabeza := substr(cadena_resul, (posicion_ant + 1), (pos - posicion_ant - 1));
-          dbms_output.put_line ('La cabeza es: ' || cabeza);
-          dbms_output.put_line ('La  sustitutoria es: ' || sustituto);
-          cola := substr(cadena_resul, pos + length ('!='));
-          dbms_output.put_line ('La cola es: ' || cola);
-          cadena_resul := cabeza || sustituto || cola;
-          pos_ant := pos + (length (' (+)!= '));
-          dbms_output.put_line ('La posicion anterior es: ' || pos_ant);
-          pos := pos_ant;
-        end loop;
-      else
-        if (instr(cadena_resul, '=') > 0) then
-          sustituto := ' (+)= ';
-          loop
-            dbms_output.put_line ('Entro en el LOOP de procesa_condicion_lookup. La cadena es: ' || cadena_resul);
-            pos := instr(cadena_resul, '=', pos+1);
-            exit when pos = 0;
-            dbms_output.put_line ('Pos es mayor que 0');
-            dbms_output.put_line ('Primer valor de Pos: ' || pos);
-            cabeza := substr(cadena_resul, (posicion_ant + 1), (pos - posicion_ant - 1));
-            dbms_output.put_line ('La cabeza es: ' || cabeza);
-            dbms_output.put_line ('La  sustitutoria es: ' || sustituto);
-            cola := substr(cadena_resul, pos + length ('='));
-            dbms_output.put_line ('La cola es: ' || cola);
-            cadena_resul := cabeza || sustituto || cola;
-            pos_ant := pos + (length (' (+)= '));
-            dbms_output.put_line ('La posicion anterior es: ' || pos_ant);
-            pos := pos_ant;
-          end loop;
-        end if;
-      end if;
+        --sustituto := ' (+)!= ';
+        --loop
+          --dbms_output.put_line ('Entro en el LOOP de procesa_condicion_lookup. La cadena es: ' || cadena_resul);
+          --pos := instr(cadena_resul, '!=', pos+1);
+          --exit when pos = 0;
+          --dbms_output.put_line ('Pos es mayor que 0');
+          --dbms_output.put_line ('Primer valor de Pos: ' || pos);
+          --cabeza := substr(cadena_resul, (posicion_ant + 1), (pos - posicion_ant - 1));
+          --dbms_output.put_line ('La cabeza es: ' || cabeza);
+          --dbms_output.put_line ('La  sustitutoria es: ' || sustituto);
+          --cola := substr(cadena_resul, pos + length ('!='));
+          --dbms_output.put_line ('La cola es: ' || cola);
+          --cadena_resul := cabeza || sustituto || cola;
+          --pos_ant := pos + (length (' (+)!= '));
+          --dbms_output.put_line ('La posicion anterior es: ' || pos_ant);
+          --pos := pos_ant;
+        --end loop;
+      --else
+        --if (instr(cadena_resul, '=') > 0) then
+          --sustituto := ' (+)= ';
+          --loop
+            --dbms_output.put_line ('Entro en el LOOP de procesa_condicion_lookup. La cadena es: ' || cadena_resul);
+            --pos := instr(cadena_resul, '=', pos+1);
+            --exit when pos = 0;
+            --dbms_output.put_line ('Pos es mayor que 0');
+            --dbms_output.put_line ('Primer valor de Pos: ' || pos);
+            --cabeza := substr(cadena_resul, (posicion_ant + 1), (pos - posicion_ant - 1));
+            --dbms_output.put_line ('La cabeza es: ' || cabeza);
+            --dbms_output.put_line ('La  sustitutoria es: ' || sustituto);
+            --cola := substr(cadena_resul, pos + length ('='));
+            --dbms_output.put_line ('La cola es: ' || cola);
+            --cadena_resul := cabeza || sustituto || cola;
+            --pos_ant := pos + (length (' (+)= '));
+            --dbms_output.put_line ('La posicion anterior es: ' || pos_ant);
+            --pos := pos_ant;
+          --end loop;
+        --end if;
+      --end if;
       /* Busco LA COMILLA */
       --pos := 0;
       --posicion_ant := 0;
@@ -1525,7 +1525,7 @@ SELECT
             v_table_lkup_prima := v_alias; /*(20170109) Angel Ruiz. BUG.Depues se usa para buscar en el metadato*/
           else
             v_alias := 'LKUP_' || l_FROM.count;
-            mitabla_look_up := '(' || procesa_campo_filter_dinam(reg_detalle_in.TABLE_LKUP) || ') "LKUP_' || l_FROM.count || '"';
+            mitabla_look_up := '(' || procesa_campo_filter(reg_detalle_in.TABLE_LKUP) || ') "LKUP_' || l_FROM.count || '"';
             --mitabla_look_up := '(' || reg_detalle_in.TABLE_LKUP || ') "LKUP_' || l_FROM.count || '"';
             v_alias_incluido := 0;
             dbms_output.put_line('NO EXISTE ALIAS EN LA QUERY TABLE_LKUP');
@@ -1832,16 +1832,16 @@ SELECT
                   if (indx = 1) then
                     /* (20160302) Angel Ruiz. NF: DECODE en las columnas de LookUp */
                     if (instr(ie_column_lkup(indx), 'DECODE') > 0 or instr(ie_column_lkup(indx), 'decode') > 0) then
-                      valor_retorno := valor_retorno || reg_detalle_in.TABLE_BASE_NAME || '.' || nombre_campo || ' IS NULL OR ' || reg_detalle_in.TABLE_BASE_NAME || '.' || nombre_campo || ' IN (''''NI#'''', ''''NO INFORMADO'''') ';
+                      valor_retorno := valor_retorno || reg_detalle_in.TABLE_BASE_NAME || '.' || nombre_campo || ' IS NULL OR ' || reg_detalle_in.TABLE_BASE_NAME || '.' || nombre_campo || ' IN (''NI#'', ''NO INFORMADO'') ';
                     else
-                      valor_retorno := valor_retorno || reg_detalle_in.TABLE_BASE_NAME || '.' || l_registro2.COLUMN_NAME || ' IS NULL OR ' || reg_detalle_in.TABLE_BASE_NAME || '.' || l_registro2.COLUMN_NAME || ' IN (''''NI#'''', ''''NO INFORMADO'''') ';
+                      valor_retorno := valor_retorno || reg_detalle_in.TABLE_BASE_NAME || '.' || l_registro2.COLUMN_NAME || ' IS NULL OR ' || reg_detalle_in.TABLE_BASE_NAME || '.' || l_registro2.COLUMN_NAME || ' IN (''NI#'', ''NO INFORMADO'') ';
                     end if;
                   else
                     /* (20160302) Angel Ruiz. NF: DECODE en las columnas de LookUp */
                     if (instr(ie_column_lkup(indx), 'DECODE') > 0 or instr(ie_column_lkup(indx), 'decode') > 0) then
-                      valor_retorno := valor_retorno || 'OR ' || reg_detalle_in.TABLE_BASE_NAME || '.' || nombre_campo || ' IS NULL OR ' || reg_detalle_in.TABLE_BASE_NAME || '.' || nombre_campo || ' IN (''''NI#'''', ''''NO INFORMADO'''') ';
+                      valor_retorno := valor_retorno || 'OR ' || reg_detalle_in.TABLE_BASE_NAME || '.' || nombre_campo || ' IS NULL OR ' || reg_detalle_in.TABLE_BASE_NAME || '.' || nombre_campo || ' IN (''NI#'''', ''NO INFORMADO'') ';
                     else
-                      valor_retorno := valor_retorno || 'OR ' || reg_detalle_in.TABLE_BASE_NAME || '.' || l_registro2.COLUMN_NAME || ' IS NULL OR ' || reg_detalle_in.TABLE_BASE_NAME || '.' || l_registro2.COLUMN_NAME || ' IN (''''NI#'''', ''''NO INFORMADO'''') ';
+                      valor_retorno := valor_retorno || 'OR ' || reg_detalle_in.TABLE_BASE_NAME || '.' || l_registro2.COLUMN_NAME || ' IS NULL OR ' || reg_detalle_in.TABLE_BASE_NAME || '.' || l_registro2.COLUMN_NAME || ' IN (''NI#'', ''NO INFORMADO'') ';
                     end if;
                   end if;
                 else 
@@ -2031,30 +2031,6 @@ SELECT
                 FROM v_MTDT_CAMPOS_DETAIL
                 WHERE UPPER(TRIM(TABLE_NAME)) =  UPPER(mi_tabla_base_name) and
                 UPPER(TRIM(COLUMN_NAME)) = UPPER(TRIM(ie_column_lkup(indx)));
-              --else
-                /* No encontramos el campo en el diccionario, por lo que buscamos en lugar del ie_column_lkup el table_columns_lkup */
-                --if (regexp_instr(table_columns_lkup(indx), '[Dd][Ee][Cc][Oo][Dd][Ee]') > 0) or
-                --(regexp_instr(table_columns_lkup(indx), '[Nn][Vv][Ll]') > 0) or
-                --(regexp_instr(table_columns_lkup(indx), '[Uu][Pp][Pp][Ee][Rr]') > 0) or
-                --(regexp_instr(table_columns_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0)
-                --then
-                  --nombre_campo := extrae_campo (table_columns_lkup(indx));
-                --else
-                  --nombre_campo := table_columns_lkup(indx);
-                --end if;
-                --for registro in (SELECT * FROM v_MTDT_CAMPOS_DETAIL
-                --WHERE UPPER(TRIM(TABLE_NAME)) =  UPPER(v_table_lkup_prima) and
-                --UPPER(TRIM(COLUMN_NAME)) = UPPER(TRIM(nombre_campo)))
-                --loop
-                  --v_existe_valor:=true;
-                --end loop;
-                --if (v_existe_valor=true) then
-                  /* podemos encontrar el campo en el diccionario de datos */
-                  --SELECT * INTO l_registro2
-                  --FROM v_MTDT_CAMPOS_DETAIL
-                  --WHERE UPPER(TRIM(TABLE_NAME)) =  UPPER(v_table_lkup_prima) and
-                  --UPPER(TRIM(COLUMN_NAME)) = UPPER(TRIM(nombre_campo));
-                --end if;
               end if;
             end if;
             if (l_WHERE_ON_clause.count = 1) then
@@ -2474,7 +2450,13 @@ SELECT
         
       when 'BASE' then
         /* Se toma el valor del campo de la tabla de staging */
-        valor_retorno :=  '    ' || reg_detalle_in.TABLE_BASE_NAME || '.' || reg_detalle_in.VALUE;
+        /* (20170127) Angel Ruiz. BUG. Si ya lleva punto es que se le ha puesto el propietario */
+        /* por lo que no se le pone */
+        if (instr(reg_detalle_in.VALUE, '.') = 0) then
+          valor_retorno :=  '    ' || reg_detalle_in.TABLE_BASE_NAME || '.' || reg_detalle_in.VALUE;
+        else
+          valor_retorno :=  '    ' || reg_detalle_in.VALUE;
+        end if;
       when 'VAR_FCH_INICIO' then
         --valor_retorno :=  '    ' || ''' || var_fch_inicio || ''';
         --valor_retorno :=  '    SYSDATE';
@@ -2802,9 +2784,9 @@ SELECT
             condicion := substr(cadena,pos_del_si+length('SI'), pos_del_then-(pos_del_si+length('SI')));
             condicion_pro := procesa_COM_RULE_lookup(condicion);
             constante := substr(cadena, pos_del_else+length('ELSE'),pos_del_end-(pos_del_else+length('ELSE')));
-            valor_retorno := 'CASE WHEN ' || trim(condicion_pro) || ' THEN NVL(' || procesa_campo_filter_dinam(reg_detalle_in.VALUE) || ', '' '') ELSE ' || trim(constante) || ' END';
+            valor_retorno := 'CASE WHEN ' || trim(condicion_pro) || ' THEN NVL(' || procesa_campo_filter(reg_detalle_in.VALUE) || ', '' '') ELSE ' || trim(constante) || ' END';
           else
-            valor_retorno := procesa_campo_filter_dinam(reg_detalle_in.VALUE);
+            valor_retorno := procesa_campo_filter(reg_detalle_in.VALUE);
           end if;
       end case;
     return valor_retorno;
@@ -3345,7 +3327,7 @@ begin
             UTL_FILE.put_line(fich_salida_pkg,'WHERE');
             dbms_output.put_line ('Antes de procesar el campo FILTER');
             --campo_filter := procesa_campo_filter_dinam(reg_scenario.FILTER);
-            campo_filter := procesa_campo_filter_dinam(reg_scenario.FILTER);
+            campo_filter := procesa_campo_filter(reg_scenario.FILTER);
             UTL_FILE.put_line(fich_salida_pkg, campo_filter);
           end if;
           dbms_output.put_line ('Despues de procesar el campo FILTER');

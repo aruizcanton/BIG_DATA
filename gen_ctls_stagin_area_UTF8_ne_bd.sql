@@ -500,21 +500,31 @@ BEGIN
       UTL_FILE.put_line(fich_salida_sh, '  InsertaFinFallido');
       UTL_FILE.put_line(fich_salida_sh, '  exit 1');
     end if;
+    /* (20170126) Angel Ruiz */
     UTL_FILE.put_line(fich_salida_sh, 'else');
-    UTL_FILE.put_line(fich_salida_sh, '  for FILE in ${NOMBRE_FICH_CARGA}');
-    UTL_FILE.put_line(fich_salida_sh, '  do');
-    UTL_FILE.put_line(fich_salida_sh, '    NAME_FLAG=`echo $FILE | sed -e ''s/\.[Dd][Aa][Tt]/\.flag/''`');
-    UTL_FILE.put_line(fich_salida_sh, '    hadoop fs -test -e ${NAME_FLAG}');
-    UTL_FILE.put_line(fich_salida_sh, '    if [ $? -ne 0 ]; then');
+    /* (20170127) Angel Ruiz. BUG. Comprobamos que los ficehros de Flag existen */
+    /* solo cuando es la primera vez que se ejecuta el script de carga */
+    UTL_FILE.put_line(fich_salida_sh, '  # Comprobamos la existencia de los ficheros de Flag solo cuando se trata de la primera ejecucion');
+    UTL_FILE.put_line(fich_salida_sh, '  if [ ${ULT_PASO_EJECUTADO} -eq 0 ] && [ "${BAN_FORZADO}" = "N" ]');
+    UTL_FILE.put_line(fich_salida_sh, '  then');
+    UTL_FILE.put_line(fich_salida_sh, '    for FILE in ${NOMBRE_FICH_CARGA}');
+    UTL_FILE.put_line(fich_salida_sh, '    do');
+    UTL_FILE.put_line(fich_salida_sh, '      NAME_FLAG=`echo $FILE | sed -e ''s/\.[Dd][Aa][Tt]/\.flag/''`');
+    UTL_FILE.put_line(fich_salida_sh, '      hadoop fs -test -e ${NAME_FLAG}');
+    UTL_FILE.put_line(fich_salida_sh, '      if [ $? -ne 0 ]; then');
     --UTL_FILE.put_line(fich_salida_sh, '    if [ ! -f ${FILE} ] || [ ! -f ${NAME_FLAG} ] ; then');    
-    UTL_FILE.put_line(fich_salida_sh, '      SUBJECT="${INTERFAZ}: No existe fichero o su fichero de flag a cargar. ' || '${FILE}' || '."');
-    UTL_FILE.put_line(fich_salida_sh, '      ${SHELL_SMS} "${TELEFONOS_DWH}" "${SUBJECT}"');
-    UTL_FILE.put_line(fich_salida_sh, '      echo ${SUBJECT} >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log');    
-    UTL_FILE.put_line(fich_salida_sh, '      echo `date` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log');
-    UTL_FILE.put_line(fich_salida_sh, '      InsertaFinFallido');
-    UTL_FILE.put_line(fich_salida_sh, '      exit 1');    
-    UTL_FILE.put_line(fich_salida_sh, '    fi');
-    UTL_FILE.put_line(fich_salida_sh, '  done');
+    UTL_FILE.put_line(fich_salida_sh, '        SUBJECT="${INTERFAZ}: No existe fichero o su fichero de flag a cargar. ' || '${FILE}' || '."');
+    UTL_FILE.put_line(fich_salida_sh, '        ${SHELL_SMS} "${TELEFONOS_DWH}" "${SUBJECT}"');
+    UTL_FILE.put_line(fich_salida_sh, '        echo ${SUBJECT} >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log');    
+    UTL_FILE.put_line(fich_salida_sh, '        echo `date` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log');
+    UTL_FILE.put_line(fich_salida_sh, '        InsertaFinFallido');
+    UTL_FILE.put_line(fich_salida_sh, '        exit 1');    
+    UTL_FILE.put_line(fich_salida_sh, '      else');
+    UTL_FILE.put_line(fich_salida_sh, '        # El fichero de Flag existe. Los datos han llegado OK. Borramos el flag.');
+    UTL_FILE.put_line(fich_salida_sh, '        hadoop fs -rm -f ${NAME_FLAG}');
+    UTL_FILE.put_line(fich_salida_sh, '      fi');
+    UTL_FILE.put_line(fich_salida_sh, '    done');
+    UTL_FILE.put_line(fich_salida_sh, '  fi');
     UTL_FILE.put_line(fich_salida_sh, 'fi');
     --UTL_FILE.put_line(fich_salida_sh, 'TOT_LEIDOS=0');
     --UTL_FILE.put_line(fich_salida_sh, 'TOT_INSERTADOS=0');
@@ -555,7 +565,7 @@ BEGIN
     UTL_FILE.put_line(fich_salida_sh, '# Cargamos la tabla de Staging SA_' || reg_summary.CONCEPT_NAME);
     /* (20170113) Angel Ruiz. NF: Nueva estructura de la parte de staging */
     UTL_FILE.put_line(fich_salida_sh, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_SA} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "\');
-    UTL_FILE.put_line(fich_salida_sh, '  INSERT INTO ${ESQUEMA_SA}.SA_' || reg_summary.CONCEPT_NAME);
+    UTL_FILE.put_line(fich_salida_sh, '  INSERT OVERWRITE TABLE ${ESQUEMA_ML}.SA_' || reg_summary.CONCEPT_NAME);
     UTL_FILE.put_line(fich_salida_sh, '  SELECT');
     OPEN dtd_interfaz_detail (reg_summary.CONCEPT_NAME, reg_summary.SOURCE);
     primera_col := 1;
@@ -624,7 +634,7 @@ BEGIN
     --END LOOP;
     /* (20161007) Angel Ruiz. FIN Carga de ficheros de longitud FIJA */
     --UTL_FILE.put_line(fich_salida_sh, 'REG_INSERTADOS=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_SA} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_SA}.SA_' || reg_summary.CONCEPT_NAME||' WHERE FCH_CARGA=''${FCH_CARGA_FMT_HIVE}'';"` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
-    UTL_FILE.put_line(fich_salida_sh, 'REG_INSERTADOS=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_SA} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_SA}.SA_' || reg_summary.CONCEPT_NAME||';"` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+    UTL_FILE.put_line(fich_salida_sh, 'REG_INSERTADOS=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_SA} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_ML}.SA_' || reg_summary.CONCEPT_NAME||';"` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
     --UTL_FILE.put_line(fich_salida_sh, '  REG_INSERTADOS=${REG_LEIDOS}');
     UTL_FILE.put_line(fich_salida_sh, 'REG_RECHAZADOS=0');
     UTL_FILE.put_line(fich_salida_sh, 'TOT_LEIDOS=`expr ${TOT_LEIDOS} + ${REG_LEIDOS}`');

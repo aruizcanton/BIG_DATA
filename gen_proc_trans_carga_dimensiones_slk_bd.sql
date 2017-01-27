@@ -226,7 +226,6 @@ cursor MTDT_TABLA
   v_REQ_NUMER         MTDT_VAR_ENTORNO.VALOR%TYPE;
 
   v_hay_look_up                           VARCHAR2(1):='N';
-  v_nombre_seqg                          VARCHAR(120):='N';
   v_bandera                                   VARCHAR2(1):='S';
   v_nombre_tabla_agr                VARCHAR2(30):='No Existe';
   v_nombre_tabla_agr_redu           VARCHAR2(30):='No Existe';
@@ -2160,7 +2159,13 @@ cursor MTDT_TABLA
         
       when 'BASE' then
         /* Se toma el valor del campo de la tabla de staging */
-        valor_retorno := '    ' || reg_detalle_in.TABLE_BASE_NAME || '.' || reg_detalle_in.VALUE;      
+        /* (20170127) Angel Ruiz. BUG. Si ya lleva punto es que se le ha puesto el propietario */
+        /* por lo que no se le pone */
+        if (instr(reg_detalle_in.VALUE, '.') = 0) then
+          valor_retorno := '    ' || reg_detalle_in.TABLE_BASE_NAME || '.' || reg_detalle_in.VALUE;
+        else
+          valor_retorno := '    ' || reg_detalle_in.VALUE;
+        end if;
       when 'VAR_FCH_INICIO' then
         --valor_retorno := '    ' || 'var_fch_inicio';
         /* (20161208) Angel Ruiz. Ocurre que esta regla la podemos usar tanto en */
@@ -3099,6 +3104,7 @@ begin
           /* componentes del From y del Where */
           l_FROM.delete;
           l_WHERE.delete;
+          v_hay_regla_seq:=false;
           /* ESCENARIO NUEVO */
           dbms_output.put_line ('Estoy en el escenario: N');
           --UTL_FILE.put_line(fich_salida_pkg,'');
@@ -3159,7 +3165,7 @@ begin
             else
               v_alias_dim_table_base_name:=reg_scenario.TABLE_BASE_NAME;
             end if;
-            UTL_FILE.put_line(fich_salida_pkg, '    ' || OWNER_SA || '.' || reg_scenario.TABLE_BASE_NAME || ' LEFT OUTER JOIN ' || OWNER_DM || '.' || reg_scenario.TABLE_NAME || ' ON (');
+            UTL_FILE.put_line(fich_salida_pkg, '    ' || OWNER_DM || '.' || reg_scenario.TABLE_BASE_NAME || ' LEFT OUTER JOIN ' || OWNER_DM || '.' || reg_scenario.TABLE_NAME || ' ON (');
           end if;
           /* (20170104) Angel Ruiz. FIN. Pueden aparecer Queries en TABLE_BASE_NAME */
           dbms_output.put_line ('Interface COLUMNS: ' || reg_scenario.INTERFACE_COLUMNS);
@@ -3324,7 +3330,7 @@ begin
             else
               v_alias_dim_table_base_name:=reg_scenario.TABLE_BASE_NAME;
             end if;
-            UTL_FILE.put_line(fich_salida_pkg, '    ' || OWNER_SA || '.' || reg_scenario.TABLE_BASE_NAME || ' JOIN ' || OWNER_DM || '.' || reg_scenario.TABLE_NAME || ' ON (');
+            UTL_FILE.put_line(fich_salida_pkg, '    ' || OWNER_DM || '.' || reg_scenario.TABLE_BASE_NAME || ' JOIN ' || OWNER_DM || '.' || reg_scenario.TABLE_NAME || ' ON (');
           end if;
           /* (20170104) Angel Ruiz. FIN. Pueden aparecer Queries en TABLE_BASE_NAME */
           /* (20161205) Angel Ruiz. Dimensiones en BIG DATA */
@@ -3478,7 +3484,7 @@ begin
             else
               v_alias_dim_table_base_name:=reg_scenario.TABLE_BASE_NAME;
             end if;
-            UTL_FILE.put_line(fich_salida_pkg, '    ' || OWNER_SA || '.' || reg_scenario.TABLE_BASE_NAME || ' RIGHT OUTER JOIN ' || OWNER_DM || '.' || reg_scenario.TABLE_NAME || ' ON (');
+            UTL_FILE.put_line(fich_salida_pkg, '    ' || OWNER_DM || '.' || reg_scenario.TABLE_BASE_NAME || ' RIGHT OUTER JOIN ' || OWNER_DM || '.' || reg_scenario.TABLE_NAME || ' ON (');
           end if;
           /* (20170104) Angel Ruiz. FIN. Pueden aparecer Queries en TABLE_BASE_NAME */
           /* (20161106) Angel Ruiz. Se trata de formar la clausula ON del RIGHT OUTER JOIN, ya que estamos en el escenario Historico */

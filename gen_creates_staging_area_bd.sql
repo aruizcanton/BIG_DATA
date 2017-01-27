@@ -260,7 +260,8 @@ BEGIN
     /* Vamos a crear tablas EXTERNAS para almacenar los ficheros planos */
     /* Y vamos a crear una tabla de STAGING tipo ORC para a partir de ella */
     /* hacer las transformaciones */
-    DBMS_OUTPUT.put_line('CREATE TABLE IF NOT EXISTS ' || OWNER_SA || '.SA_' || reg_summary.CONCEPT_NAME);
+    --DBMS_OUTPUT.put_line('CREATE TABLE IF NOT EXISTS ' || OWNER_SA || '.SA_' || reg_summary.CONCEPT_NAME);
+    DBMS_OUTPUT.put_line('CREATE TABLE IF NOT EXISTS ' || OWNER_DM || '.SA_' || reg_summary.CONCEPT_NAME);
     DBMS_OUTPUT.put_line('(');
     OPEN dtd_interfaz_detail (reg_summary.CONCEPT_NAME, reg_summary.SOURCE);
     primera_col := 1;
@@ -391,7 +392,8 @@ BEGIN
     if (upper(reg_summary.TYPE) = 'P') then
     /* Se trata de un fichero por posicion */
     /* creamos la tabla auxiliar donde se va a cargar toda la linea */
-      DBMS_OUTPUT.put_line('CREATE TABLE IF NOT EXISTS ' || OWNER_SA || '.SA_' || reg_summary.CONCEPT_NAME || '_POS');
+      --DBMS_OUTPUT.put_line('CREATE TABLE IF NOT EXISTS ' || OWNER_SA || '.SA_' || reg_summary.CONCEPT_NAME || '_POS');
+      DBMS_OUTPUT.put_line('CREATE TABLE IF NOT EXISTS ' || OWNER_DM || '.SA_' || reg_summary.CONCEPT_NAME || '_POS');
       DBMS_OUTPUT.put_line('(');
       DBMS_OUTPUT.put_line('fila_completa STRING');
       DBMS_OUTPUT.put_line(')');
