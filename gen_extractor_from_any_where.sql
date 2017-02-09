@@ -3227,7 +3227,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, '################################################################################');    
     UTL_FILE.put_line(fich_salida_load, 'InsertaFinFallido()');
     UTL_FILE.put_line(fich_salida_load, '{');
-    UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "\');
+    UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "\');
     UTL_FILE.put_line(fich_salida_load, '  INSERT INTO ${ESQUEMA_MT}.MTDT_MONITOREO');
     UTL_FILE.put_line(fich_salida_load, '  SELECT');
     UTL_FILE.put_line(fich_salida_load, '    mtdt_proceso.cve_proceso*' || v_MULTIPLICADOR_PROC || '+${ULT_PASO_EJECUTADO}+unix_timestamp(),');  /* mtdt_proceso.cve_proceso*v_MULTIPLICADOR_PROC+mtdt_paso.cve_paso+unix_timestamp() */
@@ -3265,7 +3265,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, '################################################################################');    
     UTL_FILE.put_line(fich_salida_load, 'InsertaFinOK()');
     UTL_FILE.put_line(fich_salida_load, '{');
-    UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "\');
+    UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "\');
     UTL_FILE.put_line(fich_salida_load, '  INSERT INTO ${ESQUEMA_MT}.MTDT_MONITOREO');
     UTL_FILE.put_line(fich_salida_load, '  SELECT');
     UTL_FILE.put_line(fich_salida_load, '    mtdt_proceso.cve_proceso*' || v_MULTIPLICADOR_PROC || '+${ULT_PASO_EJECUTADO}+unix_timestamp(),');  /* mtdt_proceso.cve_proceso*v_MULTIPLICADOR_PROC+mtdt_paso.cve_paso+unix_timestamp() */ 
@@ -3407,7 +3407,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, '{');
     UTL_FILE.put_line(fich_salida_load, '  if [ $# = 0 ] ; then');
     UTL_FILE.put_line(fich_salida_load, '    # Se obtiene la fecha inicial y final del periodo a calcular a partir de la fecha del sistema.');
-    UTL_FILE.put_line(fich_salida_load, '    FECHA=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select date_format(current_date, ''yyyyMMdd'') from ${ESQUEMA_MT}.dual;"`');
+    UTL_FILE.put_line(fich_salida_load, '    FECHA=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select date_format(current_date, ''yyyyMMdd'') from ${ESQUEMA_MT}.dual;"`');
     UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
     UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
     UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
@@ -3439,7 +3439,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, '  else');
     UTL_FILE.put_line(fich_salida_load, '    # Se obtiene la fecha inicial y final del periodo a calcular a partir de la fecha proporcionada como parametro.');
     UTL_FILE.put_line(fich_salida_load, '    FECHA_FMT_HIVE=`echo $1 | awk ''{ printf "%s-%s-%s", substr($1,0,4), substr($1,5,2), substr($1,7,2) ; }''`');
-    UTL_FILE.put_line(fich_salida_load, '    FECHA=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select date_format(''${FECHA_FMT_HIVE}'', ''yyyyMMdd'') from ${ESQUEMA_MT}.dual;"`');
+    UTL_FILE.put_line(fich_salida_load, '    FECHA=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select date_format(''${FECHA_FMT_HIVE}'', ''yyyyMMdd'') from ${ESQUEMA_MT}.dual;"`');
     --UTL_FILE.put_line(fich_salida_load, '    FECHA=`sqlplus -s ${BD_USR}/${BD_PWD}@${BD_SID} <<!eof');
     --UTL_FILE.put_line(fich_salida_load, '      whenever sqlerror exit 1');
     --UTL_FILE.put_line(fich_salida_load, '      set pagesize 0');
@@ -3487,7 +3487,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, '################################################################################');
     UTL_FILE.put_line(fich_salida_load, 'ObtieneFechaHora()');
     UTL_FILE.put_line(fich_salida_load, '{');
-    UTL_FILE.put_line(fich_salida_load, '  INICIO_PASO_TMR=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select current_timestamp from ${ESQUEMA_MT}.dual;"`');    
+    UTL_FILE.put_line(fich_salida_load, '  INICIO_PASO_TMR=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select current_timestamp from ${ESQUEMA_MT}.dual;"`');    
     --UTL_FILE.put_line(fich_salida_load, '  INICIO_PASO_TMR=`sqlplus -s ${BD_USR}/${BD_PWD}@${BD_SID} <<!eof');
     --UTL_FILE.put_line(fich_salida_load, '      whenever sqlerror exit 1');
     --UTL_FILE.put_line(fich_salida_load, '      set pagesize 0');
@@ -3555,6 +3555,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  --options-file ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1 \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-import \');
         UTL_FILE.put_line(fich_salida_load, '  --delete-target-dir \');
+        UTL_FILE.put_line(fich_salida_load, '  --outdir ${' || NAME_DM || '_CTL} \');
         /* (20170112 ANGEL RUIZ. NF: Nueva estructura tablas de staging */
         --UTL_FILE.put_line(fich_salida_load, '  --hive-table ' || '${ESQUEMA_ST}.SA_' || reg_tabla.TABLE_NAME || ' \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-table ' || '${ESQUEMA_ST}.SAH_' || reg_tabla.TABLE_NAME || ' \');
@@ -3579,6 +3580,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  --username ${BD_USR} \');
         UTL_FILE.put_line(fich_salida_load, '  --password ${BD_PWD} \');
         UTL_FILE.put_line(fich_salida_load, '  --delete-target-dir \');
+        UTL_FILE.put_line(fich_salida_load, '  --outdir ${' || NAME_DM || '_CTL} \');
         UTL_FILE.put_line(fich_salida_load, '  --options-file ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1 \');
         UTL_FILE.put_line(fich_salida_load, '  --target-dir ${' || NAME_DM || '_TMP}/${INTERFAZ} \');
         UTL_FILE.put_line(fich_salida_load, '  --fields-terminated-by ''' || v_separator || ''' \');
@@ -3597,7 +3599,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '3/${FECHA_FIN}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2 > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.3');
         if (v_hay_usu_owner = true) then
           /* (20161109) Angel Ruiz. Puede ocurrir que el fichero .sql generado posea cadenas del tipo #OWNER_*# */
-          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.3 > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.3.tmp');
+          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${OWNER_EXT}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.3 > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.3.tmp');
           UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.3.tmp  ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.3');
         end if;
         
@@ -3609,6 +3611,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  --options-file ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.3 \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-import \');
         UTL_FILE.put_line(fich_salida_load, '  --delete-target-dir \');
+        UTL_FILE.put_line(fich_salida_load, '  --outdir ${' || NAME_DM || '_CTL} \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-table ' || '${ESQUEMA_ST}.SAH_' || reg_tabla.TABLE_NAME || ' \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-partition-key fch_carga \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-partition-value "${FECHA_FMT_HIVE}" \');
@@ -3622,7 +3625,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '4/${FECHA_FIN}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2 > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.3');        
         if (v_hay_usu_owner = true) then
           /* (20161109) Angel Ruiz. Puede ocurrir que el fichero .sql generado posea cadenas del tipo #OWNER_*# */
-          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.3 > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.3.tmp');
+          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${OWNER_EXT}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.3 > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.3.tmp');
           UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.3.tmp  ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.3');
         end if;
       
@@ -3632,6 +3635,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  --username ${BD_USR_EXT} \');
         UTL_FILE.put_line(fich_salida_load, '  --password ${BD_PWD} \');
         UTL_FILE.put_line(fich_salida_load, '  --delete-target-dir \');        
+        UTL_FILE.put_line(fich_salida_load, '  --outdir ${' || NAME_DM || '_CTL} \');
         UTL_FILE.put_line(fich_salida_load, '  --options-file ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.3 \');
         UTL_FILE.put_line(fich_salida_load, '  --target-dir ${' || NAME_DM || '_TMP}/${INTERFAZ} \');
         UTL_FILE.put_line(fich_salida_load, '  --fields-terminated-by ''' || v_separator || ''' \');
@@ -3648,7 +3652,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '2/${FECHA}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1 > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2');
         if (v_hay_usu_owner = true) then
           /* (20161109) Angel Ruiz. Puede ocurrir que el fichero .sql generado posea cadenas del tipo #OWNER_*# */
-          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2 > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2.tmp');
+          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${OWNER_EXT}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2 > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2.tmp');
           UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2.tmp  ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2');
         end if;
         
@@ -3660,6 +3664,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  --options-file ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2 \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-import \');
         UTL_FILE.put_line(fich_salida_load, '  --delete-target-dir \');
+        UTL_FILE.put_line(fich_salida_load, '  --outdir ${' || NAME_DM || '_CTL} \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-table ' || '${ESQUEMA_ST}.SAH_' || reg_tabla.TABLE_NAME || ' \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-partition-key fch_carga \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-partition-value "${FECHA_FMT_HIVE}" \');
@@ -3673,7 +3678,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '3/${FECHA}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1 > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2');
         if (v_hay_usu_owner = true) then
           /* (20161109) Angel Ruiz. Puede ocurrir que el fichero .sql generado posea cadenas del tipo #OWNER_*# */
-          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2 > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2.tmp');
+          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${OWNER_EXT}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2 > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2.tmp');
           UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2.tmp  ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2');
         end if;
         
@@ -3683,6 +3688,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  --username ${BD_USR_EXT} \');
         UTL_FILE.put_line(fich_salida_load, '  --password ${BD_PWD} \');
         UTL_FILE.put_line(fich_salida_load, '  --delete-target-dir \');        
+        UTL_FILE.put_line(fich_salida_load, '  --outdir ${' || NAME_DM || '_CTL} \');
         UTL_FILE.put_line(fich_salida_load, '  --options-file ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2 \');
         UTL_FILE.put_line(fich_salida_load, '  --target-dir ${' || NAME_DM || '_TMP}/${INTERFAZ} \');
         UTL_FILE.put_line(fich_salida_load, '  --fields-terminated-by ''' || v_separator || ''' \');
@@ -3699,7 +3705,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '2/${FECHA_FIN}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1 > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2');
         if (v_hay_usu_owner = true) then
           /* (20161109) Angel Ruiz. Puede ocurrir que el fichero .sql generado posea cadenas del tipo #OWNER_*# */
-          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2 > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2.tmp');
+          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${OWNER_EXT}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2 > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2.tmp');
           UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2.tmp  ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2');
         end if;
         
@@ -3711,6 +3717,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  --options-file ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2 \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-import \');
         UTL_FILE.put_line(fich_salida_load, '  --delete-target-dir \');        
+        UTL_FILE.put_line(fich_salida_load, '  --outdir ${' || NAME_DM || '_CTL} \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-table ' || '${ESQUEMA_ST}.SAH_' || reg_tabla.TABLE_NAME || ' \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-partition-key fch_carga \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-partition-value "${FECHA_FMT_HIVE}" \');
@@ -3725,7 +3732,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '3/${FECHA_FIN}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1 > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2');
         if (v_hay_usu_owner = true) then
           /* (20161109) Angel Ruiz. Puede ocurrir que el fichero .sql generado posea cadenas del tipo #OWNER_*# */
-          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2 > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2.tmp');
+          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${OWNER_EXT}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2 > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2.tmp');
           UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2.tmp  ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2');
         end if;
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}/${ARCHIVO_SQL} ${PATH_SALIDA}/${ARCHIVO_SALIDA} ${FECHA} ${FECHA_FIN}');
@@ -3734,6 +3741,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  --username ${BD_USR_EXT} \');
         UTL_FILE.put_line(fich_salida_load, '  --password ${BD_PWD} \');
         UTL_FILE.put_line(fich_salida_load, '  --delete-target-dir \');        
+        UTL_FILE.put_line(fich_salida_load, '  --outdir ${' || NAME_DM || '_CTL} \');
         UTL_FILE.put_line(fich_salida_load, '  --options-file ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2 \');
         UTL_FILE.put_line(fich_salida_load, '  --target-dir ${' || NAME_DM || '_TMP}/${INTERFAZ} \');
         UTL_FILE.put_line(fich_salida_load, '  --fields-terminated-by ''' || v_separator || ''' \');
@@ -3750,7 +3758,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '1/${FECHA}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL} > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1');
         if (v_hay_usu_owner = true) then
           /* (20161109) Angel Ruiz. Puede ocurrir que el fichero .sql generado posea cadenas del tipo #OWNER_*# */
-          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1 > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1.tmp');
+          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${OWNER_EXT}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1 > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1.tmp');
           UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1.tmp  ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1');
         end if;        
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}/${ARCHIVO_SQL} ${FECHA}');
@@ -3761,6 +3769,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  --options-file ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1 \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-import \');
         UTL_FILE.put_line(fich_salida_load, '  --delete-target-dir \');        
+        UTL_FILE.put_line(fich_salida_load, '  --outdir ${' || NAME_DM || '_CTL} \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-table ' || '${ESQUEMA_ST}.SAH_' || reg_tabla.TABLE_NAME || ' \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-partition-key fch_carga \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-partition-value "${FECHA_FMT_HIVE}" \');
@@ -3773,7 +3782,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  sed "s/\&' || '2/${FECHA}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL} > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1');
         if (v_hay_usu_owner = true) then
           /* (20161109) Angel Ruiz. Puede ocurrir que el fichero .sql generado posea cadenas del tipo #OWNER_*# */
-          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1 > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1.tmp');
+          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${OWNER_EXT}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1 > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1.tmp');
           UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1.tmp  ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1');
         end if;                
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}/${ARCHIVO_SQL} ${PATH_SALIDA}/${ARCHIVO_SALIDA} ${FECHA}');
@@ -3782,6 +3791,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  --username ${BD_USR_EXT} \');
         UTL_FILE.put_line(fich_salida_load, '  --password ${BD_PWD} \');
         UTL_FILE.put_line(fich_salida_load, '  --delete-target-dir \');        
+        UTL_FILE.put_line(fich_salida_load, '  --outdir ${' || NAME_DM || '_CTL} \');
         UTL_FILE.put_line(fich_salida_load, '  --options-file ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1 \');
         UTL_FILE.put_line(fich_salida_load, '  --target-dir ${' || NAME_DM || '_TMP}/${INTERFAZ} \');
         UTL_FILE.put_line(fich_salida_load, '  --fields-terminated-by ''' || v_separator || ''' \');
@@ -3795,7 +3805,7 @@ begin
         /* va a las tablas de Stagin sin pasar por ficehro plano */
         if (v_hay_usu_owner = true) then
           /* (20161109) Angel Ruiz. Puede ocurrir que el fichero .sql generado posea cadenas del tipo #OWNER_*# */
-          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL} > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1');
+          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${OWNER_EXT}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL} > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1');
         end if;                
         
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}/${ARCHIVO_SQL}');
@@ -3810,6 +3820,7 @@ begin
         end if;
         UTL_FILE.put_line(fich_salida_load, '  --hive-import \');
         UTL_FILE.put_line(fich_salida_load, '  --delete-target-dir \');        
+        UTL_FILE.put_line(fich_salida_load, '  --outdir ${' || NAME_DM || '_CTL} \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-table ' || '${ESQUEMA_ST}.SAH_' || reg_tabla.TABLE_NAME || ' \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-partition-key fch_carga \');
         UTL_FILE.put_line(fich_salida_load, '  --hive-partition-value "${FECHA_FMT_HIVE}" \');
@@ -3821,7 +3832,7 @@ begin
       else
         if (v_hay_usu_owner = true) then
           /* (20161109) Angel Ruiz. Puede ocurrir que el fichero .sql generado posea cadenas del tipo #OWNER_*# */
-          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${BD_USR_EXT}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL} > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1');
+          UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${OWNER_EXT}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL} > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1');
         end if;                
       
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}/${ARCHIVO_SQL} ${PATH_SALIDA}/${ARCHIVO_SALIDA}');
@@ -3830,6 +3841,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  --username ${BD_USR_EXT} \');
         UTL_FILE.put_line(fich_salida_load, '  --password ${BD_PWD} \');
         UTL_FILE.put_line(fich_salida_load, '  --delete-target-dir \');
+        UTL_FILE.put_line(fich_salida_load, '  --outdir ${' || NAME_DM || '_CTL} \');
         if (v_hay_usu_owner = true) then
           UTL_FILE.put_line(fich_salida_load, '  --options-file ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1 \');
         else
@@ -3908,7 +3920,7 @@ begin
       if (v_type_validation = 'I') then
         /* (20160607) Angel Ruiz. Si se trata de validacion I desde la extraccion */
         /* va a las tablas de Stagin sin pasar por ficehro plano */
-        UTL_FILE.put_line(fich_salida_load, '  CONTEO_ARCHIVO=`beeline -u ${CAD_CONEX}/${ESQUEMA_ST} -n ${BD_USUARIO} -p ${BD_CLAVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_ST}.SA_' || reg_tabla.TABLE_NAME || ';"`');
+        UTL_FILE.put_line(fich_salida_load, '  CONTEO_ARCHIVO=`beeline -u ${CAD_CONEX}/${ESQUEMA_ST}${PARAM_CONEX} -n ${BD_USUARIO} -p ${BD_CLAVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_ST}.SA_' || reg_tabla.TABLE_NAME || ';"`');
         --UTL_FILE.put_line(fich_salida_load, '  CONTEO_ARCHIVO=`sqlplus -s ${BD_USR}/${BD_PWD}@${BD_SID} <<!eof');
         --UTL_FILE.put_line(fich_salida_load, 'whenever sqlerror exit 1');
         --UTL_FILE.put_line(fich_salida_load, 'set pagesize 0');
