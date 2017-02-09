@@ -556,7 +556,10 @@ cursor MTDT_TABLA
         /* trasformamos el primer operador del NVL */
         v_cadena_temp := regexp_replace (cadena_in, ' *([Nn][Vv][Ll]) *\( *([A-Za-z_]+) *,', '\1(' || alias_in || '.' || '\2' || ',');
         /* trasformamos el segundo operador del NVL, en caso de que sea un campo y no un literal */
-        v_cadena_temp := regexp_replace (v_cadena_temp, ', *([A-Za-z_]+) *\)', ', ' || alias_in || '.' || '\1' || ')');
+        if (regexp_instr(v_cadena_temp, '[Cc][Uu][Rr][Rr][Ee][Nn][Tt]') = 0) then
+          /* si aunque no es un literal si es un current_date entonces no se anyade alias */
+          v_cadena_temp := regexp_replace (v_cadena_temp, ', *([A-Za-z_]+) *\)', ', ' || alias_in || '.' || '\1' || ')');
+        end if;
         v_cadena_result := v_cadena_temp; /* retorno el resultado */
       else
         v_cadena_result := cadena_in;
@@ -737,9 +740,9 @@ cursor MTDT_TABLA
             v_cadena_temp := trim(regexp_substr(lista_elementos(indx), ' *[Dd][Ee][Cc][Oo][Dd][Ee] *\('));  /* Me quedo con DECODE ( */
             parte_1 := trim(substr(lista_elementos(indx), instr(lista_elementos(indx), '(') +1)); /* DETECTO EL ( */
             if (outer_in = 1) then
-              v_cadena_temp := v_cadena_temp || regexp_replace(parte_1, ' *([A-Za-z_]+) *', alias_in || '.\1' || ' (+)'); /* cambio ID_FUENTE por ALIAS.ID_FUENTE */
+              v_cadena_temp := v_cadena_temp || regexp_replace(parte_1, ' *([A-Za-z_]+) *', alias_in || '.' || '\1' || ' (+)'); /* cambio ID_FUENTE por ALIAS.ID_FUENTE */
             else
-              v_cadena_temp := v_cadena_temp || regexp_replace(parte_1, ' *([A-Za-z_]+) *', alias_in || '.\1'); /* cambio ID_FUENTE por ALIAS.ID_FUENTE */
+              v_cadena_temp := v_cadena_temp || regexp_replace(parte_1, ' *([A-Za-z_]+) *', alias_in || '.' || '\1'); /* cambio ID_FUENTE por ALIAS.ID_FUENTE */
             end if;
             v_cadena_temp := v_cadena_temp || ', '; /* Tengo LA CADENA: "DECODE (alias_in.ID_FUENTE (+), " */
           elsif (indx = lista_elementos.LAST) then
@@ -747,9 +750,9 @@ cursor MTDT_TABLA
             if (instr(lista_elementos(indx), '''') = 0) then
               /* Se trata de un elemnto tipo ID_CANAL pero situado al final del DECODE */
               if (outer_in = 1) then
-                v_cadena_temp := v_cadena_temp || regexp_replace(lista_elementos(indx), ' *([A-Za-z_]+) *\)', alias_in || '.\1' || ' (+))'); /* cambio ID_FUENTE por ALIAS.ID_FUENTE */
+                v_cadena_temp := v_cadena_temp || regexp_replace(lista_elementos(indx), ' *([A-Za-z_]+) *\)', alias_in || '.' || '\1' || ' (+))'); /* cambio ID_FUENTE por ALIAS.ID_FUENTE */
               else
-                v_cadena_temp := v_cadena_temp || regexp_replace(lista_elementos(indx), ' *([A-Za-z_]+) *\)', alias_in || '.\1' || ')'); /* cambio ID_FUENTE por ALIAS.ID_FUENTE */
+                v_cadena_temp := v_cadena_temp || regexp_replace(lista_elementos(indx), ' *([A-Za-z_]+) *\)', alias_in || '.' || '\1' || ')'); /* cambio ID_FUENTE por ALIAS.ID_FUENTE */
               end if;
             else
               /* Se trata de un elemento literal situado como ultimo elemento del decode, tipo '1' */
@@ -761,9 +764,9 @@ cursor MTDT_TABLA
             if (instr(lista_elementos(indx), '''') = 0) then
               /* Se trata de un elemento que no es un literal, tipo ID_CANAL */
               if (outer_in = 1) then
-                v_cadena_temp := v_cadena_temp || regexp_replace(parte_1, ' *([A-Za-z_]+) *', alias_in || '.\1' || ' (+)');
+                v_cadena_temp := v_cadena_temp || regexp_replace(lista_elementos(indx), ' *([A-Za-z_]+) *', alias_in || '.' || '\1' || ' (+)');
               else
-                v_cadena_temp := v_cadena_temp || regexp_replace(parte_1, ' *([A-Za-z_]+) *', alias_in || '.\1');
+                v_cadena_temp := v_cadena_temp || regexp_replace(lista_elementos(indx), ' *([A-Za-z_]+) *', alias_in || '.' || '\1');
               end if;
               v_cadena_temp := v_cadena_temp || ', '; /* Tengo LA CADENA: "DECODE (alias_in.ID_FUENTE (+), ..., alias_in.ID_CANAL, ... "*/
             else
@@ -843,14 +846,14 @@ cursor MTDT_TABLA
         sustituto := ' date_format (''#VAR_FCH_DATOS#'', ''yyyy-MM-dd'') '; /* (20161208) Angel Ruiz */
         loop
           dbms_output.put_line ('Entro en el LOOP. La cedena es: ' || cadena_resul);
-          pos := instr(cadena_resul, 'VAR_FCH_CARGA', pos+1);
+          pos := instr(cadena_resul, '#VAR_FCH_CARGA#', pos+1);
           exit when pos = 0;
           dbms_output.put_line ('Pos es mayor que 0');
           dbms_output.put_line ('Primer valor de Pos: ' || pos);
           cabeza := substr(cadena_resul, (posicion_ant + 1), (pos - posicion_ant - 1));
           --dbms_output.put_line ('La cabeza es: ' || cabeza);
           dbms_output.put_line ('La  sustitutoria es: ' || sustituto);
-          cola := substr(cadena_resul, pos + length ('VAR_FCH_CARGA'));
+          cola := substr(cadena_resul, pos + length ('#VAR_FCH_CARGA#'));
           --dbms_output.put_line ('La cola es: ' || cola);
           cadena_resul := cabeza || sustituto || cola;
           --pos_ant := pos + length (' to_date ( fch_datos_in, ''yyyymmdd'') ');
@@ -860,14 +863,14 @@ cursor MTDT_TABLA
         sustituto := ' date_format (''#VAR_FCH_REGISTRO#'', ''yyyy-MM-dd'') ';
         loop
           dbms_output.put_line ('Entro en el LOOP. La cedena es: ' || cadena_resul);
-          pos := instr(cadena_resul, 'VAR_FCH_INICIO', pos+1);
+          pos := instr(cadena_resul, '#VAR_FCH_INICIO#', pos+1);
           exit when pos = 0;
           dbms_output.put_line ('Pos es mayor que 0');
           dbms_output.put_line ('Primer valor de Pos: ' || pos);
           cabeza := substr(cadena_resul, (posicion_ant + 1), (pos - posicion_ant - 1));
           dbms_output.put_line ('La cabeza es: ' || cabeza);
           dbms_output.put_line ('La  sustitutoria es: ' || sustituto);
-          cola := substr(cadena_resul, pos + length ('VAR_FCH_INICIO'));
+          cola := substr(cadena_resul, pos + length ('#VAR_FCH_INICIO#'));
           dbms_output.put_line ('La cola es: ' || cola);
           cadena_resul := cabeza || sustituto || cola;
           --pos_ant := pos + length (' to_date ( fch_datos_in, ''yyyymmdd'') ');
@@ -3705,7 +3708,7 @@ begin
       /******************************************/
       UTL_FILE.put_line(fich_salida_load, 'InsertaFinFallido()');
       UTL_FILE.put_line(fich_salida_load, '{');
-      UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "\');
+      UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "\');
       UTL_FILE.put_line(fich_salida_load, '  INSERT INTO ${ESQUEMA_MT}.MTDT_MONITOREO');
       UTL_FILE.put_line(fich_salida_load, '  SELECT');
       UTL_FILE.put_line(fich_salida_load, '    mtdt_proceso.cve_proceso*' || v_MULTIPLICADOR_PROC || '+${ULT_PASO_EJECUTADO}+unix_timestamp(),');  /* mtdt_proceso.cve_proceso*v_MULTIPLICADOR_PROC+mtdt_paso.cve_paso+unix_timestamp() */
@@ -3741,7 +3744,7 @@ begin
       
       UTL_FILE.put_line(fich_salida_load, 'InsertaFinOK()');
       UTL_FILE.put_line(fich_salida_load, '{');
-      UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "\');
+      UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "\');
       UTL_FILE.put_line(fich_salida_load, '  INSERT INTO ${ESQUEMA_MT}.MTDT_MONITOREO');
       UTL_FILE.put_line(fich_salida_load, '  SELECT');
       UTL_FILE.put_line(fich_salida_load, '    mtdt_proceso.cve_proceso*' || v_MULTIPLICADOR_PROC || '+${ULT_PASO_EJECUTADO}+unix_timestamp(),');  /* mtdt_proceso.cve_proceso*v_MULTIPLICADOR_PROC+mtdt_paso.cve_paso+unix_timestamp() */ 
@@ -3856,7 +3859,7 @@ begin
   /***********************/
   
   /*(20161205) Angel Ruiz. ***************************/
-      UTL_FILE.put_line(fich_salida_load, 'ULT_PASO_EJECUTADO=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "\');
+      UTL_FILE.put_line(fich_salida_load, 'ULT_PASO_EJECUTADO=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "\');
       UTL_FILE.put_line(fich_salida_load, '  SELECT nvl(MAX(MTDT_MONITOREO.CVE_PASO),0)');
       UTL_FILE.put_line(fich_salida_load, '  FROM');
       UTL_FILE.put_line(fich_salida_load, '  ${ESQUEMA_MT}.MTDT_MONITOREO');
@@ -3880,12 +3883,12 @@ begin
       UTL_FILE.put_line(fich_salida_load, 'fi');
       
   
-      UTL_FILE.put_line(fich_salida_load, 'INICIO_PASO_TMR=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select current_timestamp from ${ESQUEMA_MT}.dual;"` >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+      UTL_FILE.put_line(fich_salida_load, 'INICIO_PASO_TMR=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select current_timestamp from ${ESQUEMA_MT}.dual;"` >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
       UTL_FILE.put_line(fich_salida_load, 'echo "Inicio de la carga de dimension ' || reg_tabla.TABLE_NAME || '"' || ' >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
       UTL_FILE.put_line(fich_salida_load, '');
       UTL_FILE.put_line(fich_salida_load, 'sed -e "s/#VAR_FCH_REGISTRO#/${INICIO_PASO_TMR}/g" -e "s/#VAR_FCH_CARGA#/${FCH_CARGA_FMT_HIVE}/g" -e "s/#VAR_FCH_DATOS#/${FCH_DATOS_FMT_HIVE}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '.sql > ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
       
-      UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -f ' || '${NGRD_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+      UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -f ' || '${NGRD_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
       UTL_FILE.put_line(fich_salida_load, 'err_salida=$?');
       UTL_FILE.put_line(fich_salida_load, '');
       UTL_FILE.put_line(fich_salida_load, 'if [ ${err_salida} -ne 0 ]; then');
@@ -3899,11 +3902,11 @@ begin
       UTL_FILE.put_line(fich_salida_load, '# Borro el fichero temporal .sql generado en vuelo');
       UTL_FILE.put_line(fich_salida_load, 'rm ${NGRD_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
       UTL_FILE.put_line(fich_salida_load, '# Obtenemos el numero de registros nuevos para despues grabarlo en el metadato');
-      UTL_FILE.put_line(fich_salida_load, 'TOT_INSERTADOS=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_ML}.T_' || nombre_tabla_reducido || ';"` >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+      UTL_FILE.put_line(fich_salida_load, 'TOT_INSERTADOS=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_ML}.T_' || nombre_tabla_reducido || ';"` >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
       UTL_FILE.put_line(fich_salida_load, '# Obtenemos el numero de registros modificados para despues grabarlo en el metadato');
-      UTL_FILE.put_line(fich_salida_load, 'TOT_MODIFICADOS=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_ML}.T_' || nombre_tabla_reducido || '_01;"` >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+      UTL_FILE.put_line(fich_salida_load, 'TOT_MODIFICADOS=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_ML}.T_' || nombre_tabla_reducido || '_01;"` >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
       UTL_FILE.put_line(fich_salida_load, '# Obtenemos el numero de registros historificados para despues grabarlo en el metadato');
-      UTL_FILE.put_line(fich_salida_load, 'TOT_HISTO=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_ML}.T_' || nombre_tabla_reducido || '_02;"` >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+      UTL_FILE.put_line(fich_salida_load, 'TOT_HISTO=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_ML}.T_' || nombre_tabla_reducido || '_02;"` >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
       UTL_FILE.put_line(fich_salida_load, '# Insertamos que el proceso se ha Ejecutado Correctamente');
       UTL_FILE.put_line(fich_salida_load, 'InsertaFinOK');
       UTL_FILE.put_line(fich_salida_load, '');
