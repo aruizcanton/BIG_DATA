@@ -16,7 +16,8 @@ DECLARE
       MARCA,
       HUSO      
     FROM MTDT_INTERFACE_SUMMARY    
-    WHERE UPPER(TRIM(SOURCE)) <> 'SA' and UPPER(TRIM(SOURCE)) <> 'MAN' and (TRIM(STATUS) = 'P' OR TRIM(STATUS) = 'D')
+    WHERE UPPER(TRIM(SOURCE)) <> 'SA' and UPPER(TRIM(SOURCE)) <> 'MAN' 
+    and (TRIM(STATUS) = 'P' OR TRIM(STATUS) = 'D')
     ;  -- Este origen es el que se ha considerado para las dimensiones que son de integracion ya que se cargan a partir de otras dimensiones de SA 
     --and CONCEPT_NAME in ('TRAFE_CU_MVNO', 'TRAFD_CU_MVNO', 'TRAFV_CU_MVNO');
     --and trim(CONCEPT_NAME) in ('CUENTA', 'PARQUE_ABO_PRE');
@@ -213,7 +214,7 @@ BEGIN
     UTL_FILE.put_line(fich_salida_sh, '{');
     --UTL_FILE.put_line(fich_salida_sh, 'sqlplus -s ${BD_USR}/${BD_PWD}@${BD_SID} <<!eof');
     --UTL_FILE.put_line(fich_salida_sh, 'mysql -Ns -u ${BD_USER_HIVE} -p${BD_CLAVE} -D ${BD_SID} 2> /dev/null << !eof');
-    UTL_FILE.put_line(fich_salida_sh, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "\');
+    UTL_FILE.put_line(fich_salida_sh, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "\');
     UTL_FILE.put_line(fich_salida_sh, '  INSERT INTO ${ESQUEMA_MT}.MTDT_MONITOREO');
     --UTL_FILE.put_line(fich_salida_sh, '  (');
     --UTL_FILE.put_line(fich_salida_sh, '    CVE_PROCESO,');
@@ -268,7 +269,7 @@ BEGIN
     UTL_FILE.put_line(fich_salida_sh, '');
     UTL_FILE.put_line(fich_salida_sh, 'InsertaFinOK()');
     UTL_FILE.put_line(fich_salida_sh, '{');
-    UTL_FILE.put_line(fich_salida_sh, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "\');
+    UTL_FILE.put_line(fich_salida_sh, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "\');
     --UTL_FILE.put_line(fich_salida_sh, 'whenever sqlerror exit 1');
     --UTL_FILE.put_line(fich_salida_sh, 'set pagesize 0');
     --UTL_FILE.put_line(fich_salida_sh, 'set heading off');
@@ -422,7 +423,7 @@ BEGIN
     UTL_FILE.put_line(fich_salida_sh, 'ObtenContrasena ${BD_SID} ${BD_USER_HIVE}');
     UTL_FILE.put_line(fich_salida_sh, 'BD_CLAVE_HIVE=${PASSWORD}');
     /* (20160816) Angel Ruiz. Comento lo relacionado con la escritura en el metadato */
-    UTL_FILE.put_line(fich_salida_sh, 'ULT_PASO_EJECUTADO=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "\');
+    UTL_FILE.put_line(fich_salida_sh, 'ULT_PASO_EJECUTADO=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "\');
     --UTL_FILE.put_line(fich_salida_sh, 'WHENEVER SQLERROR EXIT 1;');
     --UTL_FILE.put_line(fich_salida_sh, 'WHENEVER OSERROR EXIT 2;');
     --UTL_FILE.put_line(fich_salida_sh, 'SET PAGESIZE 0;');
@@ -452,7 +453,7 @@ BEGIN
     UTL_FILE.put_line(fich_salida_sh, 'fi');
     --UTL_FILE.put_line(fich_salida_sh, 'if [ ${ULT_PASO_EJECUTADO} -eq 0 ]');
     --UTL_FILE.put_line(fich_salida_sh, 'then');
-    UTL_FILE.put_line(fich_salida_sh, 'INICIO_PASO_TMR=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select current_timestamp from ${ESQUEMA_MT}.dual;"` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+    UTL_FILE.put_line(fich_salida_sh, 'INICIO_PASO_TMR=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select current_timestamp from ${ESQUEMA_MT}.dual;"` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
     --UTL_FILE.put_line(fich_salida_sh, 'WHENEVER SQLERROR EXIT 1;');
     --UTL_FILE.put_line(fich_salida_sh, 'WHENEVER OSERROR EXIT 2;');
     --UTL_FILE.put_line(fich_salida_sh, 'SET PAGESIZE 0;');
@@ -463,7 +464,38 @@ BEGIN
     /* (20160816) Angel Ruiz. FIN. Comento lo relacionado con la escritura en el metadato */
     UTL_FILE.put_line(fich_salida_sh, 'echo "Inicio de la carga de la tabla de staging ' || 'SA' || '_' || reg_summary.CONCEPT_NAME || '"' || ' >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log');
     UTL_FILE.put_line(fich_salida_sh, '');
-    
+    if (UPPER(reg_summary.SOURCE) = 'STABI') then
+      /* (20170130) Angel Ruiz. Nueva Funcionalidad (NF). Se anyada la parte relativa al directorio STABI */
+      UTL_FILE.put_line(fich_salida_sh, 'NOMBRE_FICH_STABI=`ls -1 ${' || NAME_DM || '_STABI}/' || nombre_interface_a_cargar || '`');
+      UTL_FILE.put_line(fich_salida_sh, 'if [ "${NOMBRE_FICH_STABI:-SIN_VALOR}" = "SIN_VALOR" ] ; then');
+      UTL_FILE.put_line(fich_salida_sh, '  echo "El fichero no ha sido depositado en la ruta STABI establecida: ${' || NAME_DM || '_STABI}/' || nombre_interface_a_cargar || '" >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_sh, 'else');
+      UTL_FILE.put_line(fich_salida_sh, '  NAME_FLAG=`basename ${NOMBRE_FICH_STABI} | sed -e ''s/\.[Dd][Aa][Tt]/\.flag/''`');
+      UTL_FILE.put_line(fich_salida_sh, '  # Procesamos el fichero obtenido');
+      UTL_FILE.put_line(fich_salida_sh, '  echo "El fichero se agrega al hadoop fs"' || ' >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_sh, '  hadoop fs -test -d ${' || NAME_DM || '_FUENTE}/' || reg_summary.CONCEPT_NAME);
+      UTL_FILE.put_line(fich_salida_sh, '  if [ $? -ne 0 ]; then');
+      UTL_FILE.put_line(fich_salida_sh, '    # El directorio en el que se van a copiar los ficheros no existe. Se crea.');
+      UTL_FILE.put_line(fich_salida_sh, '    hadoop fs -mkdir ${' || NAME_DM || '_FUENTE}/' || reg_summary.CONCEPT_NAME);
+      UTL_FILE.put_line(fich_salida_sh, '  fi');
+      UTL_FILE.put_line(fich_salida_sh, '  hadoop fs -test -d ${' || NAME_DM || '_FUENTE}/' || reg_summary.CONCEPT_NAME || '/${FCH_CARGA}');
+      UTL_FILE.put_line(fich_salida_sh, '  if [ $? -ne 0 ]; then');
+      UTL_FILE.put_line(fich_salida_sh, '    # El directorio en el que se van a copiar los ficheros no existe. Se crea.');
+      UTL_FILE.put_line(fich_salida_sh, '    hadoop fs -mkdir ${' || NAME_DM || '_FUENTE}/' || reg_summary.CONCEPT_NAME || '/${FCH_CARGA}');
+      UTL_FILE.put_line(fich_salida_sh, '  fi');
+      UTL_FILE.put_line(fich_salida_sh, '  # Borramos el fichero en el destino si existe. Opcion -f');
+      UTL_FILE.put_line(fich_salida_sh, '  hadoop fs -rm -f ${' || NAME_DM || '_FUENTE}/' || reg_summary.CONCEPT_NAME || '/${FCH_CARGA}/' || nombre_interface_a_cargar);
+      UTL_FILE.put_line(fich_salida_sh, '  if [ $? -eq 0 ]; then');
+      UTL_FILE.put_line(fich_salida_sh, '    # El fichero no existe o ha sido borrado. Se coloca.');
+      UTL_FILE.put_line(fich_salida_sh, '    echo ${NOMBRE_FICH_STABI}' || ' >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_sh, '    echo ${' || NAME_DM || '_FUENTE}/' || reg_summary.CONCEPT_NAME || '/${FCH_CARGA} >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_sh, '    echo ${' || NAME_DM || '_STABI}/${NAME_FLAG}' || ' >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_sh, '    hadoop fs -put -f ${NOMBRE_FICH_STABI} ${' || NAME_DM || '_FUENTE}/' || reg_summary.CONCEPT_NAME || '/${FCH_CARGA}');
+      UTL_FILE.put_line(fich_salida_sh, '    hadoop fs -put -f ${' || NAME_DM || '_STABI}/${NAME_FLAG} ${' || NAME_DM || '_FUENTE}/' || reg_summary.CONCEPT_NAME || '/${FCH_CARGA}');
+      UTL_FILE.put_line(fich_salida_sh, '  fi');
+      UTL_FILE.put_line(fich_salida_sh, 'fi');
+      /* (20170130) Angel Ruiz. Fin NF */
+    end if;
     /* (20150225) ANGEL RUIZ. Aparecen HH24MISS como parte del nombre en el DM Distribucion */
     /* (20150827) ANGEL RUIZ. He comentado el IF de despues porque no funcionaba cuando el fichero viene sin HHMMSS*/
     --if (pos_ini_hora > 0) then
@@ -546,7 +578,7 @@ BEGIN
     /* (20161125) Angel Ruiz. Modifico el camino fuente del que cargo la informacion */
     --UTL_FILE.put_line(fich_salida_sh, '  beeline -u ${CAD_CONEX}/${ESQUEMA_SA} -n ${BD_USUARIO} -p ${BD_CLAVE} -e "LOAD DATA INPATH ''file://${FILE}' || ''' OVERWRITE INTO TABLE ${ESQUEMA_SA}.SA_' || reg_summary.CONCEPT_NAME ||' PARTITION (FCH_CARGA=''${FCH_FMT_HIVE}'');" >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
     --UTL_FILE.put_line(fich_salida_sh, '  beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_SA} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "LOAD DATA INPATH ''${FILE}' || ''' OVERWRITE INTO TABLE ${ESQUEMA_SA}.SA_' || reg_summary.CONCEPT_NAME ||' PARTITION (FCH_CARGA=''${FCH_CARGA_FMT_HIVE}'');" >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
-    UTL_FILE.put_line(fich_salida_sh, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_SA} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "ALTER TABLE ${ESQUEMA_SA}.SAH_' || reg_summary.CONCEPT_NAME ||' ADD IF NOT EXISTS PARTITION (FCH_CARGA=''${FCH_CARGA_FMT_HIVE}'') LOCATION ''${' || NAME_DM || '_FUENTE}/' || reg_summary.CONCEPT_NAME || '/${FCH_CARGA}''' || ';" >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+    UTL_FILE.put_line(fich_salida_sh, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_SA}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "ALTER TABLE ${ESQUEMA_SA}.SAH_' || reg_summary.CONCEPT_NAME ||' ADD IF NOT EXISTS PARTITION (FCH_CARGA=''${FCH_CARGA_FMT_HIVE}'') LOCATION ''${' || NAME_DM || '_FUENTE}/' || reg_summary.CONCEPT_NAME || '/${FCH_CARGA}''' || ';" >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
     --UTL_FILE.put_line(fich_salida_sh, '"LOAD DATA LOCAL INPATH ''${NOMBRE_FICH_CARGA}' || ''' \');
     --UTL_FILE.put_line(fich_salida_sh, 'OVERWRITE INTO TABLE ${BD_SID}.SA_' || reg_summary.CONCEPT_NAME || ' \');
     --UTL_FILE.put_line(fich_salida_sh, 'PARTITION (FCH_CARGA=''${FCH_CARGA}'')" >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
@@ -564,7 +596,7 @@ BEGIN
 
     UTL_FILE.put_line(fich_salida_sh, '# Cargamos la tabla de Staging SA_' || reg_summary.CONCEPT_NAME);
     /* (20170113) Angel Ruiz. NF: Nueva estructura de la parte de staging */
-    UTL_FILE.put_line(fich_salida_sh, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_SA} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "\');
+    UTL_FILE.put_line(fich_salida_sh, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_SA}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "\');
     UTL_FILE.put_line(fich_salida_sh, '  INSERT OVERWRITE TABLE ${ESQUEMA_ML}.SA_' || reg_summary.CONCEPT_NAME);
     UTL_FILE.put_line(fich_salida_sh, '  SELECT');
     OPEN dtd_interfaz_detail (reg_summary.CONCEPT_NAME, reg_summary.SOURCE);
@@ -634,7 +666,7 @@ BEGIN
     --END LOOP;
     /* (20161007) Angel Ruiz. FIN Carga de ficheros de longitud FIJA */
     --UTL_FILE.put_line(fich_salida_sh, 'REG_INSERTADOS=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_SA} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_SA}.SA_' || reg_summary.CONCEPT_NAME||' WHERE FCH_CARGA=''${FCH_CARGA_FMT_HIVE}'';"` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
-    UTL_FILE.put_line(fich_salida_sh, 'REG_INSERTADOS=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_SA} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_ML}.SA_' || reg_summary.CONCEPT_NAME||';"` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+    UTL_FILE.put_line(fich_salida_sh, 'REG_INSERTADOS=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_SA}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_ML}.SA_' || reg_summary.CONCEPT_NAME||';"` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
     --UTL_FILE.put_line(fich_salida_sh, '  REG_INSERTADOS=${REG_LEIDOS}');
     UTL_FILE.put_line(fich_salida_sh, 'REG_RECHAZADOS=0');
     UTL_FILE.put_line(fich_salida_sh, 'TOT_LEIDOS=`expr ${TOT_LEIDOS} + ${REG_LEIDOS}`');
