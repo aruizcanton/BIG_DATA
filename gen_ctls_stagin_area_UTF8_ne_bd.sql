@@ -214,8 +214,10 @@ BEGIN
     UTL_FILE.put_line(fich_salida_sh, '{');
     --UTL_FILE.put_line(fich_salida_sh, 'sqlplus -s ${BD_USR}/${BD_PWD}@${BD_SID} <<!eof');
     --UTL_FILE.put_line(fich_salida_sh, 'mysql -Ns -u ${BD_USER_HIVE} -p${BD_CLAVE} -D ${BD_SID} 2> /dev/null << !eof');
-    UTL_FILE.put_line(fich_salida_sh, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "\');
-    UTL_FILE.put_line(fich_salida_sh, '  INSERT INTO ${ESQUEMA_MT}.MTDT_MONITOREO');
+    --UTL_FILE.put_line(fich_salida_sh, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "\');
+    UTL_FILE.put_line(fich_salida_sh, 'beeline << EOF');
+    UTL_FILE.put_line(fich_salida_sh, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+    UTL_FILE.put_line(fich_salida_sh, 'INSERT INTO ${ESQUEMA_MT}.MTDT_MONITOREO');
     --UTL_FILE.put_line(fich_salida_sh, '  (');
     --UTL_FILE.put_line(fich_salida_sh, '    CVE_PROCESO,');
     --UTL_FILE.put_line(fich_salida_sh, '    CVE_PASO,');
@@ -228,27 +230,29 @@ BEGIN
     --UTL_FILE.put_line(fich_salida_sh, '    NUM_READS,');    
     --UTL_FILE.put_line(fich_salida_sh, '    FCH_REGISTRO');
     --UTL_FILE.put_line(fich_salida_sh, '  )');
-    UTL_FILE.put_line(fich_salida_sh, '  SELECT');
-    UTL_FILE.put_line(fich_salida_sh, '    mtdt_proceso.cve_proceso*' || v_MULTIPLICADOR_PROC || '+${ULT_PASO_EJECUTADO}+unix_timestamp(),');  /* mtdt_proceso.cve_proceso*v_MULTIPLICADOR_PROC+mtdt_paso.cve_paso+unix_timestamp() */
-    UTL_FILE.put_line(fich_salida_sh, '    mtdt_proceso.cve_proceso,');
-    UTL_FILE.put_line(fich_salida_sh, '    1,');
-    UTL_FILE.put_line(fich_salida_sh, '    1,');
-    UTL_FILE.put_line(fich_salida_sh, '    ''${INICIO_PASO_TMR}'',');
-    UTL_FILE.put_line(fich_salida_sh, '    current_timestamp(),');
-    UTL_FILE.put_line(fich_salida_sh, '    ''${FCH_DATOS_FMT_HIVE}'',');
-    UTL_FILE.put_line(fich_salida_sh, '    ''${FCH_CARGA_FMT_HIVE}'',');
-    UTL_FILE.put_line(fich_salida_sh, '    ${TOT_INSERTADOS},');  /* numero de inserts */
-    UTL_FILE.put_line(fich_salida_sh, '    0,'); /* numero de updates */
-    UTL_FILE.put_line(fich_salida_sh, '    0,'); /* numero de deletes */
-    UTL_FILE.put_line(fich_salida_sh, '    ${TOT_LEIDOS},'); /* numero de reads */
-    UTL_FILE.put_line(fich_salida_sh, '    0,'); /* numero de discards */
-    UTL_FILE.put_line(fich_salida_sh, '    ''${BAN_FORZADO}'','); /* BAN_FORZADO */
-    UTL_FILE.put_line(fich_salida_sh, '    ''${INICIO_PASO_TMR}''');
-    UTL_FILE.put_line(fich_salida_sh, '  FROM');
-    UTL_FILE.put_line(fich_salida_sh, '  ${ESQUEMA_MT}.MTDT_PROCESO');
-    UTL_FILE.put_line(fich_salida_sh, '  WHERE');
+    UTL_FILE.put_line(fich_salida_sh, 'SELECT');
+    UTL_FILE.put_line(fich_salida_sh, '  mtdt_proceso.cve_proceso*' || v_MULTIPLICADOR_PROC || '+${ULT_PASO_EJECUTADO}+unix_timestamp(),');  /* mtdt_proceso.cve_proceso*v_MULTIPLICADOR_PROC+mtdt_paso.cve_paso+unix_timestamp() */
+    UTL_FILE.put_line(fich_salida_sh, '  mtdt_proceso.cve_proceso,');
+    UTL_FILE.put_line(fich_salida_sh, '  1,');
+    UTL_FILE.put_line(fich_salida_sh, '  1,');
+    UTL_FILE.put_line(fich_salida_sh, '  ''${INICIO_PASO_TMR}'',');
+    UTL_FILE.put_line(fich_salida_sh, '  current_timestamp(),');
+    UTL_FILE.put_line(fich_salida_sh, '  ''${FCH_DATOS_FMT_HIVE}'',');
+    UTL_FILE.put_line(fich_salida_sh, '  ''${FCH_CARGA_FMT_HIVE}'',');
+    UTL_FILE.put_line(fich_salida_sh, '  ${TOT_INSERTADOS},');  /* numero de inserts */
+    UTL_FILE.put_line(fich_salida_sh, '  0,'); /* numero de updates */
+    UTL_FILE.put_line(fich_salida_sh, '  0,'); /* numero de deletes */
+    UTL_FILE.put_line(fich_salida_sh, '  ${TOT_LEIDOS},'); /* numero de reads */
+    UTL_FILE.put_line(fich_salida_sh, '  0,'); /* numero de discards */
+    UTL_FILE.put_line(fich_salida_sh, '  ''${BAN_FORZADO}'','); /* BAN_FORZADO */
+    UTL_FILE.put_line(fich_salida_sh, '  ''${INICIO_PASO_TMR}''');
+    UTL_FILE.put_line(fich_salida_sh, 'FROM');
+    UTL_FILE.put_line(fich_salida_sh, '${ESQUEMA_MT}.MTDT_PROCESO');
+    UTL_FILE.put_line(fich_salida_sh, 'WHERE');
     /* (20160817) Angel Ruiz. Cambio temporal para adecuarse a la entrega de produccion*/
-    UTL_FILE.put_line(fich_salida_sh, '  MTDT_PROCESO.NOMBRE_PROCESO = ''load_SA_' || reg_summary.CONCEPT_NAME || '.sh'';"');
+    UTL_FILE.put_line(fich_salida_sh, 'MTDT_PROCESO.NOMBRE_PROCESO = ''load_SA_' || reg_summary.CONCEPT_NAME || '.sh'';');
+    UTL_FILE.put_line(fich_salida_sh, '!quit');
+    UTL_FILE.put_line(fich_salida_sh, 'EOF');
     --UTL_FILE.put_line(fich_salida_load, '  MTDT_PROCESO.NOMBRE_PROCESO = ''' || 'ONIX' || '_' || reg_tabla.TABLE_NAME || '.sh'';');
     /* (20160817) Angel Ruiz FIN Cambio temporal para adecuarse a la entrega de produccion*/
     --UTL_FILE.put_line(fich_salida_sh, '  commit;');
@@ -257,6 +261,7 @@ BEGIN
     --UTL_FILE.put_line(fich_salida_sh, 'exit 0;');
     --UTL_FILE.put_line(fich_salida_sh, 'quit');
     --UTL_FILE.put_line(fich_salida_sh, '!eof');
+    
     UTL_FILE.put_line(fich_salida_sh, '  if [ $? -ne 0 ]');
     UTL_FILE.put_line(fich_salida_sh, '  then');
     UTL_FILE.put_line(fich_salida_sh, '    SUBJECT="${REQ_NUM}: ERROR: Al insertar en el metadato Fin Fallido."');
@@ -269,33 +274,33 @@ BEGIN
     UTL_FILE.put_line(fich_salida_sh, '');
     UTL_FILE.put_line(fich_salida_sh, 'InsertaFinOK()');
     UTL_FILE.put_line(fich_salida_sh, '{');
-    UTL_FILE.put_line(fich_salida_sh, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "\');
-    --UTL_FILE.put_line(fich_salida_sh, 'whenever sqlerror exit 1');
-    --UTL_FILE.put_line(fich_salida_sh, 'set pagesize 0');
-    --UTL_FILE.put_line(fich_salida_sh, 'set heading off');
-    --UTL_FILE.put_line(fich_salida_sh, 'begin');
-    UTL_FILE.put_line(fich_salida_sh, '  INSERT INTO ${ESQUEMA_MT}.MTDT_MONITOREO');
-    UTL_FILE.put_line(fich_salida_sh, '  SELECT');
-    UTL_FILE.put_line(fich_salida_sh, '    mtdt_proceso.cve_proceso*' || v_MULTIPLICADOR_PROC || '+${ULT_PASO_EJECUTADO}+unix_timestamp(),');  /* mtdt_proceso.cve_proceso*v_MULTIPLICADOR_PROC+mtdt_paso.cve_paso+unix_timestamp() */ 
-    UTL_FILE.put_line(fich_salida_sh, '    mtdt_proceso.cve_proceso,');
-    UTL_FILE.put_line(fich_salida_sh, '    1,');
-    UTL_FILE.put_line(fich_salida_sh, '    0,');
-    UTL_FILE.put_line(fich_salida_sh, '    ''${INICIO_PASO_TMR}'',');
-    UTL_FILE.put_line(fich_salida_sh, '    current_timestamp(),');
-    UTL_FILE.put_line(fich_salida_sh, '    ''${FCH_DATOS_FMT_HIVE}'',');
-    UTL_FILE.put_line(fich_salida_sh, '    ''${FCH_CARGA_FMT_HIVE}'',');
-    UTL_FILE.put_line(fich_salida_sh, '    ${TOT_INSERTADOS},');  /* numero de inserts */
-    UTL_FILE.put_line(fich_salida_sh, '    0,'); /* numero de updates */
-    UTL_FILE.put_line(fich_salida_sh, '    0,'); /* numero de deletes */
-    UTL_FILE.put_line(fich_salida_sh, '    ${TOT_LEIDOS},'); /* numero de reads */
-    UTL_FILE.put_line(fich_salida_sh, '    0,'); /* numero de discards */
-    UTL_FILE.put_line(fich_salida_sh, '    ''${BAN_FORZADO}'','); /* BAN_FORZADO */
-    UTL_FILE.put_line(fich_salida_sh, '    ''${INICIO_PASO_TMR}''');
-    UTL_FILE.put_line(fich_salida_sh, '  FROM');
-    UTL_FILE.put_line(fich_salida_sh, '  ${ESQUEMA_MT}.MTDT_PROCESO');
-    UTL_FILE.put_line(fich_salida_sh, '  WHERE');
+    --UTL_FILE.put_line(fich_salida_sh, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "\');
+    UTL_FILE.put_line(fich_salida_sh, 'beeline << EOF');
+    UTL_FILE.put_line(fich_salida_sh, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+    UTL_FILE.put_line(fich_salida_sh, 'INSERT INTO ${ESQUEMA_MT}.MTDT_MONITOREO');
+    UTL_FILE.put_line(fich_salida_sh, 'SELECT');
+    UTL_FILE.put_line(fich_salida_sh, '  mtdt_proceso.cve_proceso*' || v_MULTIPLICADOR_PROC || '+${ULT_PASO_EJECUTADO}+unix_timestamp(),');  /* mtdt_proceso.cve_proceso*v_MULTIPLICADOR_PROC+mtdt_paso.cve_paso+unix_timestamp() */ 
+    UTL_FILE.put_line(fich_salida_sh, '  mtdt_proceso.cve_proceso,');
+    UTL_FILE.put_line(fich_salida_sh, '  1,');
+    UTL_FILE.put_line(fich_salida_sh, '  0,');
+    UTL_FILE.put_line(fich_salida_sh, '  ''${INICIO_PASO_TMR}'',');
+    UTL_FILE.put_line(fich_salida_sh, '  current_timestamp(),');
+    UTL_FILE.put_line(fich_salida_sh, '  ''${FCH_DATOS_FMT_HIVE}'',');
+    UTL_FILE.put_line(fich_salida_sh, '  ''${FCH_CARGA_FMT_HIVE}'',');
+    UTL_FILE.put_line(fich_salida_sh, '  ${TOT_INSERTADOS},');  /* numero de inserts */
+    UTL_FILE.put_line(fich_salida_sh, '  0,'); /* numero de updates */
+    UTL_FILE.put_line(fich_salida_sh, '  0,'); /* numero de deletes */
+    UTL_FILE.put_line(fich_salida_sh, '  ${TOT_LEIDOS},'); /* numero de reads */
+    UTL_FILE.put_line(fich_salida_sh, '  0,'); /* numero de discards */
+    UTL_FILE.put_line(fich_salida_sh, '  ''${BAN_FORZADO}'','); /* BAN_FORZADO */
+    UTL_FILE.put_line(fich_salida_sh, '  ''${INICIO_PASO_TMR}''');
+    UTL_FILE.put_line(fich_salida_sh, 'FROM');
+    UTL_FILE.put_line(fich_salida_sh, '${ESQUEMA_MT}.MTDT_PROCESO');
+    UTL_FILE.put_line(fich_salida_sh, 'WHERE');
     /* (20160817) Angel Ruiz. Cambio temporal para adecuarse a la entrega de produccion*/    
-    UTL_FILE.put_line(fich_salida_sh, '  MTDT_PROCESO.NOMBRE_PROCESO = ''load_SA_' || reg_summary.CONCEPT_NAME || '.sh'';"');
+    UTL_FILE.put_line(fich_salida_sh, '  MTDT_PROCESO.NOMBRE_PROCESO = ''load_SA_' || reg_summary.CONCEPT_NAME || '.sh'';');
+    UTL_FILE.put_line(fich_salida_sh, '!quit');
+    UTL_FILE.put_line(fich_salida_sh, 'EOF');
     --UTL_FILE.put_line(fich_salida_load, '  MTDT_PROCESO.NOMBRE_PROCESO = ''' || 'ONIX' || '_' || reg_tabla.TABLE_NAME || '.sh'';');
     /* (20160817) Angel Ruiz FIN Cambio temporal para adecuarse a la entrega de produccion*/
     --UTL_FILE.put_line(fich_salida_sh, '  commit;');
@@ -423,26 +428,25 @@ BEGIN
     UTL_FILE.put_line(fich_salida_sh, 'ObtenContrasena ${BD_SID} ${BD_USER_HIVE}');
     UTL_FILE.put_line(fich_salida_sh, 'BD_CLAVE_HIVE=${PASSWORD}');
     /* (20160816) Angel Ruiz. Comento lo relacionado con la escritura en el metadato */
-    UTL_FILE.put_line(fich_salida_sh, 'ULT_PASO_EJECUTADO=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "\');
-    --UTL_FILE.put_line(fich_salida_sh, 'WHENEVER SQLERROR EXIT 1;');
-    --UTL_FILE.put_line(fich_salida_sh, 'WHENEVER OSERROR EXIT 2;');
-    --UTL_FILE.put_line(fich_salida_sh, 'SET PAGESIZE 0;');
-    --UTL_FILE.put_line(fich_salida_sh, 'SET HEADING OFF;');
-    UTL_FILE.put_line(fich_salida_sh, '  SELECT nvl(MAX(MTDT_MONITOREO.CVE_PASO),0)');
-    UTL_FILE.put_line(fich_salida_sh, '  FROM');
-    UTL_FILE.put_line(fich_salida_sh, '  ${ESQUEMA_MT}.MTDT_MONITOREO');
-    UTL_FILE.put_line(fich_salida_sh, '  JOIN ${ESQUEMA_MT}.MTDT_PROCESO');
-    UTL_FILE.put_line(fich_salida_sh, '  ON (MTDT_PROCESO.CVE_PROCESO = MTDT_MONITOREO.CVE_PROCESO)');
-    UTL_FILE.put_line(fich_salida_sh, '  JOIN ${ESQUEMA_MT}.MTDT_PASO');
-    UTL_FILE.put_line(fich_salida_sh, '  ON (MTDT_PROCESO.CVE_PROCESO = MTDT_PASO.CVE_PROCESO');
-    UTL_FILE.put_line(fich_salida_sh, '  AND MTDT_PASO.CVE_PASO = MTDT_MONITOREO.CVE_PASO)');
-    UTL_FILE.put_line(fich_salida_sh, '  WHERE');
-    UTL_FILE.put_line(fich_salida_sh, '  MTDT_MONITOREO.FCH_CARGA = ''${FCH_CARGA_FMT_HIVE}'' AND');
-    UTL_FILE.put_line(fich_salida_sh, '  MTDT_MONITOREO.FCH_DATOS = ''${FCH_DATOS_FMT_HIVE}'' AND');
-    UTL_FILE.put_line(fich_salida_sh, '  MTDT_PROCESO.NOMBRE_PROCESO = ''${0}'' AND');
-    UTL_FILE.put_line(fich_salida_sh, '  MTDT_MONITOREO.CVE_RESULTADO = 0;"` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
-    --UTL_FILE.put_line(fich_salida_sh, 'QUIT;');
-    --UTL_FILE.put_line(fich_salida_sh, 'EOF`');
+    --UTL_FILE.put_line(fich_salida_sh, 'ULT_PASO_EJECUTADO=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "\');
+    UTL_FILE.put_line(fich_salida_sh, 'ULT_PASO_EJECUTADO_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
+    UTL_FILE.put_line(fich_salida_sh, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+    UTL_FILE.put_line(fich_salida_sh, 'SELECT nvl(MAX(MTDT_MONITOREO.CVE_PASO),0) \');
+    UTL_FILE.put_line(fich_salida_sh, 'FROM \');
+    UTL_FILE.put_line(fich_salida_sh, '${ESQUEMA_MT}.MTDT_MONITOREO \');
+    UTL_FILE.put_line(fich_salida_sh, 'JOIN ${ESQUEMA_MT}.MTDT_PROCESO \');
+    UTL_FILE.put_line(fich_salida_sh, 'ON (MTDT_PROCESO.CVE_PROCESO = MTDT_MONITOREO.CVE_PROCESO) \');
+    UTL_FILE.put_line(fich_salida_sh, 'JOIN ${ESQUEMA_MT}.MTDT_PASO \');
+    UTL_FILE.put_line(fich_salida_sh, 'ON (MTDT_PROCESO.CVE_PROCESO = MTDT_PASO.CVE_PROCESO \');
+    UTL_FILE.put_line(fich_salida_sh, 'AND MTDT_PASO.CVE_PASO = MTDT_MONITOREO.CVE_PASO) \');
+    UTL_FILE.put_line(fich_salida_sh, 'WHERE \');
+    UTL_FILE.put_line(fich_salida_sh, 'MTDT_MONITOREO.FCH_CARGA = ''${FCH_CARGA_FMT_HIVE}'' AND \');
+    UTL_FILE.put_line(fich_salida_sh, 'MTDT_MONITOREO.FCH_DATOS = ''${FCH_DATOS_FMT_HIVE}'' AND \');
+    UTL_FILE.put_line(fich_salida_sh, 'MTDT_PROCESO.NOMBRE_PROCESO = ''${0}'' AND \');
+    UTL_FILE.put_line(fich_salida_sh, 'MTDT_MONITOREO.CVE_RESULTADO = 0;'); 
+    UTL_FILE.put_line(fich_salida_sh, '!quit');
+    UTL_FILE.put_line(fich_salida_sh, 'EOF`');
+    UTL_FILE.put_line(fich_salida_sh, 'ULT_PASO_EJECUTADO=`echo ${ULT_PASO_EJECUTADO_PREV} | sed -e ''s/ //g'' -e ''s/\n//g'' -e ''s/\r//g''`');    
     UTL_FILE.put_line(fich_salida_sh, 'if [ ${ULT_PASO_EJECUTADO} -eq 1 ] && [ "${BAN_FORZADO}" = "N" ]');
     UTL_FILE.put_line(fich_salida_sh, 'then');
     UTL_FILE.put_line(fich_salida_sh, '  SUBJECT="${INTERFAZ}: Ya se ejecutaron Ok todos los pasos de este proceso."');
@@ -453,14 +457,14 @@ BEGIN
     UTL_FILE.put_line(fich_salida_sh, 'fi');
     --UTL_FILE.put_line(fich_salida_sh, 'if [ ${ULT_PASO_EJECUTADO} -eq 0 ]');
     --UTL_FILE.put_line(fich_salida_sh, 'then');
-    UTL_FILE.put_line(fich_salida_sh, 'INICIO_PASO_TMR=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select current_timestamp from ${ESQUEMA_MT}.dual;"` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
-    --UTL_FILE.put_line(fich_salida_sh, 'WHENEVER SQLERROR EXIT 1;');
-    --UTL_FILE.put_line(fich_salida_sh, 'WHENEVER OSERROR EXIT 2;');
-    --UTL_FILE.put_line(fich_salida_sh, 'SET PAGESIZE 0;');
-    --UTL_FILE.put_line(fich_salida_sh, 'SET HEADING OFF;');
-    --UTL_FILE.put_line(fich_salida_sh, 'SELECT cast (systimestamp as timestamp) from dual;');
-    --UTL_FILE.put_line(fich_salida_sh, 'QUIT;');
-    --UTL_FILE.put_line(fich_salida_sh, 'EOF`');
+    --UTL_FILE.put_line(fich_salida_sh, 'INICIO_PASO_TMR=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select current_timestamp from ${ESQUEMA_MT}.dual;"` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+    UTL_FILE.put_line(fich_salida_sh, 'INICIO_PASO_TMR_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
+    UTL_FILE.put_line(fich_salida_sh, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+    UTL_FILE.put_line(fich_salida_sh, 'select current_timestamp from ${ESQUEMA_MT}.dual;');
+    UTL_FILE.put_line(fich_salida_sh, '!quit');
+    UTL_FILE.put_line(fich_salida_sh, 'EOF`');
+    UTL_FILE.put_line(fich_salida_sh, 'INICIO_PASO_TMR=`echo ${INICIO_PASO_TMR_PREV} | sed -e ''s/ //g'' -e ''s/\n//g'' -e ''s/\r//g''`');    
+    
     /* (20160816) Angel Ruiz. FIN. Comento lo relacionado con la escritura en el metadato */
     UTL_FILE.put_line(fich_salida_sh, 'echo "Inicio de la carga de la tabla de staging ' || 'SA' || '_' || reg_summary.CONCEPT_NAME || '"' || ' >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log');
     UTL_FILE.put_line(fich_salida_sh, '');
@@ -578,7 +582,12 @@ BEGIN
     /* (20161125) Angel Ruiz. Modifico el camino fuente del que cargo la informacion */
     --UTL_FILE.put_line(fich_salida_sh, '  beeline -u ${CAD_CONEX}/${ESQUEMA_SA} -n ${BD_USUARIO} -p ${BD_CLAVE} -e "LOAD DATA INPATH ''file://${FILE}' || ''' OVERWRITE INTO TABLE ${ESQUEMA_SA}.SA_' || reg_summary.CONCEPT_NAME ||' PARTITION (FCH_CARGA=''${FCH_FMT_HIVE}'');" >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
     --UTL_FILE.put_line(fich_salida_sh, '  beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_SA} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "LOAD DATA INPATH ''${FILE}' || ''' OVERWRITE INTO TABLE ${ESQUEMA_SA}.SA_' || reg_summary.CONCEPT_NAME ||' PARTITION (FCH_CARGA=''${FCH_CARGA_FMT_HIVE}'');" >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
-    UTL_FILE.put_line(fich_salida_sh, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_SA}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "ALTER TABLE ${ESQUEMA_SA}.SAH_' || reg_summary.CONCEPT_NAME ||' ADD IF NOT EXISTS PARTITION (FCH_CARGA=''${FCH_CARGA_FMT_HIVE}'') LOCATION ''${' || NAME_DM || '_FUENTE}/' || reg_summary.CONCEPT_NAME || '/${FCH_CARGA}''' || ';" >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+    --UTL_FILE.put_line(fich_salida_sh, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_SA}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "ALTER TABLE ${ESQUEMA_SA}.SAH_' || reg_summary.CONCEPT_NAME ||' ADD IF NOT EXISTS PARTITION (FCH_CARGA=''${FCH_CARGA_FMT_HIVE}'') LOCATION ''${' || NAME_DM || '_FUENTE}/' || reg_summary.CONCEPT_NAME || '/${FCH_CARGA}''' || ';" >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+    UTL_FILE.put_line(fich_salida_sh, 'beeline << EOF >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+    UTL_FILE.put_line(fich_salida_sh, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+    UTL_FILE.put_line(fich_salida_sh, 'ALTER TABLE ${ESQUEMA_SA}.SAH_' || reg_summary.CONCEPT_NAME ||' ADD IF NOT EXISTS PARTITION (FCH_CARGA=''${FCH_CARGA_FMT_HIVE}'') LOCATION ''${' || NAME_DM || '_FUENTE}/' || reg_summary.CONCEPT_NAME || '/${FCH_CARGA}''' || ';');
+    UTL_FILE.put_line(fich_salida_sh, '!quit');
+    UTL_FILE.put_line(fich_salida_sh, 'EOF');
     --UTL_FILE.put_line(fich_salida_sh, '"LOAD DATA LOCAL INPATH ''${NOMBRE_FICH_CARGA}' || ''' \');
     --UTL_FILE.put_line(fich_salida_sh, 'OVERWRITE INTO TABLE ${BD_SID}.SA_' || reg_summary.CONCEPT_NAME || ' \');
     --UTL_FILE.put_line(fich_salida_sh, 'PARTITION (FCH_CARGA=''${FCH_CARGA}'')" >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
@@ -596,9 +605,11 @@ BEGIN
 
     UTL_FILE.put_line(fich_salida_sh, '# Cargamos la tabla de Staging SA_' || reg_summary.CONCEPT_NAME);
     /* (20170113) Angel Ruiz. NF: Nueva estructura de la parte de staging */
-    UTL_FILE.put_line(fich_salida_sh, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_SA}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "\');
-    UTL_FILE.put_line(fich_salida_sh, '  INSERT OVERWRITE TABLE ${ESQUEMA_ML}.SA_' || reg_summary.CONCEPT_NAME);
-    UTL_FILE.put_line(fich_salida_sh, '  SELECT');
+    --UTL_FILE.put_line(fich_salida_sh, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_SA}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "\');
+    UTL_FILE.put_line(fich_salida_sh, 'beeline << EOF >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+    UTL_FILE.put_line(fich_salida_sh, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');    
+    UTL_FILE.put_line(fich_salida_sh, 'INSERT OVERWRITE TABLE ${ESQUEMA_ML}.SA_' || reg_summary.CONCEPT_NAME);
+    UTL_FILE.put_line(fich_salida_sh, 'SELECT');
     OPEN dtd_interfaz_detail (reg_summary.CONCEPT_NAME, reg_summary.SOURCE);
     primera_col := 1;
     LOOP
@@ -637,7 +648,9 @@ BEGIN
       end if;
     END LOOP;
     CLOSE dtd_interfaz_detail;
-    UTL_FILE.put_line(fich_salida_sh, '  FROM ${ESQUEMA_SA}.SAH_' || reg_summary.CONCEPT_NAME || ' WHERE FCH_CARGA = ''${FCH_CARGA_FMT_HIVE}' || ''';"');
+    UTL_FILE.put_line(fich_salida_sh, 'FROM ${ESQUEMA_SA}.SAH_' || reg_summary.CONCEPT_NAME || ' WHERE FCH_CARGA = ''${FCH_CARGA_FMT_HIVE}' || ''';');
+    UTL_FILE.put_line(fich_salida_sh, '!quit');
+    UTL_FILE.put_line(fich_salida_sh, 'EOF');
     UTL_FILE.put_line(fich_salida_sh, 'if [ $? -ne 0 ]');
     UTL_FILE.put_line(fich_salida_sh, 'then');
     UTL_FILE.put_line(fich_salida_sh, '  SUBJECT="${REQ_NUM}: ERROR: Al hacer el insert sobre la tabla de STAGIN SAH_' || reg_summary.CONCEPT_NAME || '"');
@@ -666,7 +679,13 @@ BEGIN
     --END LOOP;
     /* (20161007) Angel Ruiz. FIN Carga de ficheros de longitud FIJA */
     --UTL_FILE.put_line(fich_salida_sh, 'REG_INSERTADOS=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_SA} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_SA}.SA_' || reg_summary.CONCEPT_NAME||' WHERE FCH_CARGA=''${FCH_CARGA_FMT_HIVE}'';"` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
-    UTL_FILE.put_line(fich_salida_sh, 'REG_INSERTADOS=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_SA}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_ML}.SA_' || reg_summary.CONCEPT_NAME||';"` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+    --UTL_FILE.put_line(fich_salida_sh, 'REG_INSERTADOS=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_SA}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_ML}.SA_' || reg_summary.CONCEPT_NAME||';"` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+    UTL_FILE.put_line(fich_salida_sh, 'REG_INSERTADOS_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
+    UTL_FILE.put_line(fich_salida_sh, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+    UTL_FILE.put_line(fich_salida_sh, 'select count(*) from ${ESQUEMA_ML}.SA_' || reg_summary.CONCEPT_NAME || ';');
+    UTL_FILE.put_line(fich_salida_sh, '!quit');
+    UTL_FILE.put_line(fich_salida_sh, 'EOF`');
+    UTL_FILE.put_line(fich_salida_sh, 'REG_INSERTADOS=`echo ${REG_INSERTADOS_PREV} | sed -e ''s/ //g'' -e ''s/\n//g'' -e ''s/\r//g''`');
     --UTL_FILE.put_line(fich_salida_sh, '  REG_INSERTADOS=${REG_LEIDOS}');
     UTL_FILE.put_line(fich_salida_sh, 'REG_RECHAZADOS=0');
     UTL_FILE.put_line(fich_salida_sh, 'TOT_LEIDOS=`expr ${TOT_LEIDOS} + ${REG_LEIDOS}`');
