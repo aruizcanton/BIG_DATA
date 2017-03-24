@@ -224,7 +224,8 @@ BEGIN
           END IF;
         END LOOP;
         DBMS_OUTPUT.put_line('INTO 1 BUCKETS');
-        DBMS_OUTPUT.put_line('STORED AS ORC TBLPROPERTIES (''transactional''=''true'', ''orc.compress''=''ZLIB'', ''orc.create.index''=''true'')');
+        --DBMS_OUTPUT.put_line('STORED AS ORC TBLPROPERTIES (''transactional''=''true'', ''orc.compress''=''ZLIB'', ''orc.create.index''=''true'')');
+        DBMS_OUTPUT.put_line('STORED AS ORC TBLPROPERTIES (''orc.compress''=''ZLIB'', ''orc.create.index''=''true'')');
       ELSE
         DBMS_OUTPUT.put_line('STORED AS ORC TBLPROPERTIES (''orc.compress''=''ZLIB'', ''orc.create.index''=''true'')');
       END IF;
@@ -296,7 +297,8 @@ BEGIN
             END IF;
           END LOOP;
           DBMS_OUTPUT.put_line('INTO 1 BUCKETS');
-          DBMS_OUTPUT.put_line('STORED AS ORC TBLPROPERTIES (''transactional''=''true'', ''orc.compress''=''ZLIB'', ''orc.create.index''=''true'')');
+          --DBMS_OUTPUT.put_line('STORED AS ORC TBLPROPERTIES (''transactional''=''true'', ''orc.compress''=''ZLIB'', ''orc.create.index''=''true'')');
+          DBMS_OUTPUT.put_line('STORED AS ORC TBLPROPERTIES (''orc.compress''=''ZLIB'', ''orc.create.index''=''true'')');
         ELSE
           DBMS_OUTPUT.put_line('STORED AS ORC TBLPROPERTIES (''orc.compress''=''ZLIB'', ''orc.create.index''=''true'')');
         END IF;
