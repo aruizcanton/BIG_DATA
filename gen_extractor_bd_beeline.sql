@@ -57,7 +57,7 @@ SELECT
       TRIM(MTDT_EXT_DETAIL.TABLE_COLUMN) "TABLE_COLUMN",
       TRIM(MTDT_EXT_DETAIL.TABLE_BASE_NAME) "TABLE_BASE_NAME",
       TRIM(MTDT_EXT_DETAIL.SCENARIO) "SCENARIO",
-      UPPER(TRIM(MTDT_EXT_DETAIL.OUTER)) "OUTER",
+      NVL(UPPER(TRIM(MTDT_EXT_DETAIL.OUTER)), 'N') "OUTER",
       MTDT_EXT_DETAIL.SEVERIDAD,
       TRIM(MTDT_EXT_DETAIL.TABLE_LKUP) "TABLE_LKUP",
       TRIM(MTDT_EXT_DETAIL.TABLE_COLUMN_LKUP) "TABLE_COLUMN_LKUP",
@@ -189,7 +189,9 @@ SELECT
   OWNER_EX                              VARCHAR2(60);
   
   l_FROM                                      lista_tablas_from := lista_tablas_from();
+  l_FROM_solo_tablas                               lista_tablas_from := lista_tablas_from();  
   l_WHERE                                   lista_condi_where := lista_condi_where();
+  l_WHERE_ON_clause                         lista_condi_where := lista_condi_where();  
   v_hay_look_up                           VARCHAR2(1):='N';
   v_nombre_seqg                          VARCHAR(120):='N';
   v_bandera                                   VARCHAR2(1):='S';
@@ -1454,6 +1456,7 @@ SELECT
         /* (20150126) Angel Ruiz. Primero recojo la tabla del modelo con la que se hace LookUp. NO puede ser tablas T_* sino su equivalesnte del modelo */
         dbms_output.put_line('ESTOY EN EL LOOKUP. Al principio');
         l_FROM.extend;
+        l_FROM_solo_tablas.extend;  /*(20170306) Angel Ruiz */
         /* (20150130) Angel Ruiz */
         /* Nueva incidencia. */
         if (regexp_instr (reg_detalle_in.TABLE_LKUP, '[Ss][Ee][Ll][Ee][Cc][Tt]') > 0) then  /* (20160802) Angel Ruiz. BUG: No detectaba correctamente la palabra SELECT */
@@ -1469,7 +1472,10 @@ SELECT
             --v_alias := 'LKUP_' || l_FROM.count;
             --mitabla_look_up := '(' || reg_detalle_in.TABLE_LKUP || ') "LKUP_' || l_FROM.count || '"';
           --end if;
-          l_FROM (l_FROM.last) := ', ' || mitabla_look_up;
+          --l_FROM (l_FROM.last) := ', ' || mitabla_look_up;
+          l_FROM_solo_tablas (l_FROM_solo_tablas.last) := ', ' || mitabla_look_up;
+          l_FROM (l_FROM.last) := 'LEFT OUTER JOIN ' || mitabla_look_up || ' ';
+          
         else
           dbms_output.put_line('Dentro del ELSE del SELECT');
           /* (20160401) Detectamos si la tabla de LookUp posee Alias */
@@ -1496,10 +1502,10 @@ SELECT
             /* Busco si estaba ya en el FROM. Como es una tabla con ALIAS */
             /* si ya estaba en el FROM entonces no la vuelo a meter ya que tiene un ALIAS */
             v_encontrado:='N';
-            FOR indx IN l_FROM.FIRST .. l_FROM.LAST
+            FOR indx IN l_FROM_solo_tablas.FIRST .. l_FROM_solo_tablas.LAST
             LOOP
               --if (regexp_count(l_FROM(indx), reg_detalle_in.TABLE_LKUP) >0) then
-              if (regexp_count(l_FROM(indx), mitabla_look_up) >0) then
+              if (regexp_count(l_FROM_solo_tablas(indx), mitabla_look_up) >0) then
               --if (l_FROM(indx) = ', ' || OWNER_EX || '.' || reg_detalle_in.TABLE_LKUP) then
                 /* La misma tabla ya estaba en otro lookup */
                 v_encontrado:='Y';
@@ -1508,7 +1514,14 @@ SELECT
             if (v_encontrado='N') then
               /* Solo la introduzco si la tabla no estaba ya */
               --l_FROM (l_FROM.last) := ', ' || procesa_campo_filter(reg_detalle_in.TABLE_LKUP);
-              l_FROM (l_FROM.last) := ', ' || mitabla_look_up;
+              l_FROM_solo_tablas (l_FROM_solo_tablas.last) := ', ' || mitabla_look_up;
+              /* (20170306) Angel Ruiz. NF: Sintasix Beeline */
+              if (reg_detalle_in.OUTER = 'Y') then
+                l_FROM (l_FROM.last) := 'LEFT OUTER JOIN ' || mitabla_look_up || ' ';
+              else
+                l_FROM (l_FROM.last) := 'JOIN ' || mitabla_look_up || ' ';
+              end if;
+              /* (20170306) Angel Ruiz. FIN NF: Sintasix Beeline */
             end if;
             v_alias := v_alias_table_look_up;
           else    /* La tabla de LKUP no posee Alias */
@@ -1538,12 +1551,12 @@ SELECT
             dbms_output.put_line('La tabla de LKUP es: ' || v_table_look_up);
             mitabla_look_up := v_table_look_up;
             v_encontrado:='N';
-            FOR indx IN l_FROM.FIRST .. l_FROM.LAST
+            FOR indx IN l_FROM_solo_tablas.FIRST .. l_FROM_solo_tablas.LAST
             LOOP
               --if (instr(l_FROM(indx),  reg_detalle_in.TABLE_LKUP, 0)) then
               --regexp_count(reg_per_val.AGREGATION,'^BAN_',1,'i') >0
               --if (regexp_count(l_FROM(indx), reg_detalle_in.TABLE_LKUP) >0) then
-              if (regexp_count(l_FROM(indx), mitabla_look_up) >0) then
+              if (regexp_count(l_FROM_solo_tablas(indx), mitabla_look_up) >0) then
               --if (l_FROM(indx) = ', ' || OWNER_EX || '.' || reg_detalle_in.TABLE_LKUP) then
                 /* La misma tabla ya estaba en otro lookup */
                 v_encontrado:='Y';
@@ -1552,12 +1565,29 @@ SELECT
             if (v_encontrado='Y') then
               v_alias := reg_detalle_in.TABLE_LKUP || '_' || l_FROM.count;
               --l_FROM (l_FROM.last) := ', ' || procesa_campo_filter(reg_detalle_in.TABLE_LKUP) || ' "' || v_alias || '"' ;
-              l_FROM (l_FROM.last) := ', ' || mitabla_look_up || ' "' || v_alias || '"' ;
+              --l_FROM (l_FROM.last) := ', ' || mitabla_look_up || ' "' || v_alias || '"' ;
+              /* (20170306) Angel Ruiz. NF: Sintasix Beeline */
+              if (reg_detalle_in.OUTER = 'Y') then
+                l_FROM (l_FROM.last) := 'LEFT OUTER JOIN ' || mitabla_look_up || ' ' || v_alias || ' ' ;
+              else
+                l_FROM (l_FROM.last) := 'JOIN ' || mitabla_look_up || ' ' || v_alias || ' ' ;
+              end if;
+              /* (20170306) Angel Ruiz. FIN NF: Sintasix Beeline */
+              l_FROM_solo_tablas (l_FROM_solo_tablas.last) := ', ' || mitabla_look_up || ' "' || v_alias || '"' ;
+              
             else
               --v_alias := reg_detalle_in.TABLE_LKUP;
               v_alias := v_alias_table_look_up;
               --l_FROM (l_FROM.last) := ', ' || procesa_campo_filter(reg_detalle_in.TABLE_LKUP);
-              l_FROM (l_FROM.last) := ', ' || mitabla_look_up;
+              --l_FROM (l_FROM.last) := ', ' || mitabla_look_up;
+              /* (20170306) Angel Ruiz. NF: Sintasix Beeline */
+              if (reg_detalle_in.OUTER = 'Y') then
+                l_FROM (l_FROM.last) := 'LEFT OUTER JOIN ' || mitabla_look_up || ' ';
+              else
+                l_FROM (l_FROM.last) := 'JOIN ' || mitabla_look_up || ' ';
+              end if;
+              /* (20170306) Angel Ruiz. FIN NF */
+              l_FROM_solo_tablas (l_FROM_solo_tablas.last) := ', ' || mitabla_look_up;
             end if;
           end if;
           
@@ -1595,226 +1625,118 @@ SELECT
         /****************************************************************************/
         /* CONTRUIMOS EL CAMPO PARA LA PARTE DEL WHERE */
         /****************************************************************************/
+        l_WHERE_ON_clause.delete;   /* (20170306) Angel Ruiz */
         
         if (table_columns_lkup.COUNT > 1) then      /* Hay varios campos de condicion */
           FOR indx IN table_columns_lkup.FIRST .. table_columns_lkup.LAST
           LOOP
-            l_WHERE.extend;
+            --l_WHERE.extend;
+            l_WHERE_ON_clause.extend;   /* (20170306) Angel Ruiz. NF: Sintasix Beeline */
+            
             /* (20150126) Angel Ruiz. Incidencia referente a que siempre se coloca el valor -2 */
             /* Recojo el tipo de dato del campo con el que se va a hacer LookUp */
             dbms_output.put_line('ESTOY EN EL LOOKUP. Este LoopUp es de varias columnas. La Tabla es: ' || reg_detalle_in.TABLE_BASE_NAME);
             dbms_output.put_line('ESTOY EN EL LOOKUP. Este LoopUp es de varias columnas. La Columna es: ' || ie_column_lkup(indx));
             
-            if (l_WHERE.count = 1) then
+            if (l_WHERE_ON_clause.count = 1) then
               /* (20160302) Angel Ruiz. NF: DECODE en las columnas de LookUp */
               if (instr(upper(ie_column_lkup(indx)), 'DECODE') > 0 and instr(upper(table_columns_lkup(indx)), 'DECODE') > 0) then
-                if (reg_detalle_in."OUTER" = 'Y') then
-                  l_WHERE(l_WHERE.last) := transformo_decode(ie_column_lkup(indx), v_alias_table_base_name, 0) || ' = ' || transformo_decode(table_columns_lkup(indx), v_alias, 1);
-                else
-                  l_WHERE(l_WHERE.last) := transformo_decode(ie_column_lkup(indx), v_alias_table_base_name, 0) || ' = ' || transformo_decode(table_columns_lkup(indx), v_alias, 0);
-                end if;
+                l_WHERE_ON_clause(l_WHERE_ON_clause.last) := transformo_decode(ie_column_lkup(indx), v_alias_table_base_name, 0) || ' = ' || transformo_decode(table_columns_lkup(indx), v_alias, 0);
               elsif (instr(upper(ie_column_lkup(indx)), 'DECODE') > 0 and instr(upper(table_columns_lkup(indx)), 'DECODE') = 0) then
-                if (reg_detalle_in."OUTER" = 'Y') then
-                  l_WHERE(l_WHERE.last) := transformo_decode(ie_column_lkup(indx), v_alias_table_base_name, 0) || ' = ' || v_alias || '.' || table_columns_lkup(indx) || ' (+)';
-                else
-                  l_WHERE(l_WHERE.last) := transformo_decode(ie_column_lkup(indx), v_alias_table_base_name, 0) || ' = ' || v_alias || '.' || table_columns_lkup(indx);
-                end if;
+                l_WHERE_ON_clause(l_WHERE_ON_clause.last) := transformo_decode(ie_column_lkup(indx), v_alias_table_base_name, 0) || ' = ' || v_alias || '.' || table_columns_lkup(indx);
               elsif (instr(upper(ie_column_lkup(indx)), 'DECODE') = 0 and instr(upper(table_columns_lkup(indx)), 'DECODE') > 0) then
-                if (reg_detalle_in."OUTER" = 'Y') then
-                  l_WHERE(l_WHERE.last) := v_alias_table_base_name || '.' || ie_column_lkup(indx) || ' = ' || transformo_decode(table_columns_lkup(indx), v_alias, 1);
-                else
-                  l_WHERE(l_WHERE.last) := v_alias_table_base_name || '.' || ie_column_lkup(indx) || ' = ' || transformo_decode(table_columns_lkup(indx), v_alias, 0);
-                end if;
+                l_WHERE_ON_clause(l_WHERE_ON_clause.last) := v_alias_table_base_name || '.' || ie_column_lkup(indx) || ' = ' || transformo_decode(table_columns_lkup(indx), v_alias, 0);
               elsif (instr(upper(table_columns_lkup(indx)), 'BETWEEN') > 0) then
-                if (reg_detalle_in."OUTER" = 'Y') then
-                  l_WHERE(l_WHERE.last) :=  v_alias_table_base_name || '.' || ie_column_lkup(indx) || ' ' || transformo_between(v_alias, table_columns_lkup(indx), true);
-                else
-                  l_WHERE(l_WHERE.last) :=  v_alias_table_base_name || '.' || ie_column_lkup(indx) || ' ' || transformo_between(v_alias, table_columns_lkup(indx), false);
-                end if;
+                l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  v_alias_table_base_name || '.' || ie_column_lkup(indx) || ' ' || transformo_between(v_alias, table_columns_lkup(indx), false);
               elsif (regexp_count(upper(table_columns_lkup(indx)), 'TRIM *\(') > 0) then
-                if (reg_detalle_in."OUTER" = 'Y') then
-                  l_WHERE(l_WHERE.last) :=  v_alias_table_base_name || '.' || ie_column_lkup(indx) || ' = ' || table_columns_lkup(indx) || ' (+)';
-                else
-                  l_WHERE(l_WHERE.last) :=  v_alias_table_base_name || '.' || ie_column_lkup(indx) || ' = ' || table_columns_lkup(indx);
-                end if;                
+                l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  v_alias_table_base_name || '.' || ie_column_lkup(indx) || ' = ' || table_columns_lkup(indx);
               else
-                if (reg_detalle_in."OUTER" = 'Y') then
-                  l_WHERE(l_WHERE.last) :=  v_alias_table_base_name || '.' || ie_column_lkup(indx) || ' = ' || v_alias || '.' || table_columns_lkup(indx) || ' (+)';
-                else
-                  l_WHERE(l_WHERE.last) :=  v_alias_table_base_name || '.' || ie_column_lkup(indx) || ' = ' || v_alias || '.' || table_columns_lkup(indx);
-                end if;
+                l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  v_alias_table_base_name || '.' || ie_column_lkup(indx) || ' = ' || v_alias || '.' || table_columns_lkup(indx);
               end if;
             else  /* siguientes elementos del where */
               if (instr(upper(ie_column_lkup(indx)), 'DECODE') > 0 and instr(upper(table_columns_lkup(indx)), 'DECODE') > 0) then
-                if (reg_detalle_in."OUTER" = 'Y') then
-                  l_WHERE(l_WHERE.last) :=  ' AND ' || transformo_decode(ie_column_lkup(indx), v_alias_table_base_name, 0) || ' = ' || transformo_decode(table_columns_lkup(indx), v_alias, 1);
-                else
-                  l_WHERE(l_WHERE.last) :=  ' AND ' || transformo_decode(ie_column_lkup(indx), v_alias_table_base_name, 0) || ' = ' || transformo_decode(table_columns_lkup(indx), v_alias, 0);
-                end if;
+                l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || transformo_decode(ie_column_lkup(indx), v_alias_table_base_name, 0) || ' = ' || transformo_decode(table_columns_lkup(indx), v_alias, 0);
               elsif (instr(upper(ie_column_lkup(indx)), 'DECODE') > 0 and instr(upper(table_columns_lkup(indx)), 'DECODE') = 0) then
-                if (reg_detalle_in."OUTER" = 'Y') then
-                  l_WHERE(l_WHERE.last) :=  ' AND ' || transformo_decode(ie_column_lkup(indx), v_alias_table_base_name, 0) || ' = ' || v_alias || '.' || table_columns_lkup(indx) || ' (+)';
-                else
-                  l_WHERE(l_WHERE.last) :=  ' AND ' || transformo_decode(ie_column_lkup(indx), v_alias_table_base_name, 0) || ' = ' || v_alias || '.' || table_columns_lkup(indx);
-                end if;
+                l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || transformo_decode(ie_column_lkup(indx), v_alias_table_base_name, 0) || ' = ' || v_alias || '.' || table_columns_lkup(indx);
               elsif (instr(upper(ie_column_lkup(indx)), 'DECODE') = 0 and instr(upper(table_columns_lkup(indx)), 'DECODE') > 0) then
-                if (reg_detalle_in."OUTER" = 'Y') then
-                  l_WHERE(l_WHERE.last) :=  ' AND ' || v_alias_table_base_name || '.' || ie_column_lkup(indx) || ' = ' || transformo_decode(table_columns_lkup(indx), v_alias, 1);
-                else
-                  l_WHERE(l_WHERE.last) :=  ' AND ' || v_alias_table_base_name || '.' || ie_column_lkup(indx) || ' = ' || transformo_decode(table_columns_lkup(indx), v_alias, 0);
-                end if;              
+                l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || v_alias_table_base_name || '.' || ie_column_lkup(indx) || ' = ' || transformo_decode(table_columns_lkup(indx), v_alias, 0);
               elsif (instr(upper(table_columns_lkup(indx)), 'BETWEEN') > 0) then
-                if (reg_detalle_in."OUTER" = 'Y') then
-                  l_WHERE(l_WHERE.last) :=  ' AND ' || v_alias_table_base_name || '.' || ie_column_lkup(indx) || ' ' || transformo_between(v_alias, table_columns_lkup(indx), true);
-                else
-                  l_WHERE(l_WHERE.last) :=  ' AND ' || v_alias_table_base_name || '.' || ie_column_lkup(indx) || ' ' || transformo_between(v_alias, table_columns_lkup(indx), false);
-                end if;
+                l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || v_alias_table_base_name || '.' || ie_column_lkup(indx) || ' ' || transformo_between(v_alias, table_columns_lkup(indx), false);
               elsif (regexp_count(upper(table_columns_lkup(indx)), 'TRIM *\(') > 0) then
-                if (reg_detalle_in."OUTER" = 'Y') then
-                  l_WHERE(l_WHERE.last) :=  ' AND ' || v_alias_table_base_name || '.' || ie_column_lkup(indx) || ' = ' || table_columns_lkup(indx) || ' (+)';
-                else
-                  l_WHERE(l_WHERE.last) :=  ' AND ' || v_alias_table_base_name || '.' || ie_column_lkup(indx) || ' = ' || table_columns_lkup(indx);
-                end if;
+                l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || v_alias_table_base_name || '.' || ie_column_lkup(indx) || ' = ' || table_columns_lkup(indx);
               else
-                if (reg_detalle_in."OUTER" = 'Y') then
-                  l_WHERE(l_WHERE.last) :=  ' AND ' || v_alias_table_base_name || '.' || ie_column_lkup(indx) || ' = ' || v_alias || '.' || table_columns_lkup(indx) || ' (+)';
-                else
-                  l_WHERE(l_WHERE.last) :=  ' AND ' || v_alias_table_base_name || '.' || ie_column_lkup(indx) || ' = ' || v_alias || '.' || table_columns_lkup(indx);
-                end if;
+                l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || v_alias_table_base_name || '.' || ie_column_lkup(indx) || ' = ' || v_alias || '.' || table_columns_lkup(indx);
               end if;
             end if;
           END LOOP;
         else    /* Solo hay un campo condicion */
           /* Miramos si la tabla con la que hay que hacer LookUp es una tabla de rangos */
-          l_WHERE.extend;
+          l_WHERE_ON_clause.extend;
           if (instr (reg_detalle_in.TABLE_LKUP,'RANGO') > 0) then
-            if (l_WHERE.count = 1) then
-              l_WHERE(l_WHERE.last) := v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP || ' >= ' || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP || ' (+)';
-              l_WHERE.extend;
-              l_WHERE(l_WHERE.last) := ' AND ' || v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP || ' <= ' || v_alias || '.' || 'MAX' || substr(reg_detalle_in.TABLE_COLUMN_LKUP, 4) || ' (+)';
+            if (l_WHERE_ON_clause.count = 1) then
+              l_WHERE_ON_clause(l_WHERE_ON_clause.last) := v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP || ' >= ' || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+              l_WHERE_ON_clause.extend;
+              l_WHERE_ON_clause(l_WHERE_ON_clause.last) := ' AND ' || v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP || ' <= ' || v_alias || '.' || 'MAX' || substr(reg_detalle_in.TABLE_COLUMN_LKUP, 4);
             else
-              l_WHERE(l_WHERE.last) := ' AND ' || v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP || ' >= ' || v_alias || '.'  || reg_detalle_in.TABLE_COLUMN_LKUP || ' (+)';
-              l_WHERE.extend;
-              l_WHERE(l_WHERE.last) := ' AND ' || v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP || ' <= ' || v_alias || '.' || 'MAX' || substr(reg_detalle_in.TABLE_COLUMN_LKUP, 4) || ' (+)';
+              l_WHERE_ON_clause(l_WHERE_ON_clause.last) := ' AND ' || v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP || ' >= ' || v_alias || '.'  || reg_detalle_in.TABLE_COLUMN_LKUP;
+              l_WHERE_ON_clause.extend;
+              l_WHERE_ON_clause(l_WHERE_ON_clause.last) := ' AND ' || v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP || ' <= ' || v_alias || '.' || 'MAX' || substr(reg_detalle_in.TABLE_COLUMN_LKUP, 4);
             end if;
           else
             /* (20150126) Angel Ruiz. Incidencia referente a que siempre se coloca el valor -2 */
             /* Recojo el tipo de dato del campo con el que se va a hacer LookUp */
             dbms_output.put_line('ESTOY EN EL LOOKUP. La Tabla es: ' || reg_detalle_in.TABLE_BASE_NAME);
             dbms_output.put_line('ESTOY EN EL LOOKUP. La Columna es: ' || reg_detalle_in.IE_COLUMN_LKUP);
-            if (l_WHERE.count = 1) then /* si es el primer campo del WHERE */
+            if (l_WHERE_ON_clause.count = 1) then /* si es el primer campo del WHERE */
               --l_WHERE(l_WHERE.last) := 'NVL(' || reg_detalle_in.TABLE_BASE_NAME || '.' || reg_detalle_in.IE_COLUMN_LKUP || ', -3)' ||  ' = ' || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP || ' (+)';
               if (instr(reg_detalle_in.IE_COLUMN_LKUP, 'DECODE') > 0 or instr(reg_detalle_in.IE_COLUMN_LKUP, 'decode') > 0) then
-                if (reg_detalle_in."OUTER" = 'Y') then
-                  l_WHERE(l_WHERE.last) :=  transformo_decode(reg_detalle_in.IE_COLUMN_LKUP, v_alias_table_base_name, 0) ||  ' = ' || transformo_decode(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias, 1);
-                else
-                  l_WHERE(l_WHERE.last) :=  transformo_decode(reg_detalle_in.IE_COLUMN_LKUP, v_alias_table_base_name, 0) ||  ' = ' || transformo_decode(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias, 0);
-                end if;
+                l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  transformo_decode(reg_detalle_in.IE_COLUMN_LKUP, v_alias_table_base_name, 0) ||  ' = ' || transformo_decode(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias, 0);
               elsif (instr(upper(reg_detalle_in.TABLE_COLUMN_LKUP), 'BETWEEN') > 0) then
-                if (reg_detalle_in."OUTER" = 'Y') then
-                  l_WHERE(l_WHERE.last) :=  v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP || ' ' || transformo_between(v_alias, reg_detalle_in.TABLE_COLUMN_LKUP, true);
-                else
-                  l_WHERE(l_WHERE.last) :=  v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP || ' ' || transformo_between(v_alias, reg_detalle_in.TABLE_COLUMN_LKUP, false);
-                end if;
+                l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP || ' ' || transformo_between(v_alias, reg_detalle_in.TABLE_COLUMN_LKUP, false);
               elsif (regexp_count(upper(reg_detalle_in.TABLE_COLUMN_LKUP), 'TRIM *\(') > 0) then
-                if (reg_detalle_in."OUTER" = 'Y') then
-                  l_WHERE(l_WHERE.last) := v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP ||  ' = ' || reg_detalle_in.TABLE_COLUMN_LKUP || ' (+)';
-                else
-                  l_WHERE(l_WHERE.last) := v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP ||  ' = ' || reg_detalle_in.TABLE_COLUMN_LKUP;
-                end if;
+                l_WHERE_ON_clause(l_WHERE_ON_clause.last) := v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP ||  ' = ' || reg_detalle_in.TABLE_COLUMN_LKUP;
               else
-                if (reg_detalle_in."OUTER" = 'Y') then
-                  /* (20160630) Angel Ruiz. BUG. Ocurre que si los campos IE_COLUMN_LKUP o TABLE_COLUMN_LKUP ya estan calificados no hay que hacerlo */
-                  if (instr(reg_detalle_in.IE_COLUMN_LKUP, v_alias_table_base_name || '.') = 0 and instr(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias || '.') = 0) then
-                    /* (20161004) Angel Ruiz. BUG.Ocurre que puede ponersele al campo IE_COLUMN_LKUP un ALIAS. */
-                    /* pero este ALIAS no corresponde con el ALIAS de la tabla TABLE_BASE_NAME, sino de otra tabla LOOKUP */
-                    /* por lo que dejamos el campo IE_COLUMN_LKUP con el alias que trae */
-                    if instr(reg_detalle_in.IE_COLUMN_LKUP, '.') > 0 then
-                      /* (20161004) Angel Ruiz. Dejamos el campo IE_COLUMN_LKUP con el alias que trae */
-                      l_WHERE(l_WHERE.last) := reg_detalle_in.IE_COLUMN_LKUP ||  ' = ' || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP || ' (+)';
-                    else                  
-                      l_WHERE(l_WHERE.last) := v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP ||  ' = ' || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP || ' (+)';
-                    end if;
-                  elsif (instr(reg_detalle_in.IE_COLUMN_LKUP, v_alias_table_base_name || '.') = 0 and instr(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias || '.') > 0) then
-                    l_WHERE(l_WHERE.last) := v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP ||  ' = ' || reg_detalle_in.TABLE_COLUMN_LKUP || ' (+)';
-                  else
-                    l_WHERE(l_WHERE.last) := reg_detalle_in.IE_COLUMN_LKUP ||  ' = ' || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP || ' (+)';
+                /* (20160630) Angel Ruiz. BUG. Ocurre que si los campos IE_COLUMN_LKUP o TABLE_COLUMN_LKUP ya estan calificados no hay que hacerlo */
+                if (instr(reg_detalle_in.IE_COLUMN_LKUP, v_alias_table_base_name || '.') = 0 and instr(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias || '.') = 0) then
+                  /* (20161004) Angel Ruiz. BUG.Ocurre que puede ponersele al campo IE_COLUMN_LKUP un ALIAS. */
+                  /* pero este ALIAS no corresponde con el ALIAS de la tabla TABLE_BASE_NAME, sino de otra tabla LOOKUP */
+                  /* por lo que dejamos el campo IE_COLUMN_LKUP con el alias que trae */
+                  if instr(reg_detalle_in.IE_COLUMN_LKUP, '.') > 0 then
+                    /* (20161004) Angel Ruiz. Dejamos el campo IE_COLUMN_LKUP con el alias que trae */
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) := reg_detalle_in.IE_COLUMN_LKUP ||  ' = ' || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                  else                  
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) := v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP ||  ' = ' || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
                   end if;
+                elsif (instr(reg_detalle_in.IE_COLUMN_LKUP, v_alias_table_base_name || '.') = 0 and instr(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias || '.') > 0) then
+                  l_WHERE_ON_clause(l_WHERE_ON_clause.last) := v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP ||  ' = ' || reg_detalle_in.TABLE_COLUMN_LKUP;
                 else
-                  /* (20160630) Angel Ruiz. BUG. Ocurre que si los campos IE_COLUMN_LKUP o TABLE_COLUMN_LKUP ya estan calificados no hay que hacerlo */
-                  if (instr(reg_detalle_in.IE_COLUMN_LKUP, v_alias_table_base_name || '.') = 0 and instr(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias || '.') = 0) then
-                    /* (20161004) Angel Ruiz. BUG.Ocurre que puede ponersele al campo IE_COLUMN_LKUP un ALIAS. */
-                    /* pero este ALIAS no corresponde con el ALIAS de la tabla TABLE_BASE_NAME, sino de otra tabla LOOKUP */
-                    /* por lo que dejamos el campo IE_COLUMN_LKUP con el alias que trae */
-                    if instr(reg_detalle_in.IE_COLUMN_LKUP, '.') > 0 then
-                      /* (20161004) Angel Ruiz. Dejamos el campo IE_COLUMN_LKUP con el alias que trae */
-                      l_WHERE(l_WHERE.last) := reg_detalle_in.IE_COLUMN_LKUP ||  ' = ' || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
-                    else                  
-                      l_WHERE(l_WHERE.last) := v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP ||  ' = ' || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
-                    end if;
-                  elsif (instr(reg_detalle_in.IE_COLUMN_LKUP, v_alias_table_base_name || '.') = 0 and instr(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias || '.') > 0) then
-                    l_WHERE(l_WHERE.last) := v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP ||  ' = ' || reg_detalle_in.TABLE_COLUMN_LKUP;
-                  else
-                    l_WHERE(l_WHERE.last) := reg_detalle_in.IE_COLUMN_LKUP ||  ' = ' || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
-                  end if;
+                  l_WHERE_ON_clause(l_WHERE_ON_clause.last) := reg_detalle_in.IE_COLUMN_LKUP ||  ' = ' || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
                 end if;
               end if;
             else  /* sino es el primer campo del Where  */
               --l_WHERE(l_WHERE.last) :=  ' AND NVL(' || reg_detalle_in.TABLE_BASE_NAME || '.' || reg_detalle_in.IE_COLUMN_LKUP || ', -3)' || ' = ' || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP || ' (+)';
               if (instr(reg_detalle_in.IE_COLUMN_LKUP, 'DECODE') > 0 or instr(reg_detalle_in.IE_COLUMN_LKUP, 'decode') > 0) then
-                if (reg_detalle_in."OUTER" = 'Y') then
-                  l_WHERE(l_WHERE.last) :=  ' AND ' || transformo_decode(reg_detalle_in.IE_COLUMN_LKUP, v_alias_table_base_name, 0) || ' = ' || transformo_decode(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias, 1);
-                else
-                  l_WHERE(l_WHERE.last) :=  ' AND ' || transformo_decode(reg_detalle_in.IE_COLUMN_LKUP, v_alias_table_base_name, 0) || ' = ' || transformo_decode(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias, 0);
-                end if;
+                l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || transformo_decode(reg_detalle_in.IE_COLUMN_LKUP, v_alias_table_base_name, 0) || ' = ' || transformo_decode(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias, 0);
               elsif (instr(upper(reg_detalle_in.TABLE_COLUMN_LKUP), 'BETWEEN') > 0 ) then
-                if (reg_detalle_in."OUTER" = 'Y') then
-                  l_WHERE(l_WHERE.last) :=  ' AND ' || v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP || ' ' || transformo_between(v_alias, reg_detalle_in.TABLE_COLUMN_LKUP, true);
-                else
-                  l_WHERE(l_WHERE.last) :=  ' AND ' || v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP || ' ' || transformo_between(v_alias, reg_detalle_in.TABLE_COLUMN_LKUP, false);
-                end if;
+                l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP || ' ' || transformo_between(v_alias, reg_detalle_in.TABLE_COLUMN_LKUP, false);
               elsif (regexp_count(upper(reg_detalle_in.TABLE_COLUMN_LKUP), 'TRIM *\(') > 0) then
-                dbms_output.put_line('ESTOY . La Columna es: ' || reg_detalle_in.IE_COLUMN_LKUP);
-                if (reg_detalle_in."OUTER" = 'Y') then
-                  l_WHERE(l_WHERE.last) :=  ' AND ' || v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP || ' = ' || reg_detalle_in.TABLE_COLUMN_LKUP || ' (+)';
-                else
-                  l_WHERE(l_WHERE.last) :=  ' AND ' || v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP || ' = ' || reg_detalle_in.TABLE_COLUMN_LKUP;
-                end if;
+                l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP || ' = ' || reg_detalle_in.TABLE_COLUMN_LKUP;
               else
-                if (reg_detalle_in."OUTER" = 'Y') then
-                  /* (20160630) Angel Ruiz. BUG. Ocurre que si los campos IE_COLUMN_LKUP o TABLE_COLUMN_LKUP ya estan calificados no hay que hacerlo */
-                  if (instr(reg_detalle_in.IE_COLUMN_LKUP, v_alias_table_base_name || '.') = 0 and instr(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias || '.') = 0) then
-                    /* (20161004) Angel Ruiz. BUG.Ocurre que puede ponersele al campo IE_COLUMN_LKUP un ALIAS. */
-                    /* pero este ALIAS no corresponde con el ALIAS de la tabla TABLE_BASE_NAME, sino de otra tabla LOOKUP */
-                    /* por lo que dejamos el campo IE_COLUMN_LKUP con el alias que trae */
-                    if instr(reg_detalle_in.IE_COLUMN_LKUP, '.') > 0 then
-                      /* (20161004) Angel Ruiz. Dejamos el campo IE_COLUMN_LKUP con el alias que trae */
-                      l_WHERE(l_WHERE.last) :=  ' AND ' || reg_detalle_in.IE_COLUMN_LKUP || ' = ' || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP || ' (+)';
-                    else
-                      l_WHERE(l_WHERE.last) :=  ' AND ' || v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP || ' = ' || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP || ' (+)';
-                    end if;
-                  elsif (instr(reg_detalle_in.IE_COLUMN_LKUP, v_alias_table_base_name || '.') = 0 and instr(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias || '.') > 0) then
-                    l_WHERE(l_WHERE.last) :=  ' AND ' || v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP || ' = ' || reg_detalle_in.TABLE_COLUMN_LKUP || ' (+)';
+                /* (20160630) Angel Ruiz. BUG. Ocurre que si los campos IE_COLUMN_LKUP o TABLE_COLUMN_LKUP ya estan calificados no hay que hacerlo */
+                if (instr(reg_detalle_in.IE_COLUMN_LKUP, v_alias_table_base_name || '.') = 0 and instr(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias || '.') = 0) then
+                  /* (20161004) Angel Ruiz. Ocurre que puede ponersele al campo IE_COLUMN_LKUP un ALIAS. */
+                  /* pero este ALIAS no corresponde con el ALIAS de la tabla TABLE_BASE_NAME, sino de otra tabla LOOKUP */
+                  /* por lo que dejamos el campo IE_COLUMN_LKUP con el alias que trae */
+                  if instr(reg_detalle_in.IE_COLUMN_LKUP, '.') > 0 then
+                    /* (20161004) Angel Ruiz. Dejamos el campo IE_COLUMN_LKUP con el alias que trae */
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || reg_detalle_in.IE_COLUMN_LKUP || ' = ' || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
                   else
-                    l_WHERE(l_WHERE.last) :=  ' AND ' || reg_detalle_in.IE_COLUMN_LKUP || ' = ' || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP || ' (+)';
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP || ' = ' || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
                   end if;
+                elsif (instr(reg_detalle_in.IE_COLUMN_LKUP, v_alias_table_base_name || '.') = 0 and instr(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias || '.') > 0) then
+                  l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP || ' = ' || reg_detalle_in.TABLE_COLUMN_LKUP;
                 else
-                  /* (20160630) Angel Ruiz. BUG. Ocurre que si los campos IE_COLUMN_LKUP o TABLE_COLUMN_LKUP ya estan calificados no hay que hacerlo */
-                  if (instr(reg_detalle_in.IE_COLUMN_LKUP, v_alias_table_base_name || '.') = 0 and instr(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias || '.') = 0) then
-                    /* (20161004) Angel Ruiz. Ocurre que puede ponersele al campo IE_COLUMN_LKUP un ALIAS. */
-                    /* pero este ALIAS no corresponde con el ALIAS de la tabla TABLE_BASE_NAME, sino de otra tabla LOOKUP */
-                    /* por lo que dejamos el campo IE_COLUMN_LKUP con el alias que trae */
-                    if instr(reg_detalle_in.IE_COLUMN_LKUP, '.') > 0 then
-                      /* (20161004) Angel Ruiz. Dejamos el campo IE_COLUMN_LKUP con el alias que trae */
-                      l_WHERE(l_WHERE.last) :=  ' AND ' || reg_detalle_in.IE_COLUMN_LKUP || ' = ' || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
-                    else
-                      l_WHERE(l_WHERE.last) :=  ' AND ' || v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP || ' = ' || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
-                    end if;
-                  elsif (instr(reg_detalle_in.IE_COLUMN_LKUP, v_alias_table_base_name || '.') = 0 and instr(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias || '.') > 0) then
-                    l_WHERE(l_WHERE.last) :=  ' AND ' || v_alias_table_base_name || '.' || reg_detalle_in.IE_COLUMN_LKUP || ' = ' || reg_detalle_in.TABLE_COLUMN_LKUP;
-                  else
-                    l_WHERE(l_WHERE.last) :=  ' AND ' || reg_detalle_in.IE_COLUMN_LKUP || ' = ' || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
-                  end if;
+                  l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || reg_detalle_in.IE_COLUMN_LKUP || ' = ' || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
                 end if;
               end if;
             end if;
@@ -1822,17 +1744,23 @@ SELECT
         end if;
         if (reg_detalle_in.TABLE_LKUP_COND is not null) then
           /* Existen condiciones en la tabla de Look Up que hay que introducir*/
-          l_WHERE.extend;
+          --l_WHERE.extend;
+          l_WHERE_ON_clause.extend;   /* (20170306) Angel Ruiz. NF: Sintasix Beeline */
+          
           --l_WHERE(l_WHERE.last) :=  ' AND ' || procesa_condicion_lookup(reg_detalle_in.TABLE_LKUP_COND, v_alias);
           /* (20160412) Angel Ruiz. BUG: Si la tabla de LookUP es con OUTER entonces */
           /* debemos procesar la condicion para ponerle el signo outer por dentro */
-          if (reg_detalle_in."OUTER" IS NOT NULL and reg_detalle_in."OUTER" = 'Y') then
-            l_WHERE(l_WHERE.last) :=  ' AND ' || procesa_condicion_lookup (reg_detalle_in.TABLE_LKUP_COND, v_alias, TRUE);
-          else
-            l_WHERE(l_WHERE.last) :=  ' AND ' || procesa_condicion_lookup (reg_detalle_in.TABLE_LKUP_COND, v_alias, FALSE);
-          end if;
-          
+          l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || procesa_condicion_lookup (reg_detalle_in.TABLE_LKUP_COND, v_alias, FALSE);
         end if;
+        /* (20170306) Angel Ruiz */
+        /* Modifico esta parte para HIVE */
+        l_FROM (l_FROM.last) := l_FROM (l_FROM.last) || chr(10) || ' ON (';
+        FOR indx IN l_WHERE_ON_clause.FIRST .. l_WHERE_ON_clause.LAST
+        LOOP
+          l_FROM (l_FROM.last) := l_FROM (l_FROM.last) || l_WHERE_ON_clause(indx);
+        END LOOP;
+        l_FROM (l_FROM.last) := l_FROM (l_FROM.last) || ')';
+        
       when 'LKUPD' then
         if (reg_detalle_in.LKUP_COM_RULE is not null) then
           /* Ocurre que tenemos una regla compuesta, un LKUP con una condicion */
@@ -2525,6 +2453,7 @@ begin
         --UTL_FILE.put_line (fich_salida_pkg,'/* ESCENARIO: ' || reg_scenario.SCENARIO || ' */ \');
         l_FROM.delete;
         l_WHERE.delete;
+        l_FROM_solo_tablas.delete;
         /* Fin de la inicializacion */
         if (reg_scenario.OVER_PARTION is not null) then
           /* (20160510) Angel Ruiz. Hay clausula OVER PARTITION */
@@ -2930,29 +2859,29 @@ begin
           campo_filter := procesa_campo_filter (reg_scenario.FILTER);
           UTL_FILE.put_line(fich_salida_pkg, campo_filter);
           dbms_output.put_line ('Despues de procesar el campo FILTER');
-          if (v_hay_look_up = 'Y') then
+          --if (v_hay_look_up = 'Y') then
           /* (20161102) Angel Ruiz. Hay tablas de LookUp. Hay que poner las condiciones de los Where*/
-            dbms_output.put_line ('Entro en el que hay Tablas de LookUp');          
+            --dbms_output.put_line ('Entro en el que hay Tablas de LookUp');          
             /* (20150109) Angel Ruiz. Anyadimos las tablas necesarias para hacer los LOOK_UP */
-            UTL_FILE.put_line(fich_salida_pkg, '   ' || 'AND');
-            FOR indx IN l_WHERE.FIRST .. l_WHERE.LAST
-            LOOP
-              UTL_FILE.put_line(fich_salida_pkg, '   ' || l_WHERE(indx));
-            END LOOP;
+            --UTL_FILE.put_line(fich_salida_pkg, '   ' || 'AND');
+            --FOR indx IN l_WHERE.FIRST .. l_WHERE.LAST
+            --LOOP
+              --UTL_FILE.put_line(fich_salida_pkg, '   ' || l_WHERE(indx));
+            --END LOOP;
             /* FIN */
-          end if;
-        else
-          if (v_hay_look_up = 'Y') then
-            UTL_FILE.put_line(fich_salida_pkg,'    WHERE');
+          --end if;
+        --else
+          --if (v_hay_look_up = 'Y') then
+            --UTL_FILE.put_line(fich_salida_pkg,'    WHERE');
             /* Hay tablas de LookUp. Hay que poner las condiciones de los Where*/
-            dbms_output.put_line ('Entro en el que hay Tablas de LookUp');          
+            --dbms_output.put_line ('Entro en el que hay Tablas de LookUp');          
             /* (20150109) Angel Ruiz. Anyadimos las tablas necesarias para hacer los LOOK_UP */
-            FOR indx IN l_WHERE.FIRST .. l_WHERE.LAST
-            LOOP
-              UTL_FILE.put_line(fich_salida_pkg, '   ' || l_WHERE(indx));
-            END LOOP;
+            --FOR indx IN l_WHERE.FIRST .. l_WHERE.LAST
+            --LOOP
+              --UTL_FILE.put_line(fich_salida_pkg, '   ' || l_WHERE(indx));
+            --END LOOP;
             /* FIN */
-          end if;
+          --end if;
         end if;
         /*(20160510) Angel Ruiz. Antes de comenzar a generar el FROM comprobamos si existe */
         /* informacion en el campo OVER_PARTITION. Si existe hay que escribirla como ultimo campo */
@@ -3690,7 +3619,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, '    exit 1');
     UTL_FILE.put_line(fich_salida_load, '  fi');
     UTL_FILE.put_line(fich_salida_load, '  # Surpimimos las lineas en blanco del fichero obtenido');
-    UTL_FILE.put_line(fich_salida_load, '  grep -G -v "^[ ]*$" ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} > ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}_tmp');
+    UTL_FILE.put_line(fich_salida_load, '  grep -G -v -e ''^.$'' -e ''^[ ]*.$'' -e ''^$'' ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} > ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}_tmp');
     UTL_FILE.put_line(fich_salida_load, '  rm -f ${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}');
     UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}_tmp ${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}');
     if (v_type_validation <> 'I') then
