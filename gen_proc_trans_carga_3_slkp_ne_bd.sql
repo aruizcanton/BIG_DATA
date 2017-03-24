@@ -16,7 +16,7 @@ SELECT
     --trim(MTDT_TC_SCENARIO.TABLE_NAME) = trim(mtdt_modelo_logico.TABLE_NAME) and (20150907) Angel Ruiz NF. Nuevas tablas.
     trim(MTDT_TC_SCENARIO.TABLE_NAME) = trim(mtdt_modelo_summary.TABLE_NAME) and
     trim(MTDT_TC_SCENARIO.TABLE_NAME) in ('NGA_PARQUE_ABO_MES', 'NGA_PARQUE_SVA_MES', 'NGA_PARQUE_BENEF_MES', 'NGG_TRANSACCIONES_DETAIL', 'NGA_COMIS_POS_ABO_MES', 'NGA_AJUSTE_ABO_MES', 'NGA_NOSTNDR_CONTRATOS_MES', 'NGA_ALTAS_CANAL_MES', 'NGF_PERIMETRO', 'NGA_NOSTNDR_PLANTA_MES');
-    --trim(MTDT_TC_SCENARIO.TABLE_NAME) in ('NGA_PARQUE_ABO_MES', 'NGA_PARQUE_SVA_MES', 'NGA_PARQUE_BENEF_MES', 'NGA_COMIS_POS_ABO_MES', 'NGA_AJUSTE_ABO_MES', 'NGA_NOSTNDR_CONTRATOS_MES', 'NGA_ALTAS_CANAL_MES', 'NGF_PERIMETRO', 'NGA_NOSTNDR_PLANTA_MES');
+    --trim(MTDT_TC_SCENARIO.TABLE_NAME) in ('NGG_TRANSACCIONES_DETAIL');
     
   cursor MTDT_SCENARIO (table_name_in IN VARCHAR2)
   is
@@ -566,40 +566,64 @@ SELECT
             /* Se trata del primer elemento: DECODE (ID_FUENTE */
             v_cadena_temp := trim(regexp_substr(lista_elementos(indx), ' *[Dd][Ee][Cc][Oo][Dd][Ee] *\('));  /* Me quedo con DECODE ( */
             parte_1 := trim(substr(lista_elementos(indx), instr(lista_elementos(indx), '(') +1)); /* DETECTO EL ( */
-            if (outer_in = 1) then
-              v_cadena_temp := v_cadena_temp || regexp_replace(parte_1, ' *([A-Za-z_]+) *', alias_in || '.\1' || ' (+)'); /* cambio ID_FUENTE por ALIAS.ID_FUENTE */
-            else
-              v_cadena_temp := v_cadena_temp || regexp_replace(parte_1, ' *([A-Za-z_]+) *', alias_in || '.\1'); /* cambio ID_FUENTE por ALIAS.ID_FUENTE */
+            if (instr(parte_1, '.') = 0) then /* (20170221) Angel Ruiz. BUG */
+              if (outer_in = 1) then
+                v_cadena_temp := v_cadena_temp || regexp_replace(parte_1, ' *([A-Za-z_]+) *', alias_in || '.\1' || ' (+)'); /* cambio ID_FUENTE por ALIAS.ID_FUENTE */
+              else
+                v_cadena_temp := v_cadena_temp || regexp_replace(parte_1, ' *([A-Za-z_]+) *', alias_in || '.\1'); /* cambio ID_FUENTE por ALIAS.ID_FUENTE */
+              end if;
+            else  /* Viene el campo ya con el alias por lo que no lo pongo */
+              if (outer_in = 1) then
+                v_cadena_temp := v_cadena_temp || regexp_replace(parte_1, ' *([A-Za-z_.]+) *', '\1' || ' (+)'); /* cambio ID_FUENTE por ALIAS.ID_FUENTE */
+              else
+                v_cadena_temp := v_cadena_temp || parte_1;
+              end if;
             end if;
             v_cadena_temp := v_cadena_temp || ', '; /* Tengo LA CADENA: "DECODE (alias_in.ID_FUENTE (+), " */
           elsif (indx = lista_elementos.LAST) then
             /* Se trata del ultimo elemento '1') */
             if (instr(lista_elementos(indx), '''') = 0) then
               /* Se trata de un elemnto tipo ID_CANAL pero situado al final del DECODE */
-              if (outer_in = 1) then
-                v_cadena_temp := v_cadena_temp || regexp_replace(lista_elementos(indx), ' *([A-Za-z_]+) *\)', alias_in || '.\1' || ' (+))'); /* cambio ID_FUENTE por ALIAS.ID_FUENTE */
-              else
-                v_cadena_temp := v_cadena_temp || regexp_replace(lista_elementos(indx), ' *([A-Za-z_]+) *\)', alias_in || '.\1' || ')'); /* cambio ID_FUENTE por ALIAS.ID_FUENTE */
+              if (instr(lista_elementos(indx), '.') = 0) then /* (20170221) Angel Ruiz. BUG. Si no viene alias */
+                if (outer_in = 1) then
+                  v_cadena_temp := v_cadena_temp || regexp_replace(lista_elementos(indx), ' *([A-Za-z_]+) *\)', alias_in || '.\1' || ' (+))'); /* cambio ID_FUENTE por ALIAS.ID_FUENTE */
+                else
+                  v_cadena_temp := v_cadena_temp || regexp_replace(lista_elementos(indx), ' *([A-Za-z_]+) *\)', alias_in || '.\1' || ')'); /* cambio ID_FUENTE por ALIAS.ID_FUENTE */
+                end if;
+              else  /* (20170221) Angel Ruiz. Si viene alias no lo pongo*/
+                if (outer_in = 1) then
+                  v_cadena_temp := v_cadena_temp || regexp_replace(lista_elementos(indx), ' *([A-Za-z_.]+) *\)', '\1' || ' (+))'); /* cambio ID_FUENTE por ALIAS.ID_FUENTE */
+                else
+                  v_cadena_temp := v_cadena_temp || regexp_replace(lista_elementos(indx), ' *([A-Za-z_.]+) *\)', '\1' || ')'); /* cambio ID_FUENTE por ALIAS.ID_FUENTE */
+                end if;
               end if;
             else
               /* Se trata de un elemento literal situado como ultimo elemento del decode, tipo '1' */
               /* Le ponemos doble comillas ya que estamos generando una query deinamica */
-              v_cadena_temp := v_cadena_temp || sustituye_comillas_dinam(lista_elementos(indx)) || ')';
+              v_cadena_temp := v_cadena_temp || lista_elementos(indx) || ')';
             end if;
           else
             /* Se trata del resto de elmentos 'SER', ID_CANAL*/
             if (instr(lista_elementos(indx), '''') = 0) then
               /* Se trata de un elemento que no es un literal, tipo ID_CANAL */
-              if (outer_in = 1) then
-                v_cadena_temp := v_cadena_temp || regexp_replace(lista_elementos(indx), ' *([A-Za-z_]+) *', alias_in || '.\1' || ' (+)');
-              else
-                v_cadena_temp := v_cadena_temp || regexp_replace(lista_elementos(indx), ' *([A-Za-z_]+) *', alias_in || '.\1');
+              if (instr(lista_elementos(indx), '.') = 0) then /* (20170221) Angel Ruiz. BUG. Si no viene alias */
+                if (outer_in = 1) then
+                  v_cadena_temp := v_cadena_temp || regexp_replace(lista_elementos(indx), ' *([A-Za-z_]+) *', alias_in || '.\1' || ' (+)');
+                else  
+                  v_cadena_temp := v_cadena_temp || regexp_replace(lista_elementos(indx), ' *([A-Za-z_]+) *', alias_in || '.\1');
+                end if;
+              else /* (20170221) Angel Ruiz. BUG. Si viene alias */
+                if (outer_in = 1) then
+                  v_cadena_temp := v_cadena_temp || regexp_replace(lista_elementos(indx), ' *([A-Za-z_.]+) *', '\1' || ' (+)');
+                else  
+                  v_cadena_temp := v_cadena_temp || lista_elementos(indx);
+                end if;
               end if;
               v_cadena_temp := v_cadena_temp || ', '; /* Tengo LA CADENA: "DECODE (alias_in.ID_FUENTE (+), ..., alias_in.ID_CANAL, ... "*/
             else
               /* Se trata de un elemento que es un literal, tipo 'SER' */
               /* Le ponemos doble comillas ya que estamos generando una query deinamica */
-              v_cadena_temp := v_cadena_temp || sustituye_comillas_dinam(lista_elementos(indx)) || ', ';
+              v_cadena_temp := v_cadena_temp || lista_elementos(indx) || ', ';
             end if; 
           end if;
         END LOOP;
@@ -1211,7 +1235,7 @@ SELECT
     constante         VARCHAR2(100);
     posicion_ant    PLS_integer;
     pos                    PLS_integer;
-    cadena_resul  VARCHAR(6000);
+    cadena_resul  VARCHAR(10000);
     sustituto           VARCHAR(30);
     lon_cadena     PLS_integer;
     cabeza             VARCHAR2(2000);
@@ -1223,7 +1247,7 @@ SELECT
     table_columns_lkup  list_strings := list_strings();
     ie_column_lkup    list_strings := list_strings();
     tipo_columna  VARCHAR2(30);
-    mitabla_look_up VARCHAR2(800);
+    mitabla_look_up VARCHAR2(1600);
     v_tabla_base_name VARCHAR2(800);
     mi_tabla_base_name VARCHAR2(50);
     l_registro          ALL_TAB_COLUMNS%rowtype;
@@ -1612,7 +1636,7 @@ SELECT
             dbms_output.put_line('La tabla de LKUP es: $$' || v_table_look_up || '$$');
             mitabla_look_up := v_table_look_up;
             v_encontrado:='N';
-            FOR indx IN l_FROM.FIRST .. l_FROM.LAST
+            FOR indx IN l_FROM_solo_tablas.FIRST .. l_FROM_solo_tablas.LAST
             LOOP
               --if (instr(l_FROM(indx),  reg_detalle_in.TABLE_LKUP, 0)) then
               --regexp_count(reg_per_val.AGREGATION,'^BAN_',1,'i') >0
@@ -1890,9 +1914,9 @@ SELECT
               elsif (UPPER(TRIM(l_registro2.TYPE)) = 'DATE') then
                 if (v_alias_incluido = 1) then
                 /* (20160629) Angel Ruiz. NF: Se incluye la posibilidad de incluir el ALIAS en tablas de LKUP que sean SELECT */
-                  valor_retorno := valor_retorno || ') THEN ''1970-01-01'' ELSE ' || 'NVL(' || reg_detalle_in.VALUE || ', ''2000-01-01'') END';
+                  valor_retorno := valor_retorno || ') THEN CAST(''1970-01-01'' AS DATE) ELSE ' || 'NVL(' || reg_detalle_in.VALUE || ', CAST(''2000-01-01'' AS DATE)) END';
                 else
-                  valor_retorno := valor_retorno || ') THEN ''1970-01-01'' ELSE ' || 'NVL(' || v_alias || '.' || reg_detalle_in.VALUE || ', ''2000-01-01'') END';
+                  valor_retorno := valor_retorno || ') THEN CAST(''1970-01-01'' AS DATE) ELSE ' || 'NVL(' || v_alias || '.' || reg_detalle_in.VALUE || ', CAST(''2000-01-01'' AS DATE)) END';
                 end if;
               else
                 if (v_alias_incluido = 1) then
@@ -1920,10 +1944,10 @@ SELECT
               elsif (l_registro2.TYPE = 'DATE') then
                 if (v_alias_incluido = 1) then
                   --valor_retorno :=  '    NVL(' || sustituye_comillas_dinam(reg_detalle_in.VALUE) || ', ''''GENERICO'''')';
-                  valor_retorno :=  '    NVL(' || reg_detalle_in.VALUE || ', ''2000-01-01'')';
+                  valor_retorno :=  '    NVL(' || reg_detalle_in.VALUE || ', CAST(''2000-01-01'' AS DATE))';
                 else
                   --valor_retorno :=  '    NVL(' || v_alias || '.' || reg_detalle_in.VALUE || ', ''''GENERICO'''')';
-                  valor_retorno :=  '    NVL(' || v_alias || '.' || reg_detalle_in.VALUE || ', ''2000-01-01'')';
+                  valor_retorno :=  '    NVL(' || v_alias || '.' || reg_detalle_in.VALUE || ', CAST(''2000-01-01'' AS DATE))';
                 end if;
               else
                 if (v_alias_incluido = 1) then
@@ -2031,7 +2055,12 @@ SELECT
                     elsif (regexp_instr(ie_column_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0 or regexp_instr(table_columns_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) then
                       l_WHERE_ON_clause(l_WHERE_ON_clause.last) := 'NVL(' || transformo_funcion(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || ', ''NI#'')' ||  v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
                     else
-                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  'NVL(' || reg_detalle_in.TABLE_BASE_NAME || '.' || ie_column_lkup(indx) || ', ''NI#'')' || v_operador_para_join || v_alias || '.' || table_columns_lkup(indx);
+                      /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
+                      if (instr(ie_column_lkup(indx), '.') > 0) then
+                        l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  'NVL(' || ie_column_lkup(indx) || ', ''NI#'')' || v_operador_para_join || v_alias || '.' || table_columns_lkup(indx);
+                      else
+                        l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  'NVL(' || reg_detalle_in.TABLE_BASE_NAME || '.' || ie_column_lkup(indx) || ', ''NI#'')' || v_operador_para_join || v_alias || '.' || table_columns_lkup(indx);
+                      end if;
                     end if;
                   else
                     /* (20160302) Angel Ruiz. NF: DECODE en las columnas de LookUp */
@@ -2044,7 +2073,12 @@ SELECT
                     elsif (regexp_instr(ie_column_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0 or regexp_instr(table_columns_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) then
                       l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  transformo_funcion(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
                     else
-                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  reg_detalle_in.TABLE_BASE_NAME || '.' || ie_column_lkup(indx) ||  v_operador_para_join || v_alias || '.' || table_columns_lkup(indx);
+                      /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
+                      if (instr(ie_column_lkup(indx), '.') > 0) then
+                        l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ie_column_lkup(indx) ||  v_operador_para_join || v_alias || '.' || table_columns_lkup(indx);
+                      else
+                        l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  reg_detalle_in.TABLE_BASE_NAME || '.' || ie_column_lkup(indx) ||  v_operador_para_join || v_alias || '.' || table_columns_lkup(indx);
+                      end if;
                     end if;
                   end if;
                 else    /* Estamos haciendo JOIN con la tabla de LookUp COD_* por un campo NUMBER */
@@ -2059,12 +2093,34 @@ SELECT
                   elsif (regexp_instr(ie_column_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0 or regexp_instr(table_columns_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) then
                     l_WHERE_ON_clause(l_WHERE_ON_clause.last) := transformo_funcion(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
                   else
-                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  reg_detalle_in.TABLE_BASE_NAME || '.' || ie_column_lkup(indx) || v_operador_para_join || v_alias || '.' || table_columns_lkup(indx);
+                    /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
+                    if (instr(ie_column_lkup(indx), '.') > 0) then
+                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ie_column_lkup(indx) || v_operador_para_join || v_alias || '.' || table_columns_lkup(indx);
+                    else
+                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  reg_detalle_in.TABLE_BASE_NAME || '.' || ie_column_lkup(indx) || v_operador_para_join || v_alias || '.' || table_columns_lkup(indx);
+                    end if;
                   end if;
                 end if;
               else /* if (v_existe_valor = true) then */
                 /* No podemos encontar el campo en el diccionario de datos */
-                l_WHERE_ON_clause(l_WHERE_ON_clause.last) := ie_column_lkup(indx) || v_operador_para_join || table_columns_lkup(indx);
+                /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
+                if (instr(ie_column_lkup(indx), '.') > 0 and instr(table_columns_lkup(indx), '.') > 0) then
+                  l_WHERE_ON_clause(l_WHERE_ON_clause.last) := ie_column_lkup(indx) || v_operador_para_join || table_columns_lkup(indx);
+                elsif (instr(ie_column_lkup(indx), '.') > 0 and instr(table_columns_lkup(indx), '.') = 0) then
+                  if (v_alias_incluido = 1) then
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) := ie_column_lkup(indx) || v_operador_para_join || v_alias || '.' || table_columns_lkup(indx);
+                  else
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) := ie_column_lkup(indx) || v_operador_para_join || v_alias_table_look_up || '.' || table_columns_lkup(indx);
+                  end if;
+                elsif (instr(ie_column_lkup(indx), '.') = 0 and instr(table_columns_lkup(indx), '.') > 0) then
+                  l_WHERE_ON_clause(l_WHERE_ON_clause.last) := reg_detalle_in.TABLE_BASE_NAME || '.' || ie_column_lkup(indx) || v_operador_para_join || table_columns_lkup(indx);
+                else
+                  if (v_alias_incluido = 1) then
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) := reg_detalle_in.TABLE_BASE_NAME || '.' || ie_column_lkup(indx) || v_operador_para_join || v_alias || '.' || table_columns_lkup(indx);
+                  else
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) := reg_detalle_in.TABLE_BASE_NAME || '.' || ie_column_lkup(indx) || v_operador_para_join || v_alias_table_look_up || '.' || table_columns_lkup(indx);
+                  end if;
+                end if;
               end if;
             else  /* if (l_WHERE_ON_clause.count = 1) then */
               if (v_existe_valor = true) then
@@ -2080,7 +2136,12 @@ SELECT
                     elsif (regexp_instr(ie_column_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0 or regexp_instr(table_columns_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) then
                       l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND NVL(' || transformo_funcion(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || ', ''NI#'')' || v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
                     else
-                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND NVL(' || reg_detalle_in.TABLE_BASE_NAME || '.' || ie_column_lkup(indx) || ', ''NI#'')' || v_operador_para_join || v_alias || '.' || table_columns_lkup(indx);
+                      /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
+                      if (instr(ie_column_lkup(indx), '.') > 0) then
+                        l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND NVL(' || ie_column_lkup(indx) || ', ''NI#'')' || v_operador_para_join || v_alias || '.' || table_columns_lkup(indx);
+                      else
+                        l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND NVL(' || reg_detalle_in.TABLE_BASE_NAME || '.' || ie_column_lkup(indx) || ', ''NI#'')' || v_operador_para_join || v_alias || '.' || table_columns_lkup(indx);
+                      end if;
                     end if;
                   else
                     /* (20160302) Angel Ruiz. NF: DECODE en las columnas de LookUp */
@@ -2093,26 +2154,53 @@ SELECT
                     elsif (regexp_instr(ie_column_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0 or regexp_instr(table_columns_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) then
                       l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || transformo_funcion (ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
                     else
-                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || reg_detalle_in.TABLE_BASE_NAME || '.' || ie_column_lkup(indx) || v_operador_para_join || v_alias || '.' || table_columns_lkup(indx);
+                      /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
+                      if (instr(ie_column_lkup(indx), '.') > 0) then
+                        l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || ie_column_lkup(indx) || v_operador_para_join || v_alias || '.' || table_columns_lkup(indx);
+                      else                    
+                        l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || reg_detalle_in.TABLE_BASE_NAME || '.' || ie_column_lkup(indx) || v_operador_para_join || v_alias || '.' || table_columns_lkup(indx);
+                      end if;
                     end if;
                   end if;
                 else /* Estamos haciendo JOIN con la tabla de LookUp COD_* por un campo NUMBER */
                   --l_WHERE(l_WHERE.last) :=  ' AND NVL(' || reg_detalle_in.TABLE_BASE_NAME || '.' || ie_column_lkup(indx) || ', -3)' || ' = ' || v_alias || '.' || table_columns_lkup(indx) || ' (+)';
-                    /* (20160302) Angel Ruiz. NF: DECODE en las columnas de LookUp */                
-                    if (regexp_instr(ie_column_lkup(indx), '[Dd][Ee][Cc][Oo][Dd][Ee]') > 0 or regexp_instr(table_columns_lkup(indx), '[Dd][Ee][Cc][Oo][Dd][Ee]') > 0) then
-                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || transformo_decode(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME, 0) || v_operador_para_join || transformo_decode(table_columns_lkup(indx), v_alias, 0);
-                    elsif (regexp_instr(ie_column_lkup(indx), '[Nn][Vv][Ll]') > 0 or regexp_instr(table_columns_lkup(indx), '[Nn][Vv][Ll]') > 0) then
-                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || transformo_funcion(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
-                    elsif (regexp_instr(ie_column_lkup(indx), '[Uu][Pp][Pp][Ee][Rr]') > 0 or regexp_instr(table_columns_lkup(indx), '[Uu][Pp][Pp][Ee][Rr]') > 0) then
-                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || transformo_funcion(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
-                    elsif (regexp_instr(ie_column_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0 or regexp_instr(table_columns_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) then
-                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || transformo_funcion(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
+                  /* (20160302) Angel Ruiz. NF: DECODE en las columnas de LookUp */                
+                  if (regexp_instr(ie_column_lkup(indx), '[Dd][Ee][Cc][Oo][Dd][Ee]') > 0 or regexp_instr(table_columns_lkup(indx), '[Dd][Ee][Cc][Oo][Dd][Ee]') > 0) then
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || transformo_decode(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME, 0) || v_operador_para_join || transformo_decode(table_columns_lkup(indx), v_alias, 0);
+                  elsif (regexp_instr(ie_column_lkup(indx), '[Nn][Vv][Ll]') > 0 or regexp_instr(table_columns_lkup(indx), '[Nn][Vv][Ll]') > 0) then
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || transformo_funcion(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
+                  elsif (regexp_instr(ie_column_lkup(indx), '[Uu][Pp][Pp][Ee][Rr]') > 0 or regexp_instr(table_columns_lkup(indx), '[Uu][Pp][Pp][Ee][Rr]') > 0) then
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || transformo_funcion(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
+                  elsif (regexp_instr(ie_column_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0 or regexp_instr(table_columns_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) then
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || transformo_funcion(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
+                  else
+                    /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
+                    if (instr(ie_column_lkup(indx), '.') > 0) then
+                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || ie_column_lkup(indx) || v_operador_para_join || v_alias || '.' || table_columns_lkup(indx);
                     else
                       l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || reg_detalle_in.TABLE_BASE_NAME || '.' || ie_column_lkup(indx) || v_operador_para_join || v_alias || '.' || table_columns_lkup(indx);
                     end if;
+                  end if;
                 end if;
               else /* if (v_existe_valor = true) then */
-                l_WHERE_ON_clause(l_WHERE_ON_clause.last) := ' AND ' || ie_column_lkup(indx) || v_operador_para_join || table_columns_lkup(indx);
+                /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
+                if (instr(ie_column_lkup(indx), '.') > 0 and instr(table_columns_lkup(indx), '.') > 0) then
+                  l_WHERE_ON_clause(l_WHERE_ON_clause.last) := ' AND ' || ie_column_lkup(indx) || v_operador_para_join || table_columns_lkup(indx);
+                elsif (instr(ie_column_lkup(indx), '.') > 0 and instr(table_columns_lkup(indx), '.') = 0) then
+                  if (v_alias_incluido = 1) then
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) := ' AND ' || ie_column_lkup(indx) || v_operador_para_join || v_alias || '.' || table_columns_lkup(indx);
+                  else
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) := ' AND ' || ie_column_lkup(indx) || v_operador_para_join || table_columns_lkup(indx);
+                  end if;
+                elsif (instr(ie_column_lkup(indx), '.') = 0 and instr(table_columns_lkup(indx), '.') > 0) then
+                  l_WHERE_ON_clause(l_WHERE_ON_clause.last) := ' AND ' || reg_detalle_in.TABLE_BASE_NAME || '.' || ie_column_lkup(indx) || v_operador_para_join || table_columns_lkup(indx);
+                else
+                  if (v_alias_incluido = 1) then
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) := ' AND ' || reg_detalle_in.TABLE_BASE_NAME || '.' || ie_column_lkup(indx) || v_operador_para_join || v_alias || '.' ||table_columns_lkup(indx);
+                  else
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) := ' AND ' || reg_detalle_in.TABLE_BASE_NAME || '.' || ie_column_lkup(indx) || v_operador_para_join || v_alias_table_look_up || '.' || table_columns_lkup(indx);
+                  end if;
+                end if;
               end if;
             end if;
           END LOOP;
@@ -2203,7 +2291,12 @@ SELECT
                     elsif (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0 or regexp_instr(reg_detalle_in.TABLE_COLUMN_LKUP, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) then
                       l_WHERE_ON_clause(l_WHERE_ON_clause.last) := 'NVL(' || transformo_funcion(reg_detalle_in.IE_COLUMN_LKUP, reg_detalle_in.TABLE_BASE_NAME) || ', ''NI#'')' ||  v_operador_para_join || transformo_funcion(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias);
                     else
-                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) := 'NVL(' || reg_detalle_in.TABLE_BASE_NAME || '.' || reg_detalle_in.IE_COLUMN_LKUP || ', ''NI#'')' ||  v_operador_para_join || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                      /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
+                      if (instr(reg_detalle_in.IE_COLUMN_LKUP, '.') > 0) then
+                        l_WHERE_ON_clause(l_WHERE_ON_clause.last) := 'NVL(' || reg_detalle_in.IE_COLUMN_LKUP || ', ''NI#'')' ||  v_operador_para_join || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                      else                      
+                        l_WHERE_ON_clause(l_WHERE_ON_clause.last) := 'NVL(' || reg_detalle_in.TABLE_BASE_NAME || '.' || reg_detalle_in.IE_COLUMN_LKUP || ', ''NI#'')' ||  v_operador_para_join || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                      end if;
                     end if;
                   else
                     if (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Dd][Ee][Cc][Oo][Dd][Ee]') > 0 or regexp_instr(reg_detalle_in.TABLE_COLUMN_LKUP, '[Dd][Ee][Cc][Oo][Dd][Ee]') > 0) then
@@ -2215,7 +2308,12 @@ SELECT
                     elsif (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0 and regexp_instr(reg_detalle_in.TABLE_COLUMN_LKUP, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) then
                       l_WHERE_ON_clause(l_WHERE_ON_clause.last) := transformo_funcion(reg_detalle_in.IE_COLUMN_LKUP, reg_detalle_in.TABLE_BASE_NAME) ||  v_operador_para_join || transformo_funcion(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias);
                     else
-                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) := reg_detalle_in.TABLE_BASE_NAME || '.' || reg_detalle_in.IE_COLUMN_LKUP ||  v_operador_para_join || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                      /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
+                      if (instr(reg_detalle_in.IE_COLUMN_LKUP, '.') > 0) then
+                        l_WHERE_ON_clause(l_WHERE_ON_clause.last) := reg_detalle_in.IE_COLUMN_LKUP ||  v_operador_para_join || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                      else                    
+                        l_WHERE_ON_clause(l_WHERE_ON_clause.last) := reg_detalle_in.TABLE_BASE_NAME || '.' || reg_detalle_in.IE_COLUMN_LKUP ||  v_operador_para_join || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                      end if;
                     end if;
                   end if;
                 else    /* Estamos haciendo JOIN con la tabla de LookUp COD_* por un campo NUMBER */
@@ -2229,11 +2327,33 @@ SELECT
                   elsif (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0 or regexp_instr(reg_detalle_in.TABLE_COLUMN_LKUP, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) then
                     l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  transformo_funcion(reg_detalle_in.IE_COLUMN_LKUP, reg_detalle_in.TABLE_BASE_NAME) ||  v_operador_para_join || transformo_funcion(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias);
                   else
-                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) := reg_detalle_in.TABLE_BASE_NAME || '.' || reg_detalle_in.IE_COLUMN_LKUP ||  v_operador_para_join || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                    /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
+                    if (instr(reg_detalle_in.IE_COLUMN_LKUP, '.') > 0) then
+                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) := reg_detalle_in.IE_COLUMN_LKUP ||  v_operador_para_join || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                    else
+                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) := reg_detalle_in.TABLE_BASE_NAME || '.' || reg_detalle_in.IE_COLUMN_LKUP ||  v_operador_para_join || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                    end if;
                   end if;
                 end if;
               else /* if (v_existe_valor = true) then */
-                l_WHERE_ON_clause(l_WHERE_ON_clause.last) := reg_detalle_in.IE_COLUMN_LKUP ||  v_operador_para_join || reg_detalle_in.TABLE_COLUMN_LKUP;
+                /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
+                if (instr(reg_detalle_in.IE_COLUMN_LKUP, '.') > 0 and instr(reg_detalle_in.TABLE_COLUMN_LKUP, '.') > 0) then
+                  l_WHERE_ON_clause(l_WHERE_ON_clause.last) := reg_detalle_in.IE_COLUMN_LKUP ||  v_operador_para_join || reg_detalle_in.TABLE_COLUMN_LKUP;
+                elsif (instr(reg_detalle_in.IE_COLUMN_LKUP, '.') > 0 and instr(reg_detalle_in.TABLE_COLUMN_LKUP, '.') = 0) then
+                  if (v_alias_incluido = 1) then
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) := reg_detalle_in.IE_COLUMN_LKUP ||  v_operador_para_join || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                  else
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) := reg_detalle_in.IE_COLUMN_LKUP ||  v_operador_para_join || v_alias_table_look_up || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                  end if;
+                elsif (instr(reg_detalle_in.IE_COLUMN_LKUP, '.') = 0 and instr(reg_detalle_in.TABLE_COLUMN_LKUP, '.') > 0) then
+                  l_WHERE_ON_clause(l_WHERE_ON_clause.last) := reg_detalle_in.TABLE_BASE_NAME || '.' || reg_detalle_in.IE_COLUMN_LKUP ||  v_operador_para_join || reg_detalle_in.TABLE_COLUMN_LKUP;
+                else
+                  if (v_alias_incluido = 1) then
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) := reg_detalle_in.TABLE_BASE_NAME || '.' || reg_detalle_in.IE_COLUMN_LKUP ||  v_operador_para_join || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                  else
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) := reg_detalle_in.TABLE_BASE_NAME || '.' || reg_detalle_in.IE_COLUMN_LKUP ||  v_operador_para_join || v_alias_table_look_up || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                  end if;
+                end if;
               end if;
             else  /* sino es el primer campo del Where  */
               if (v_existe_valor = true) then
@@ -2248,7 +2368,12 @@ SELECT
                     elsif (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0 or regexp_instr(reg_detalle_in.TABLE_COLUMN_LKUP, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) then
                       l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND NVL(' || transformo_funcion(reg_detalle_in.IE_COLUMN_LKUP, reg_detalle_in.TABLE_BASE_NAME) || ', ''NI#'')' || v_operador_para_join || transformo_funcion(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias);
                     else
-                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND NVL(' || reg_detalle_in.TABLE_BASE_NAME || '.' || reg_detalle_in.IE_COLUMN_LKUP || ', ''NI#'')' || v_operador_para_join || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                      /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
+                      if (instr(reg_detalle_in.IE_COLUMN_LKUP, '.') > 0) then
+                        l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND NVL(' || reg_detalle_in.IE_COLUMN_LKUP || ', ''NI#'')' || v_operador_para_join || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                      else
+                        l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND NVL(' || reg_detalle_in.TABLE_BASE_NAME || '.' || reg_detalle_in.IE_COLUMN_LKUP || ', ''NI#'')' || v_operador_para_join || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                      end if;
                     end if;
                   else
                     if (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Dd][Ee][Cc][Oo][Dd][Ee]') > 0 or regexp_instr(reg_detalle_in.TABLE_COLUMN_LKUP, '[Dd][Ee][Cc][Oo][Dd][Ee]') > 0) then
@@ -2260,7 +2385,12 @@ SELECT
                     elsif (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0 or regexp_instr(reg_detalle_in.TABLE_COLUMN_LKUP, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) then
                       l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || transformo_funcion(reg_detalle_in.IE_COLUMN_LKUP, reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias);
                     else
-                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || reg_detalle_in.TABLE_BASE_NAME || '.' || reg_detalle_in.IE_COLUMN_LKUP || v_operador_para_join || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                      /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
+                      if (instr(reg_detalle_in.IE_COLUMN_LKUP, '.') > 0) then
+                        l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || reg_detalle_in.IE_COLUMN_LKUP || v_operador_para_join || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                      else
+                        l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || reg_detalle_in.TABLE_BASE_NAME || '.' || reg_detalle_in.IE_COLUMN_LKUP || v_operador_para_join || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                      end if;
                     end if;
                   end if;
                 else     /* Estamos haciendo JOIN con la tabla de LookUp COD_* por un campo NUMBER */
@@ -2274,11 +2404,33 @@ SELECT
                   elsif (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0 or regexp_instr(reg_detalle_in.TABLE_COLUMN_LKUP, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) then
                     l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || transformo_funcion(reg_detalle_in.IE_COLUMN_LKUP, reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias);
                   else
-                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || reg_detalle_in.TABLE_BASE_NAME || '.' || reg_detalle_in.IE_COLUMN_LKUP || v_operador_para_join || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                    /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
+                    if (instr(reg_detalle_in.IE_COLUMN_LKUP, '.') > 0) then
+                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || reg_detalle_in.IE_COLUMN_LKUP || v_operador_para_join || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                    else
+                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || reg_detalle_in.TABLE_BASE_NAME || '.' || reg_detalle_in.IE_COLUMN_LKUP || v_operador_para_join || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                    end if;
                   end if;
                 end if;
               else  /* if (v_existe_valor = true) then */
-                l_WHERE_ON_clause(l_WHERE_ON_clause.last) := ' AND ' || reg_detalle_in.IE_COLUMN_LKUP || v_operador_para_join || reg_detalle_in.TABLE_COLUMN_LKUP;
+                /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
+                if (instr(reg_detalle_in.IE_COLUMN_LKUP, '.') > 0 and instr(reg_detalle_in.TABLE_COLUMN_LKUP, '.') > 0) then
+                  l_WHERE_ON_clause(l_WHERE_ON_clause.last) := ' AND ' || reg_detalle_in.IE_COLUMN_LKUP || v_operador_para_join || reg_detalle_in.TABLE_COLUMN_LKUP;
+                elsif (instr(reg_detalle_in.IE_COLUMN_LKUP, '.') > 0 and instr(reg_detalle_in.TABLE_COLUMN_LKUP, '.') = 0) then
+                  if (v_alias_incluido = 1) then
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) := ' AND ' || reg_detalle_in.IE_COLUMN_LKUP || v_operador_para_join || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                  else
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) := ' AND ' || reg_detalle_in.IE_COLUMN_LKUP || v_operador_para_join || v_alias_table_look_up || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                  end if;
+                elsif (instr(reg_detalle_in.IE_COLUMN_LKUP, '.') = 0 and instr(reg_detalle_in.TABLE_COLUMN_LKUP, '.') > 0) then                  
+                  l_WHERE_ON_clause(l_WHERE_ON_clause.last) := ' AND ' || reg_detalle_in.TABLE_BASE_NAME || '.' || reg_detalle_in.IE_COLUMN_LKUP || v_operador_para_join || reg_detalle_in.TABLE_COLUMN_LKUP;
+                else
+                  if (v_alias_incluido = 1) then
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) := ' AND ' || reg_detalle_in.TABLE_BASE_NAME || '.' || reg_detalle_in.IE_COLUMN_LKUP || v_operador_para_join || v_alias || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                  else
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) := ' AND ' || reg_detalle_in.TABLE_BASE_NAME || '.' || reg_detalle_in.IE_COLUMN_LKUP || v_operador_para_join || v_alias_table_look_up || '.' || reg_detalle_in.TABLE_COLUMN_LKUP;
+                  end if;
+                end if;
               end if;
             end if;
           end if;
@@ -2355,12 +2507,13 @@ SELECT
           --cad_seg := substr(valor_retorno, posicion + length('VAR_IVA'));
           --valor_retorno :=  cad_pri || '21' || cad_seg;
         --end if;
-        --posicion := instr(valor_retorno, 'VAR_FCH_CARGA');
-        --if (posicion >0) then
-          --cad_pri := substr(valor_retorno, 1, posicion-1);
-          --cad_seg := substr(valor_retorno, posicion + length('VAR_FCH_CARGA'));
-          --valor_retorno :=  cad_pri || ''' || ''TO_DATE ('''''' || fch_datos_in || '''''', ''''YYYYMMDD'''') '' || ''' || cad_seg;
-        --end if;
+        posicion := instr(valor_retorno, '#VAR_FCH_CARGA#');
+        if (posicion >0) then
+          cad_pri := substr(valor_retorno, 1, posicion-1);
+          cad_seg := substr(valor_retorno, posicion + length('#VAR_FCH_CARGA#'));
+          --valor_retorno :=  cad_pri || ''' || ''TO_DATE ('' || fch_datos_in || '''''', ''''YYYYMMDD'''') '' || ''' || cad_seg;
+          valor_retorno :=  '    ' || cad_pri || ' date_format(''#VAR_FCH_DATOS#'', ''yyyy-MM-dd'') ' || cad_seg; /* (20161208) Angel Ruiz */
+        end if;
       when 'HARDC' then
         /* (20170105) Angel Ruiz */
         if reg_detalle_in.VALUE <> 'NULL' then
@@ -3180,7 +3333,7 @@ begin
             /* Controlo el valor maximo de la secuencia */
             /* MODIFICANDO DICHO VALOR EN LA TABLA DEL METADATO relativa las secuencias */
             UTL_FILE.put_line(fich_salida_pkg, 'DELETE FROM ' || OWNER_MTDT || '.MTDT_SEQUENCIAS WHERE ID_SEQ='''|| v_nombre_seq || ''';');
-            UTL_FILE.put_line(fich_salida_pkg, 'INSERT INTO ' || OWNER_MTDT || '.MTDT_SEQUENCIAS SELECT '''|| v_nombre_seq || ''', MAX(' || v_nombre_campo_seq || ') from ' || OWNER_DM || '.T_' || nombre_tabla_reducido || ';');
+            UTL_FILE.put_line(fich_salida_pkg, 'INSERT INTO ' || OWNER_MTDT || '.MTDT_SEQUENCIAS SELECT '''|| v_nombre_seq || ''', NVL(MAX(' || v_nombre_campo_seq || '), 0) from ' || OWNER_DM || '.T_' || nombre_tabla_reducido || ';');
           end if;
           
       /*************/
@@ -3337,7 +3490,7 @@ begin
         lista_par(lista_par.last) := reg_modelo_logico_col.COLUMN_NAME;
         /* (20160324) Angel Ruiz. Fin NF: Indices en las tablas del modelo*/
       end if;
-      if ((regexp_count(substr(reg_modelo_logico_col.TABLE_NAME, 1, 4), '??A_',1,'i') >0 or 
+      if ((regexp_count(substr(reg_modelo_logico_col.TABLE_NAME, 1, 4), '??A_',1,'i') >0 or
       regexp_count(substr(reg_modelo_logico_col.TABLE_NAME, 1, 4), '??G_',1,'i') >0 ) AND
       (upper(trim(reg_modelo_logico_col.COLUMN_NAME)) = 'CVE_MES')) then
         /* SE TRATA DE UNA TABLA DE AGREGADOS CON PARTICIONAMIENTO POR MES */
@@ -3366,7 +3519,47 @@ begin
       end if;      
     end loop;
     close c_mtdt_modelo_logico_COLUMNA;
-    UTL_FILE.put_line(fich_salida_pkg, 'INSERT OVERWRITE TABLE ' || reg_tabla.TABLE_NAME);
+    /* (20170220) Angel Ruiz. BUG: Con tablas ORC y con el ACID activo no se puede hacer un OVERWRITE */
+    /* por lo que introduzco un DROP PARTITION */
+    if (regexp_count(substr(reg_tabla.TABLE_NAME, 1, 4) ,'??F_',1,'i') >0)  then  /* Se trata de una tabla de HECHOS  */    
+      --  /* Hay que particonarla */
+      if (v_tipo_particionado = 'D') then
+        /* Se trata de un particionado diario */
+        UTL_FILE.put_line(fich_salida_pkg,'ALTER TABLE ' || OWNER_DM || '.' || reg_tabla.TABLE_NAME);
+        UTL_FILE.put_line(fich_salida_pkg,'DROP IF EXISTS PARTITION (CVE_DIA=#VAR_CVE_DIA#);');
+        UTL_FILE.put_line(fich_salida_pkg,'');
+        --DBMS_OUTPUT.put_line(');');
+      elsif (v_tipo_particionado = 'M') then
+        /* Se trata de un particionado Mensual */
+        UTL_FILE.put_line(fich_salida_pkg,'ALTER TABLE ' || OWNER_DM || '.' || reg_tabla.TABLE_NAME);
+        UTL_FILE.put_line(fich_salida_pkg,'DROP IF EXISTS PARTITION (CVE_MES=#VAR_CVE_MES#);');
+        UTL_FILE.put_line(fich_salida_pkg,'');
+        --DBMS_OUTPUT.put_line('(');
+      elsif (v_tipo_particionado = 'M24') then
+        /* (20150918) Angel Ruiz. N.F.: Se trata de implementar el particionado para BSC donde hay 24 particiones siempre */
+        /* Las particiones se crean una vez y asi permanecen ya que el espacio de analisis se extiende 24 meses */
+        UTL_FILE.put_line(fich_salida_pkg,'ALTER TABLE ' || OWNER_DM || '.' || reg_tabla.TABLE_NAME);
+        UTL_FILE.put_line(fich_salida_pkg,'DROP IF EXISTS PARTITION (CVE_MES=#VAR_CVE_MES#);');
+        UTL_FILE.put_line(fich_salida_pkg,'');
+        /* (20150918) Angel Ruiz. Fin N.F*/
+      end if;
+    elsif (regexp_count(substr(reg_tabla.TABLE_NAME, 1, 4), '??A_',1,'i') >0 or
+          regexp_count(substr(reg_tabla.TABLE_NAME, 1, 4), '??G_',1,'i') >0)  then  /* Se trata de una tabla de HECHOS AGREGADOS  */
+      if (v_tipo_particionado = 'M') then
+        --  /* Hay que particonarla */
+        UTL_FILE.put_line(fich_salida_pkg,'ALTER TABLE ' || OWNER_DM || '.' || reg_tabla.TABLE_NAME);
+        UTL_FILE.put_line(fich_salida_pkg,'DROP IF EXISTS PARTITION (CVE_MES=#VAR_CVE_MES#);');
+        UTL_FILE.put_line(fich_salida_pkg,'');
+      elsif (v_tipo_particionado = 'MyD') then
+        --UTL_FILE.put_line(fich_salida_pkg,'PARTITION (CVE_MES=#VAR_CVE_MES#, CVE_DIA=#VAR_CVE_DIA#)');
+        UTL_FILE.put_line(fich_salida_pkg,'ALTER TABLE ' || OWNER_DM || '.' || reg_tabla.TABLE_NAME);
+        UTL_FILE.put_line(fich_salida_pkg,'DROP IF EXISTS PARTITION (CVE_DIA=#VAR_CVE_DIA#);');
+        UTL_FILE.put_line(fich_salida_pkg,'');
+      end if;
+    end if;
+    /* (20170220) Angel Ruiz. FIN BUG */
+    --UTL_FILE.put_line(fich_salida_pkg, 'INSERT OVERWRITE TABLE ' || reg_tabla.TABLE_NAME);
+    UTL_FILE.put_line(fich_salida_pkg, 'INSERT INTO TABLE ' || reg_tabla.TABLE_NAME);
     if (regexp_count(substr(reg_tabla.TABLE_NAME, 1, 4) ,'??F_',1,'i') >0)  then  /* Se trata de una tabla de HECHOS  */    
       --  /* Hay que particonarla */
       if (v_tipo_particionado = 'D') then
@@ -3478,7 +3671,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
     UTL_FILE.put_line(fich_salida_load, 'INSERT INTO ${ESQUEMA_MT}.MTDT_MONITOREO');
     UTL_FILE.put_line(fich_salida_load, 'SELECT');
-    UTL_FILE.put_line(fich_salida_load, '  mtdt_proceso.cve_proceso*' || v_MULTIPLICADOR_PROC || '+${ULT_PASO_EJECUTADO}+unix_timestamp(),');  /* mtdt_proceso.cve_proceso*v_MULTIPLICADOR_PROC+mtdt_paso.cve_paso+unix_timestamp() */
+    --UTL_FILE.put_line(fich_salida_load, '  mtdt_proceso.cve_proceso*' || v_MULTIPLICADOR_PROC || '+${ULT_PASO_EJECUTADO}+unix_timestamp(),');  /* mtdt_proceso.cve_proceso*v_MULTIPLICADOR_PROC+mtdt_paso.cve_paso+unix_timestamp() */
     UTL_FILE.put_line(fich_salida_load, '  mtdt_proceso.cve_proceso,');
     UTL_FILE.put_line(fich_salida_load, '  1,');
     UTL_FILE.put_line(fich_salida_load, '  1,');
@@ -3517,7 +3710,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
     UTL_FILE.put_line(fich_salida_load, 'INSERT INTO ${ESQUEMA_MT}.MTDT_MONITOREO');
     UTL_FILE.put_line(fich_salida_load, 'SELECT');
-    UTL_FILE.put_line(fich_salida_load, '  mtdt_proceso.cve_proceso*' || v_MULTIPLICADOR_PROC || '+${ULT_PASO_EJECUTADO}+unix_timestamp(),');  /* mtdt_proceso.cve_proceso*v_MULTIPLICADOR_PROC+mtdt_paso.cve_paso+unix_timestamp() */ 
+    --UTL_FILE.put_line(fich_salida_load, '  mtdt_proceso.cve_proceso*' || v_MULTIPLICADOR_PROC || '+${ULT_PASO_EJECUTADO}+unix_timestamp(),');  /* mtdt_proceso.cve_proceso*v_MULTIPLICADOR_PROC+mtdt_paso.cve_paso+unix_timestamp() */ 
     UTL_FILE.put_line(fich_salida_load, '  mtdt_proceso.cve_proceso,');
     UTL_FILE.put_line(fich_salida_load, '  1,');
     UTL_FILE.put_line(fich_salida_load, '  0,');
@@ -3645,7 +3838,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, 'MTDT_MONITOREO.CVE_RESULTADO = 0;');
     UTL_FILE.put_line(fich_salida_load, '!quit');
     UTL_FILE.put_line(fich_salida_load, 'EOF`');
-    UTL_FILE.put_line(fich_salida_load, 'ULT_PASO_EJECUTADO=`echo ${ULT_PASO_EJECUTADO_PREV} | sed -e ''s/ //g'' -e ''s/\n//g'' -e ''s/\r//g''`');    
+    UTL_FILE.put_line(fich_salida_load, 'ULT_PASO_EJECUTADO=`echo ${ULT_PASO_EJECUTADO_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');    
     UTL_FILE.put_line(fich_salida_load, 'if [ ${ULT_PASO_EJECUTADO} -eq 1 ] && [ "${BAN_FORZADO}" = "N" ]');
     UTL_FILE.put_line(fich_salida_load, 'then');
     UTL_FILE.put_line(fich_salida_load, '  SUBJECT="${INTERFAZ}: Ya se ejecutaron Ok todos los pasos de este proceso."');
@@ -3662,21 +3855,24 @@ begin
     UTL_FILE.put_line(fich_salida_load, 'select current_timestamp from ${ESQUEMA_MT}.dual;');
     UTL_FILE.put_line(fich_salida_load, '!quit');
     UTL_FILE.put_line(fich_salida_load, 'EOF`');
-    UTL_FILE.put_line(fich_salida_load, 'INICIO_PASO_TMR=`echo ${INICIO_PASO_TMR_PREV} | sed -e ''s/ //g'' -e ''s/\n//g'' -e ''s/\r//g''`');    
+    --UTL_FILE.put_line(fich_salida_load, 'INICIO_PASO_TMR=`echo ${INICIO_PASO_TMR_PREV} | sed -e ''s/ //g'' -e ''s/\n//g'' -e ''s/\r//g''`');    
+    UTL_FILE.put_line(fich_salida_load, 'INICIO_PASO_TMR=`echo ${INICIO_PASO_TMR_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');    
     UTL_FILE.put_line(fich_salida_load, 'echo "Inicio de la carga de ' || reg_tabla.TABLE_NAME || '"' || ' >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
     UTL_FILE.put_line(fich_salida_load, '');
     UTL_FILE.put_line(fich_salida_load, 'sed -e "s/#VAR_FCH_REGISTRO#/${INICIO_PASO_TMR}/g" -e "s/#VAR_FCH_CARGA#/${FCH_CARGA_FMT_HIVE}/g" -e "s/#VAR_FCH_DATOS#/${FCH_DATOS_FMT_HIVE}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" -e "s/#VAR_CVE_MES#/${FCH_CARGA_MES}/g" -e "s/#VAR_CVE_DIA#/${VAR_FCH_CARGA}/g" ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '.sql > ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
 
     /***********************************************************************************/
     --UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -f ' || '${NGRD_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
-    UTL_FILE.put_line(fich_salida_load, 'beeline << EOF >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
-    UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+    UTL_FILE.put_line(fich_salida_load, 'beeline << EOF >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+    UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
     UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
     UTL_FILE.put_line(fich_salida_load, '!quit');
     UTL_FILE.put_line(fich_salida_load, 'EOF');
-    UTL_FILE.put_line(fich_salida_load, 'err_salida=$?');
+    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic ''Error: Error while compiling statement: FAILED:'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log`');
+    --UTL_FILE.put_line(fich_salida_load, 'err_salida=$?');
     UTL_FILE.put_line(fich_salida_load, '');
-    UTL_FILE.put_line(fich_salida_load, 'if [ ${err_salida} -ne 0 ]; then');
+    --UTL_FILE.put_line(fich_salida_load, 'if [ ${err_salida} -ne 0 ]; then');
+    UTL_FILE.put_line(fich_salida_load, 'if [ ${ERROR} != 0 ] ; then');
     UTL_FILE.put_line(fich_salida_load, '  SUBJECT="${INTERFAZ}: Surgio un error en la carga de la dimension ' || reg_tabla.TABLE_NAME || '. Error:  ${err_salida}."');
     UTL_FILE.put_line(fich_salida_load, '  ${SHELL_SMS} "${TELEFONOS_DWH}" "${SUBJECT}"');
     UTL_FILE.put_line(fich_salida_load, '  echo ${SUBJECT} >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');    
@@ -3690,11 +3886,11 @@ begin
     UTL_FILE.put_line(fich_salida_load, '# Obtenemos el numero de registros nuevos para despues grabarlo en el metadato');
     --UTL_FILE.put_line(fich_salida_load, 'TOT_INSERTADOS=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_ML}.T_' || nombre_tabla_reducido || ';"` >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
     UTL_FILE.put_line(fich_salida_load, 'TOT_INSERTADOS_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
-    UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+    UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
     UTL_FILE.put_line(fich_salida_load, 'select count(*) from ${ESQUEMA_ML}.T_' || nombre_tabla_reducido || ';');
     UTL_FILE.put_line(fich_salida_load, '!quit');
     UTL_FILE.put_line(fich_salida_load, 'EOF` >> '|| '${' || NAME_DM || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
-    UTL_FILE.put_line(fich_salida_load, 'TOT_INSERTADOS=`echo ${TOT_INSERTADOS_PREV} | sed -e ''s/ //g'' -e ''s/\n//g'' -e ''s/\r//g''`');
+    UTL_FILE.put_line(fich_salida_load, 'TOT_INSERTADOS=`echo ${TOT_INSERTADOS_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
     UTL_FILE.put_line(fich_salida_load, '# Insertamos que el proceso se ha Ejecutado Correctamente');
     UTL_FILE.put_line(fich_salida_load, 'InsertaFinOK');
     UTL_FILE.put_line(fich_salida_load, '');
