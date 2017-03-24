@@ -231,7 +231,7 @@ BEGIN
     --UTL_FILE.put_line(fich_salida_sh, '    FCH_REGISTRO');
     --UTL_FILE.put_line(fich_salida_sh, '  )');
     UTL_FILE.put_line(fich_salida_sh, 'SELECT');
-    UTL_FILE.put_line(fich_salida_sh, '  mtdt_proceso.cve_proceso*' || v_MULTIPLICADOR_PROC || '+${ULT_PASO_EJECUTADO}+unix_timestamp(),');  /* mtdt_proceso.cve_proceso*v_MULTIPLICADOR_PROC+mtdt_paso.cve_paso+unix_timestamp() */
+    --UTL_FILE.put_line(fich_salida_sh, '  mtdt_proceso.cve_proceso*' || v_MULTIPLICADOR_PROC || '+${ULT_PASO_EJECUTADO}+unix_timestamp(),');  /* mtdt_proceso.cve_proceso*v_MULTIPLICADOR_PROC+mtdt_paso.cve_paso+unix_timestamp() */
     UTL_FILE.put_line(fich_salida_sh, '  mtdt_proceso.cve_proceso,');
     UTL_FILE.put_line(fich_salida_sh, '  1,');
     UTL_FILE.put_line(fich_salida_sh, '  1,');
@@ -279,7 +279,7 @@ BEGIN
     UTL_FILE.put_line(fich_salida_sh, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
     UTL_FILE.put_line(fich_salida_sh, 'INSERT INTO ${ESQUEMA_MT}.MTDT_MONITOREO');
     UTL_FILE.put_line(fich_salida_sh, 'SELECT');
-    UTL_FILE.put_line(fich_salida_sh, '  mtdt_proceso.cve_proceso*' || v_MULTIPLICADOR_PROC || '+${ULT_PASO_EJECUTADO}+unix_timestamp(),');  /* mtdt_proceso.cve_proceso*v_MULTIPLICADOR_PROC+mtdt_paso.cve_paso+unix_timestamp() */ 
+    --UTL_FILE.put_line(fich_salida_sh, '  mtdt_proceso.cve_proceso*' || v_MULTIPLICADOR_PROC || '+${ULT_PASO_EJECUTADO}+unix_timestamp(),');  /* mtdt_proceso.cve_proceso*v_MULTIPLICADOR_PROC+mtdt_paso.cve_paso+unix_timestamp() */ 
     UTL_FILE.put_line(fich_salida_sh, '  mtdt_proceso.cve_proceso,');
     UTL_FILE.put_line(fich_salida_sh, '  1,');
     UTL_FILE.put_line(fich_salida_sh, '  0,');
@@ -446,7 +446,7 @@ BEGIN
     UTL_FILE.put_line(fich_salida_sh, 'MTDT_MONITOREO.CVE_RESULTADO = 0;'); 
     UTL_FILE.put_line(fich_salida_sh, '!quit');
     UTL_FILE.put_line(fich_salida_sh, 'EOF`');
-    UTL_FILE.put_line(fich_salida_sh, 'ULT_PASO_EJECUTADO=`echo ${ULT_PASO_EJECUTADO_PREV} | sed -e ''s/ //g'' -e ''s/\n//g'' -e ''s/\r//g''`');    
+    UTL_FILE.put_line(fich_salida_sh, 'ULT_PASO_EJECUTADO=`echo ${ULT_PASO_EJECUTADO_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');    
     UTL_FILE.put_line(fich_salida_sh, 'if [ ${ULT_PASO_EJECUTADO} -eq 1 ] && [ "${BAN_FORZADO}" = "N" ]');
     UTL_FILE.put_line(fich_salida_sh, 'then');
     UTL_FILE.put_line(fich_salida_sh, '  SUBJECT="${INTERFAZ}: Ya se ejecutaron Ok todos los pasos de este proceso."');
@@ -463,7 +463,8 @@ BEGIN
     UTL_FILE.put_line(fich_salida_sh, 'select current_timestamp from ${ESQUEMA_MT}.dual;');
     UTL_FILE.put_line(fich_salida_sh, '!quit');
     UTL_FILE.put_line(fich_salida_sh, 'EOF`');
-    UTL_FILE.put_line(fich_salida_sh, 'INICIO_PASO_TMR=`echo ${INICIO_PASO_TMR_PREV} | sed -e ''s/ //g'' -e ''s/\n//g'' -e ''s/\r//g''`');    
+    --UTL_FILE.put_line(fich_salida_sh, 'INICIO_PASO_TMR=`echo ${INICIO_PASO_TMR_PREV} | sed -e ''s/ //g'' -e ''s/\n//g'' -e ''s/\r//g''`');    
+    UTL_FILE.put_line(fich_salida_sh, 'INICIO_PASO_TMR=`echo ${INICIO_PASO_TMR_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');    
     
     /* (20160816) Angel Ruiz. FIN. Comento lo relacionado con la escritura en el metadato */
     UTL_FILE.put_line(fich_salida_sh, 'echo "Inicio de la carga de la tabla de staging ' || 'SA' || '_' || reg_summary.CONCEPT_NAME || '"' || ' >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log');
@@ -560,6 +561,14 @@ BEGIN
     UTL_FILE.put_line(fich_salida_sh, '        hadoop fs -rm -f ${NAME_FLAG}');
     UTL_FILE.put_line(fich_salida_sh, '      fi');
     UTL_FILE.put_line(fich_salida_sh, '    done');
+    UTL_FILE.put_line(fich_salida_sh, '  else');
+    UTL_FILE.put_line(fich_salida_sh, '    # Aqui se llega en caso de BAN_FORZADO=F');
+    UTL_FILE.put_line(fich_salida_sh, '    # No comprobamos la existencia del FLAG. Pero por si se ubiera extraido lo borramos.');
+    UTL_FILE.put_line(fich_salida_sh, '    for FILE in ${NOMBRE_FICH_CARGA}');
+    UTL_FILE.put_line(fich_salida_sh, '    do');
+    UTL_FILE.put_line(fich_salida_sh, '      NAME_FLAG=`echo $FILE | sed -e ''s/\.[Dd][Aa][Tt]/\.flag/''`');
+    UTL_FILE.put_line(fich_salida_sh, '      hadoop fs -rm -f ${NAME_FLAG}');
+    UTL_FILE.put_line(fich_salida_sh, '    done');
     UTL_FILE.put_line(fich_salida_sh, '  fi');
     UTL_FILE.put_line(fich_salida_sh, 'fi');
     --UTL_FILE.put_line(fich_salida_sh, 'TOT_LEIDOS=0');
@@ -583,7 +592,7 @@ BEGIN
     --UTL_FILE.put_line(fich_salida_sh, '  beeline -u ${CAD_CONEX}/${ESQUEMA_SA} -n ${BD_USUARIO} -p ${BD_CLAVE} -e "LOAD DATA INPATH ''file://${FILE}' || ''' OVERWRITE INTO TABLE ${ESQUEMA_SA}.SA_' || reg_summary.CONCEPT_NAME ||' PARTITION (FCH_CARGA=''${FCH_FMT_HIVE}'');" >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
     --UTL_FILE.put_line(fich_salida_sh, '  beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_SA} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "LOAD DATA INPATH ''${FILE}' || ''' OVERWRITE INTO TABLE ${ESQUEMA_SA}.SA_' || reg_summary.CONCEPT_NAME ||' PARTITION (FCH_CARGA=''${FCH_CARGA_FMT_HIVE}'');" >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
     --UTL_FILE.put_line(fich_salida_sh, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_SA}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "ALTER TABLE ${ESQUEMA_SA}.SAH_' || reg_summary.CONCEPT_NAME ||' ADD IF NOT EXISTS PARTITION (FCH_CARGA=''${FCH_CARGA_FMT_HIVE}'') LOCATION ''${' || NAME_DM || '_FUENTE}/' || reg_summary.CONCEPT_NAME || '/${FCH_CARGA}''' || ';" >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
-    UTL_FILE.put_line(fich_salida_sh, 'beeline << EOF >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+    UTL_FILE.put_line(fich_salida_sh, 'beeline << EOF >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log');
     UTL_FILE.put_line(fich_salida_sh, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
     UTL_FILE.put_line(fich_salida_sh, 'ALTER TABLE ${ESQUEMA_SA}.SAH_' || reg_summary.CONCEPT_NAME ||' ADD IF NOT EXISTS PARTITION (FCH_CARGA=''${FCH_CARGA_FMT_HIVE}'') LOCATION ''${' || NAME_DM || '_FUENTE}/' || reg_summary.CONCEPT_NAME || '/${FCH_CARGA}''' || ';');
     UTL_FILE.put_line(fich_salida_sh, '!quit');
@@ -592,9 +601,10 @@ BEGIN
     --UTL_FILE.put_line(fich_salida_sh, 'OVERWRITE INTO TABLE ${BD_SID}.SA_' || reg_summary.CONCEPT_NAME || ' \');
     --UTL_FILE.put_line(fich_salida_sh, 'PARTITION (FCH_CARGA=''${FCH_CARGA}'')" >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
     UTL_FILE.put_line(fich_salida_sh, '');
-    UTL_FILE.put_line(fich_salida_sh, 'err_salida=$?');
-    UTL_FILE.put_line(fich_salida_sh, '');
-    UTL_FILE.put_line(fich_salida_sh, 'if [ ${err_salida} -ne 0 ]; then');
+    UTL_FILE.put_line(fich_salida_sh, 'ERROR=`grep -ic -e ''Error: Error while compiling statement: FAILED:'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_SA_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log`');
+    --UTL_FILE.put_line(fich_salida_sh, 'err_salida=$?');
+    UTL_FILE.put_line(fich_salida_sh, 'if [ ${ERROR} -ne 0 ] ; then');
+    --UTL_FILE.put_line(fich_salida_sh, 'if [ ${err_salida} -ne 0 ]; then');
     UTL_FILE.put_line(fich_salida_sh, '  SUBJECT="${INTERFAZ}: Surgio un error en el sqlloader en la carga de la tabla de staging ' || 'SAH_' || reg_summary.CONCEPT_NAME || '. Error:  ${err_salida}."');
     UTL_FILE.put_line(fich_salida_sh, '  ${SHELL_SMS} "${TELEFONOS_DWH}" "${SUBJECT}"');
     UTL_FILE.put_line(fich_salida_sh, '  echo ${SUBJECT} >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log');    
@@ -606,7 +616,7 @@ BEGIN
     UTL_FILE.put_line(fich_salida_sh, '# Cargamos la tabla de Staging SA_' || reg_summary.CONCEPT_NAME);
     /* (20170113) Angel Ruiz. NF: Nueva estructura de la parte de staging */
     --UTL_FILE.put_line(fich_salida_sh, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_SA}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "\');
-    UTL_FILE.put_line(fich_salida_sh, 'beeline << EOF >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+    UTL_FILE.put_line(fich_salida_sh, 'beeline << EOF >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log');
     UTL_FILE.put_line(fich_salida_sh, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');    
     UTL_FILE.put_line(fich_salida_sh, 'INSERT OVERWRITE TABLE ${ESQUEMA_ML}.SA_' || reg_summary.CONCEPT_NAME);
     UTL_FILE.put_line(fich_salida_sh, 'SELECT');
@@ -651,8 +661,11 @@ BEGIN
     UTL_FILE.put_line(fich_salida_sh, 'FROM ${ESQUEMA_SA}.SAH_' || reg_summary.CONCEPT_NAME || ' WHERE FCH_CARGA = ''${FCH_CARGA_FMT_HIVE}' || ''';');
     UTL_FILE.put_line(fich_salida_sh, '!quit');
     UTL_FILE.put_line(fich_salida_sh, 'EOF');
-    UTL_FILE.put_line(fich_salida_sh, 'if [ $? -ne 0 ]');
-    UTL_FILE.put_line(fich_salida_sh, 'then');
+    UTL_FILE.put_line(fich_salida_sh, 'ERROR=`grep -ic ''Error: Error while compiling statement: FAILED:'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_SA_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log`');
+    --UTL_FILE.put_line(fich_salida_sh, 'err_salida=$?');
+    UTL_FILE.put_line(fich_salida_sh, 'if [ ${ERROR} -ne 0 ] ; then');
+    --UTL_FILE.put_line(fich_salida_sh, 'if [ $? -ne 0 ]');
+    --UTL_FILE.put_line(fich_salida_sh, 'then');
     UTL_FILE.put_line(fich_salida_sh, '  SUBJECT="${REQ_NUM}: ERROR: Al hacer el insert sobre la tabla de STAGIN SAH_' || reg_summary.CONCEPT_NAME || '"');
     UTL_FILE.put_line(fich_salida_sh, '  echo "Surgio un error al insertar en la tabla de STAGING. SAH_' || reg_summary.CONCEPT_NAME || '" | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
     UTL_FILE.put_line(fich_salida_sh, '  echo `date`');
@@ -685,7 +698,7 @@ BEGIN
     UTL_FILE.put_line(fich_salida_sh, 'select count(*) from ${ESQUEMA_ML}.SA_' || reg_summary.CONCEPT_NAME || ';');
     UTL_FILE.put_line(fich_salida_sh, '!quit');
     UTL_FILE.put_line(fich_salida_sh, 'EOF`');
-    UTL_FILE.put_line(fich_salida_sh, 'REG_INSERTADOS=`echo ${REG_INSERTADOS_PREV} | sed -e ''s/ //g'' -e ''s/\n//g'' -e ''s/\r//g''`');
+    UTL_FILE.put_line(fich_salida_sh, 'REG_INSERTADOS=`echo ${REG_INSERTADOS_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
     --UTL_FILE.put_line(fich_salida_sh, '  REG_INSERTADOS=${REG_LEIDOS}');
     UTL_FILE.put_line(fich_salida_sh, 'REG_RECHAZADOS=0');
     UTL_FILE.put_line(fich_salida_sh, 'TOT_LEIDOS=`expr ${TOT_LEIDOS} + ${REG_LEIDOS}`');
