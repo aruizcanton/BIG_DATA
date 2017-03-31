@@ -1937,6 +1937,7 @@ SELECT
           cad_seg := substr(valor_retorno, posicion + length('VAR_FCH_CARGA'));
           valor_retorno := cad_pri || ' to_date(''&' || '2'', ''yyyymmdd'') ' || cad_seg;
         end if;
+        valor_retorno := cambia_fin_linea (valor_retorno);
       when 'HARDC' then
         /* (20160406) Angel Ruiz. Los campos HARDC no traeran comillas */
         /* Heos de detactar si son caracter para ponerlas */
