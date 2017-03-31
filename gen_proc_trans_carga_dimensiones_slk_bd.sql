@@ -851,7 +851,6 @@ cursor MTDT_TABLA
     end if;  
     return cadena_resul;
   end;
-  
   function procesa_campo_filter (cadena_in in varchar2) return varchar2
   is
     lon_cadena integer;
@@ -870,139 +869,145 @@ cursor MTDT_TABLA
       if lon_cadena > 0 then
         /* Busco VAR_FCH_CARGA */
         --sustituto := ' to_date ( fch_datos_in, ''yyyymmdd'') ';
-        sustituto := ' date_format (''#VAR_FCH_DATOS#'', ''yyyy-MM-dd'') '; /* (20161208) Angel Ruiz */
-        loop
-          dbms_output.put_line ('Entro en el LOOP. La cedena es: ' || cadena_resul);
-          pos := instr(cadena_resul, '#VAR_FCH_CARGA#', pos+1);
-          exit when pos = 0;
-          dbms_output.put_line ('Pos es mayor que 0');
-          dbms_output.put_line ('Primer valor de Pos: ' || pos);
-          cabeza := substr(cadena_resul, (posicion_ant + 1), (pos - posicion_ant - 1));
-          --dbms_output.put_line ('La cabeza es: ' || cabeza);
-          dbms_output.put_line ('La  sustitutoria es: ' || sustituto);
-          cola := substr(cadena_resul, pos + length ('#VAR_FCH_CARGA#'));
-          --dbms_output.put_line ('La cola es: ' || cola);
-          cadena_resul := cabeza || sustituto || cola;
-          --pos_ant := pos + length (' to_date ( fch_datos_in, ''yyyymmdd'') ');
-          --pos := pos_ant;
-        end loop;
+        --sustituto := ' date_format (''#VAR_FCH_DATOS#'', ''yyyy-MM-dd'') '; /* (20161208) Angel Ruiz */
+        --sustituto := '''#VAR_FCH_DATOS#'''; /* (20161208) Angel Ruiz */
+        --loop
+          --dbms_output.put_line ('Entro en el LOOP. La cedena es: ' || cadena_resul);
+          --pos := instr(cadena_resul, '#VAR_FCH_CARGA#', pos+1);
+          --exit when pos = 0;
+          --dbms_output.put_line ('Pos es mayor que 0');
+          --dbms_output.put_line ('Primer valor de Pos: ' || pos);
+          --cabeza := substr(cadena_resul, (posicion_ant + 1), (pos - posicion_ant - 1));
+          --dbms_output.put_line ('La  sustitutoria es: ' || sustituto);
+          --cola := substr(cadena_resul, pos + length ('#VAR_FCH_CARGA#'));
+          --cadena_resul := cabeza || sustituto || cola;
+        --end loop;
+        cadena_resul := regexp_replace(cadena_resul, '#VAR_FCH_CARGA#', '''#VAR_FCH_DATOS#''');
         /* Busco VAR_FCH_INICIO */
-        sustituto := ' date_format (''#VAR_FCH_REGISTRO#'', ''yyyy-MM-dd'') ';
-        loop
-          dbms_output.put_line ('Entro en el LOOP. La cedena es: ' || cadena_resul);
-          pos := instr(cadena_resul, '#VAR_FCH_INICIO#', pos+1);
-          exit when pos = 0;
-          dbms_output.put_line ('Pos es mayor que 0');
-          dbms_output.put_line ('Primer valor de Pos: ' || pos);
-          cabeza := substr(cadena_resul, (posicion_ant + 1), (pos - posicion_ant - 1));
-          dbms_output.put_line ('La cabeza es: ' || cabeza);
-          dbms_output.put_line ('La  sustitutoria es: ' || sustituto);
-          cola := substr(cadena_resul, pos + length ('#VAR_FCH_INICIO#'));
-          dbms_output.put_line ('La cola es: ' || cola);
-          cadena_resul := cabeza || sustituto || cola;
-          --pos_ant := pos + length (' to_date ( fch_datos_in, ''yyyymmdd'') ');
-          --pos := pos_ant;
-        end loop;
+        --sustituto := ' date_format (''#VAR_FCH_REGISTRO#'', ''yyyy-MM-dd'') ';
+        --loop
+          --dbms_output.put_line ('Entro en el LOOP. La cedena es: ' || cadena_resul);
+          --pos := instr(cadena_resul, '#VAR_FCH_INICIO#', pos+1);
+          --exit when pos = 0;
+          --dbms_output.put_line ('Pos es mayor que 0');
+          --dbms_output.put_line ('Primer valor de Pos: ' || pos);
+          --cabeza := substr(cadena_resul, (posicion_ant + 1), (pos - posicion_ant - 1));
+          --dbms_output.put_line ('La cabeza es: ' || cabeza);
+          --dbms_output.put_line ('La  sustitutoria es: ' || sustituto);
+          --cola := substr(cadena_resul, pos + length ('#VAR_FCH_INICIO#'));
+          --dbms_output.put_line ('La cola es: ' || cola);
+          --cadena_resul := cabeza || sustituto || cola;
+        --end loop;
+        cadena_resul := regexp_replace(cadena_resul, '#VAR_FCH_INICIO#', ' date_format (''#VAR_FCH_REGISTRO#'', ''yyyy-MM-dd'') ');
         
         /* Busco VAR_PROFUNDIDAD_BAJAS */
-        sustituto := ' 90 ';  /* Temporalmente pongo 90 dias */
-        pos := 0;
-        loop
-          dbms_output.put_line ('Entro en el LOOP de VAR_PROFUNDIDAD_BAJAS. La cadena es: ' || cadena_resul);
-          pos := instr(cadena_resul, 'VAR_PROFUNDIDAD_BAJAS', pos+1);
-          exit when pos = 0;
-          dbms_output.put_line ('Pos es mayor que 0');
-          dbms_output.put_line ('Primer valor de Pos: ' || pos);
-          cabeza := substr(cadena_resul, (posicion_ant + 1), (pos - posicion_ant - 1));
-          dbms_output.put_line ('La cabeza es: ' || cabeza);
-          dbms_output.put_line ('La  sustitutoria es: ' || sustituto);
-          cola := substr(cadena_resul, pos + length ('VAR_PROFUNDIDAD_BAJAS'));
-          dbms_output.put_line ('La cola es: ' || cola);
-          cadena_resul := cabeza || sustituto || cola;
-        end loop;
+        --sustituto := ' 90 ';  /* Temporalmente pongo 90 dias */
+        --pos := 0;
+        --loop
+          --dbms_output.put_line ('Entro en el LOOP de VAR_PROFUNDIDAD_BAJAS. La cadena es: ' || cadena_resul);
+          --pos := instr(cadena_resul, 'VAR_PROFUNDIDAD_BAJAS', pos+1);
+          --exit when pos = 0;
+          --dbms_output.put_line ('Pos es mayor que 0');
+          --dbms_output.put_line ('Primer valor de Pos: ' || pos);
+          --cabeza := substr(cadena_resul, (posicion_ant + 1), (pos - posicion_ant - 1));
+          --dbms_output.put_line ('La cabeza es: ' || cabeza);
+          --dbms_output.put_line ('La  sustitutoria es: ' || sustituto);
+          --cola := substr(cadena_resul, pos + length ('VAR_PROFUNDIDAD_BAJAS'));
+          --dbms_output.put_line ('La cola es: ' || cola);
+          --cadena_resul := cabeza || sustituto || cola;
+        --end loop;
+        cadena_resul := regexp_replace(cadena_resul, 'VAR_PROFUNDIDAD_BAJAS', ' 90 ');
+        
         /* Busco OWNER_DM */
-        sustituto := OWNER_DM;
-        pos := 0;
-        loop
-          dbms_output.put_line ('Entro en el LOOP de OWNER_DM. La cadena es: ' || cadena_resul);
-          pos := instr(cadena_resul, '#OWNER_DM#', pos+1);
-          exit when pos = 0;
-          dbms_output.put_line ('Pos es mayor que 0');
-          dbms_output.put_line ('Primer valor de Pos: ' || pos);
-          cabeza := substr(cadena_resul, (posicion_ant + 1), (pos - posicion_ant - 1));
-          dbms_output.put_line ('La cabeza es: ' || cabeza);
-          dbms_output.put_line ('La  sustitutoria es: ' || sustituto);
-          cola := substr(cadena_resul, pos + length ('#OWNER_DM#'));
-          dbms_output.put_line ('La cola es: ' || cola);
-          cadena_resul := cabeza || sustituto || cola;
-        end loop;
+        --sustituto := OWNER_DM;
+        --pos := 0;
+        --loop
+          --dbms_output.put_line ('Entro en el LOOP de OWNER_DM. La cadena es: ' || cadena_resul);
+          --pos := instr(cadena_resul, '#OWNER_DM#', pos+1);
+          --exit when pos = 0;
+          --dbms_output.put_line ('Pos es mayor que 0');
+          --dbms_output.put_line ('Primer valor de Pos: ' || pos);
+          --cabeza := substr(cadena_resul, (posicion_ant + 1), (pos - posicion_ant - 1));
+          --dbms_output.put_line ('La cabeza es: ' || cabeza);
+          --dbms_output.put_line ('La  sustitutoria es: ' || sustituto);
+          --cola := substr(cadena_resul, pos + length ('#OWNER_DM#'));
+          --dbms_output.put_line ('La cola es: ' || cola);
+          --cadena_resul := cabeza || sustituto || cola;
+        --end loop;
+        cadena_resul := regexp_replace(cadena_resul, '#OWNER_DM#', OWNER_DM);
         /* Busco OWNER_SA */
-        sustituto := OWNER_SA; 
-        pos := 0;
-        loop
-          dbms_output.put_line ('Entro en el LOOP de OWNER_DM. La cadena es: ' || cadena_resul);
-          pos := instr(cadena_resul, '#OWNER_SA#', pos+1);
-          exit when pos = 0;
-          dbms_output.put_line ('Pos es mayor que 0');
-          dbms_output.put_line ('Primer valor de Pos: ' || pos);
-          cabeza := substr(cadena_resul, (posicion_ant + 1), (pos - posicion_ant - 1));
-          dbms_output.put_line ('La cabeza es: ' || cabeza);
-          dbms_output.put_line ('La  sustitutoria es: ' || sustituto);
-          cola := substr(cadena_resul, pos + length ('#OWNER_SA#'));
-          dbms_output.put_line ('La cola es: ' || cola);
-          cadena_resul := cabeza || sustituto || cola;
-        end loop;
+        --sustituto := OWNER_SA; 
+        --pos := 0;
+        --loop
+          --dbms_output.put_line ('Entro en el LOOP de OWNER_DM. La cadena es: ' || cadena_resul);
+          --pos := instr(cadena_resul, '#OWNER_SA#', pos+1);
+          --exit when pos = 0;
+          --dbms_output.put_line ('Pos es mayor que 0');
+          --dbms_output.put_line ('Primer valor de Pos: ' || pos);
+          --cabeza := substr(cadena_resul, (posicion_ant + 1), (pos - posicion_ant - 1));
+          --dbms_output.put_line ('La cabeza es: ' || cabeza);
+          --dbms_output.put_line ('La  sustitutoria es: ' || sustituto);
+          --cola := substr(cadena_resul, pos + length ('#OWNER_SA#'));
+          --dbms_output.put_line ('La cola es: ' || cola);
+          --cadena_resul := cabeza || sustituto || cola;
+        --end loop;
+        cadena_resul := regexp_replace(cadena_resul, '#OWNER_SA#', OWNER_SA);
         /* Busco OWNER_T */
-        sustituto := OWNER_T; 
-        pos := 0;
-        loop
-          dbms_output.put_line ('Entro en el LOOP de OWNER_DM. La cadena es: ' || cadena_resul);
-          pos := instr(cadena_resul, '#OWNER_T#', pos+1);
-          exit when pos = 0;
-          dbms_output.put_line ('Pos es mayor que 0');
-          dbms_output.put_line ('Primer valor de Pos: ' || pos);
-          cabeza := substr(cadena_resul, (posicion_ant + 1), (pos - posicion_ant - 1));
-          dbms_output.put_line ('La cabeza es: ' || cabeza);
-          dbms_output.put_line ('La  sustitutoria es: ' || sustituto);
-          cola := substr(cadena_resul, pos + length ('#OWNER_T#'));
-          dbms_output.put_line ('La cola es: ' || cola);
-          cadena_resul := cabeza || sustituto || cola;
-        end loop;
+        --sustituto := OWNER_T; 
+        --pos := 0;
+        --loop
+          --dbms_output.put_line ('Entro en el LOOP de OWNER_DM. La cadena es: ' || cadena_resul);
+          --pos := instr(cadena_resul, '#OWNER_T#', pos+1);
+          --exit when pos = 0;
+          --dbms_output.put_line ('Pos es mayor que 0');
+          --dbms_output.put_line ('Primer valor de Pos: ' || pos);
+          --cabeza := substr(cadena_resul, (posicion_ant + 1), (pos - posicion_ant - 1));
+          --dbms_output.put_line ('La cabeza es: ' || cabeza);
+          --dbms_output.put_line ('La  sustitutoria es: ' || sustituto);
+          --cola := substr(cadena_resul, pos + length ('#OWNER_T#'));
+          --dbms_output.put_line ('La cola es: ' || cola);
+          --cadena_resul := cabeza || sustituto || cola;
+        --end loop;
+        cadena_resul := regexp_replace(cadena_resul, '#OWNER_T#', OWNER_T);
+        
         /* Busco OWNER_MTDT */
-        sustituto := OWNER_MTDT; 
-        pos := 0;
-        loop
-          pos := instr(cadena_resul, '#OWNER_MTDT#', pos+1);
-          exit when pos = 0;
-          dbms_output.put_line ('Pos es mayor que 0');
-          dbms_output.put_line ('Primer valor de Pos: ' || pos);
-          cabeza := substr(cadena_resul, (posicion_ant + 1), (pos - posicion_ant - 1));
-          dbms_output.put_line ('La cabeza es: ' || cabeza);
-          dbms_output.put_line ('La  sustitutoria es: ' || sustituto);
-          cola := substr(cadena_resul, pos + length ('#OWNER_MTDT#'));
-          dbms_output.put_line ('La cola es: ' || cola);
-          cadena_resul := cabeza || sustituto || cola;
-        end loop;
+        --sustituto := OWNER_MTDT; 
+        --pos := 0;
+        --loop
+          --pos := instr(cadena_resul, '#OWNER_MTDT#', pos+1);
+          --exit when pos = 0;
+          --dbms_output.put_line ('Pos es mayor que 0');
+          --dbms_output.put_line ('Primer valor de Pos: ' || pos);
+          --cabeza := substr(cadena_resul, (posicion_ant + 1), (pos - posicion_ant - 1));
+          --dbms_output.put_line ('La cabeza es: ' || cabeza);
+          --dbms_output.put_line ('La  sustitutoria es: ' || sustituto);
+          --cola := substr(cadena_resul, pos + length ('#OWNER_MTDT#'));
+          --dbms_output.put_line ('La cola es: ' || cola);
+          --cadena_resul := cabeza || sustituto || cola;
+        --end loop;
+        cadena_resul := regexp_replace(cadena_resul, '#OWNER_MTDT#', OWNER_MTDT);
         /* Busco VAR_MARGEN_COMISION */
-        sustituto := ' 0.3 ';  /* Temporalmente pongo 90 dias */
-        pos := 0;
-        loop
-          dbms_output.put_line ('Entro en el LOOP de VAR_MARGEN_COMISION. La cadena es: ' || cadena_resul);
-          pos := instr(cadena_resul, '#VAR_MARGEN_COMISION#', pos+1);
-          exit when pos = 0;
-          dbms_output.put_line ('Pos es mayor que 0');
-          dbms_output.put_line ('Primer valor de Pos: ' || pos);
-          cabeza := substr(cadena_resul, (posicion_ant + 1), (pos - posicion_ant - 1));
-          dbms_output.put_line ('La cabeza es: ' || cabeza);
-          dbms_output.put_line ('La  sustitutoria es: ' || sustituto);
-          cola := substr(cadena_resul, pos + length ('#VAR_MARGEN_COMISION#'));
-          dbms_output.put_line ('La cola es: ' || cola);
-          cadena_resul := cabeza || sustituto || cola;
-        end loop;
+        --sustituto := ' 0.3 ';  /* Temporalmente pongo 90 dias */
+        --pos := 0;
+        --loop
+          --dbms_output.put_line ('Entro en el LOOP de VAR_MARGEN_COMISION. La cadena es: ' || cadena_resul);
+          --pos := instr(cadena_resul, '#VAR_MARGEN_COMISION#', pos+1);
+          --exit when pos = 0;
+          --dbms_output.put_line ('Pos es mayor que 0');
+          --dbms_output.put_line ('Primer valor de Pos: ' || pos);
+          --cabeza := substr(cadena_resul, (posicion_ant + 1), (pos - posicion_ant - 1));
+          --dbms_output.put_line ('La cabeza es: ' || cabeza);
+          --dbms_output.put_line ('La  sustitutoria es: ' || sustituto);
+          --cola := substr(cadena_resul, pos + length ('#VAR_MARGEN_COMISION#'));
+          --dbms_output.put_line ('La cola es: ' || cola);
+          --cadena_resul := cabeza || sustituto || cola;
+        --end loop;
+        cadena_resul := regexp_replace(cadena_resul, '#VAR_MARGEN_COMISION#', ' 0.3 ');
 
       end if;
       return cadena_resul;
     end;
+  
 /************/
 /*************/
   function procesa_campo_filter_dinam (cadena_in in varchar2) return varchar2
@@ -1461,12 +1466,12 @@ cursor MTDT_TABLA
           if (REGEXP_LIKE(reg_detalle_in.TABLE_LKUP, '\) *[a-zA-Z_0-9]+$')) then
           /* (20160629) Angel Ruiz. NF: Se aceptan tablas de LKUP que son SELECT que ademas tienen un ALIAS */
             v_alias := trim(substr(REGEXP_SUBSTR (reg_detalle_in.TABLE_LKUP, '\) *[a-zA-Z_0-9]+$'), 2));
-            mitabla_look_up := reg_detalle_in.TABLE_LKUP;
+            mitabla_look_up := procesa_campo_filter(reg_detalle_in.TABLE_LKUP);
             v_alias_incluido := 1;
           else
             v_alias := 'LKUP_' || l_FROM.count;
             --mitabla_look_up := '(' || reg_detalle_in.TABLE_LKUP || ') "LKUP_' || l_FROM.count || '"';
-            mitabla_look_up := '(' || reg_detalle_in.TABLE_LKUP || ') LKUP_' || l_FROM.count;
+            mitabla_look_up := '(' || procesa_campo_filter(reg_detalle_in.TABLE_LKUP) || ') LKUP_' || l_FROM.count;
             v_alias_incluido := 0;
           end if;
           --l_FROM (l_FROM.last) := ', ' || mitabla_look_up;
@@ -1729,21 +1734,21 @@ cursor MTDT_TABLA
               if (INSTR(trim(l_registro2.TYPE), 'NUMBER') > 0) then
                 if (v_alias_incluido = 1) then
                 /* (20160629) Angel Ruiz. NF: Se incluye la posibilidad de incluir el ALIAS en tablas de LKUP que sean SELECT */
-                  valor_retorno := valor_retorno || ') THEN -3 ELSE ' || 'NVL(' || reg_detalle_in.VALUE || ', -2) END';
+                  valor_retorno := valor_retorno || ') THEN -3 ELSE ' || 'NVL(' || procesa_campo_filter (reg_detalle_in.VALUE) || ', -2) END';
                 else
-                  valor_retorno := valor_retorno || ') THEN -3 ELSE ' || 'NVL(' || v_alias || '.' || reg_detalle_in.VALUE || ', -2) END';
+                  valor_retorno := valor_retorno || ') THEN -3 ELSE ' || 'NVL(' || v_alias || '.' || procesa_campo_filter (reg_detalle_in.VALUE) || ', -2) END';
                 end if;
               elsif (UPPER(TRIM(l_registro2.TYPE)) = 'DATE') then
                 if (v_alias_incluido = 1) then
                 /* (20160629) Angel Ruiz. NF: Se incluye la posibilidad de incluir el ALIAS en tablas de LKUP que sean SELECT */
-                  valor_retorno := valor_retorno || ') THEN CAST(''1970-01-01'' AS DATE) ELSE ' || 'NVL(' || reg_detalle_in.VALUE || ', CAST(''2000-01-01'' AS DATE)) END';
+                  valor_retorno := valor_retorno || ') THEN CAST(''1970-01-01'' AS DATE) ELSE ' || 'NVL(' || procesa_campo_filter (reg_detalle_in.VALUE) || ', CAST(''2000-01-01'' AS DATE)) END';
                 else
-                  valor_retorno := valor_retorno || ') THEN CAST(''1970-01-01'' AS DATE) ELSE ' || 'NVL(' || v_alias || '.' || reg_detalle_in.VALUE || ', CAST(''2000-01-01'' AS DATE)) END';
+                  valor_retorno := valor_retorno || ') THEN CAST(''1970-01-01'' AS DATE) ELSE ' || 'NVL(' || v_alias || '.' || procesa_campo_filter (reg_detalle_in.VALUE) || ', CAST(''2000-01-01'' AS DATE)) END';
                 end if;
               else
                 if (v_alias_incluido = 1) then
                 /* (20160629) Angel Ruiz. NF: Se incluye la posibilidad de incluir el ALIAS en tablas de LKUP que sean SELECT */
-                  valor_retorno := valor_retorno || ') THEN ''NO INFORMADO'' ELSE ' || 'NVL(' || reg_detalle_in.VALUE || ', ''GENERICO'') END';
+                  valor_retorno := valor_retorno || ') THEN ''NO INFORMADO'' ELSE ' || 'NVL(' || procesa_campo_filter(reg_detalle_in.VALUE) || ', ''GENERICO'') END';
                 else
                   valor_retorno := valor_retorno || ') THEN ''NO INFORMADO'' ELSE ' || 'NVL(' || v_alias || '.' || reg_detalle_in.VALUE || ', ''GENERICO'') END';
                 end if;
@@ -1760,19 +1765,19 @@ cursor MTDT_TABLA
               UPPER(TRIM(COLUMN_NAME)) = reg_detalle_in.TABLE_COLUMN;
               if (instr(l_registro2.TYPE, 'NUMBER') > 0) then
                 if (v_alias_incluido = 1) then
-                  valor_retorno :=  '    NVL(' || reg_detalle_in.VALUE || ', -2)';
+                  valor_retorno :=  '    NVL(' || procesa_campo_filter(reg_detalle_in.VALUE) || ', -2)';
                 else
                   valor_retorno :=  '    NVL(' || v_alias || '.' || reg_detalle_in.VALUE || ', -2)';
                 end if;
               elsif (UPPER(trim(l_registro2.TYPE)) = 'DATE') then
                 if (v_alias_incluido = 1) then
-                  valor_retorno :=  '    NVL(' || reg_detalle_in.VALUE || ', CAST(''2000-01-01'' AS DATE))';
+                  valor_retorno :=  '    NVL(' || procesa_campo_filter(reg_detalle_in.VALUE) || ', CAST(''2000-01-01'' AS DATE))';
                 else
                   valor_retorno :=  '    NVL(' || v_alias || '.' || reg_detalle_in.VALUE || ', CAST(''2000-01-01'' AS DATE))';
                 end if;
               else
                 if (v_alias_incluido = 1) then
-                  valor_retorno :=  '    NVL(' || reg_detalle_in.VALUE || ', ''GENERICO'')';
+                  valor_retorno :=  '    NVL(' || procesa_campo_filter(reg_detalle_in.VALUE) || ', ''GENERICO'')';
                 else
                   valor_retorno :=  '    NVL(' || v_alias || '.' || reg_detalle_in.VALUE || ', ''GENERICO'')';
                 end if;
@@ -1780,7 +1785,7 @@ cursor MTDT_TABLA
             end if;   /* end if if (table_columns_lkup.COUNT > 1) then */
           else  /* (20170109) Angel Ruiz. if (v_no_se_generara_case = false) then */
             /*(20170109) Angel Ruiz. BUG: Hay campos con JOIN en los que no se va a generar CASE WHEN */
-            valor_retorno :=  '    ' || reg_detalle_in.VALUE;
+            valor_retorno :=  '    ' || procesa_campo_filter(reg_detalle_in.VALUE);
           end if;   /* Fin del if (v_no_se_generara_case = false) then */
 
         end if;   /* fin del if (reg_detalle_in.LKUP_COM_RULE is not null) then */
@@ -4023,7 +4028,7 @@ begin
       UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
       UTL_FILE.put_line(fich_salida_load, '!quit');
       UTL_FILE.put_line(fich_salida_load, 'EOF');
-      UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic ''Error: Error while compiling statement: FAILED:'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log`');
+      UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: Error while compiling statement: FAILED:'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log`');
       UTL_FILE.put_line(fich_salida_load, '');
       --UTL_FILE.put_line(fich_salida_load, 'err_salida=$?');
       UTL_FILE.put_line(fich_salida_load, 'if [ ${ERROR} -ne 0 ] ; then');
