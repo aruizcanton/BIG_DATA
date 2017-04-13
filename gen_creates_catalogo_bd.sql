@@ -94,7 +94,7 @@ BEGIN
       IF (regexp_count(reg_per_val.AGREGATION,'^CVE_',1,'i') >0) THEN
         /* posee agregacion con clave foranea a otra dimension */
         clave_foranea := 1;
-        DBMS_OUTPUT.put_line('  CVE_' ||  substr(reg_per_val. AGREGATION,5) || ' DECIMAL(10),');       
+        DBMS_OUTPUT.put_line('  CVE_' ||  substr(reg_per_val.AGREGATION,5) || ' DECIMAL(10),');       
       ELSIF (regexp_count(reg_per_val.AGREGATION,'^BAN_',1,'i') >0)          
       THEN
         /* se crea el campo nomas */            
