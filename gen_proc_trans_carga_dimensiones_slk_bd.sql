@@ -21,7 +21,7 @@ cursor MTDT_TABLA
     --and TABLE_NAME in ('SA_CLIENTE_DIST1', 'DWD_CLIENTE_DISTRIBUIDOR')
     and trim(TABLE_NAME) in ('NGD_EQUIPO', 'NGD_REGION_COMERCIAL_NIVEL3', 'NGD_REGION_COMERCIAL_NIVEL2', 'NGD_REGION_COMERCIAL_NIVEL1',
     'NGD_PRIMARY_OFFER', 'NGD_SUPPLEMENTARY_OFFER', 'NGD_BONUS', 'NGD_HANDSET_PRICE', 'NGD_PROYECTO_COMERCIAL', 'NGD_USO',
-    'NGD_NOSTNDR_SERVS_PRECIOS', 'NGG_OFERTA_ESTANDAR')
+    'NGD_NOSTNDR_SERVS_PRECIOS', 'NGG_OFERTA_ESTANDAR', 'NGD_DESCUENTO', 'NGD_OFFER_RENT')
     --and TABLE_NAME in ('NGD_PRIMARY_OFFER')
     order by
     TABLE_NAME;
@@ -3194,7 +3194,7 @@ begin
       v_num_sce_NUEVOS := 0;  /* (20170315) Angel Ruiz. NF: numeros de escenarios del mismo tipo NUEVO */
       v_num_sce_EXISTENTES := 0;  /* (20170315) Angel Ruiz. NF: numeros de escenarios del mismo tipo EXISTENTE */
       v_num_sce_HISTORICOS := 0;  /* (20170315) Angel Ruiz. NF: numeros de escenarios del mismo tipo HISTORICOS */
-      open MTDT_SCENARIO (reg_scenario.TABLE_NAME);
+      open MTDT_SCENARIO (reg_tabla.TABLE_NAME);
       loop
       fetch MTDT_SCENARIO
       into reg_scenario;
