@@ -13,8 +13,9 @@ SELECT
       and trim(MTDT_EXT_SCENARIO.TABLE_NAME) in (
       'EQUIPO', 'REGION_COMERCIAL_NIVEL3', 'REGION_COMERCIAL_NIVEL2', 'REGION_COMERCIAL_NIVEL1', 'PRIMARY_OFFER'
       , 'PARQUE_ABO_MES', 'SUPPLEMENTARY_OFFER', 'BONUS', 'HANDSET_PRICE', 'PARQUE_SVA_MES', 'PARQUE_BENEF_MES', 'PSD_RESIDENCIAL'
-      , 'OFFER_ITEM', 'MOVIMIENTOS_ABO_MES', 'MOVIMIENTO_ABO', 'COMIS_POS_ABO_MES', 'AJUSTE_ABO_MES', 'MODALIDAD_VENTA'
-      , 'DESCUENTO', 'DESC_ADQR_ABO_MES', 'DESC_EJEC_ABO_MES');
+      , 'MOVIMIENTOS_ABO_MES', 'MOVIMIENTO_ABO', 'COMIS_POS_ABO_MES', 'AJUSTE_ABO_MES', 'MODALIDAD_VENTA'
+      , 'DESCUENTO', 'DESC_ADQR_ABO_MES', 'DESC_EJEC_ABO_MES', 'OFFER_RENT'
+      , 'COMIS_PAGADAS', 'COMIS_CALCULADAS', 'NUM_SERIE', 'CUOTAS');
     
     --and trim(MTDT_EXT_SCENARIO.TABLE_NAME) in ('PARQUE_PROMO_CAMPANA', 'MOV_PROMO_CAMPANA'
     --  );
@@ -1882,9 +1883,9 @@ SELECT
           /* (20160412) Angel Ruiz. BUG: Si la tabla de LookUP es con OUTER entonces */
           /* debemos procesar la condicion para ponerle el signo outer por dentro */
           if (reg_detalle_in."OUTER" IS NOT NULL and reg_detalle_in."OUTER" = 'Y') then
-            l_WHERE(l_WHERE.last) :=  ' AND ' || procesa_condicion_lookup (reg_detalle_in.TABLE_LKUP_COND, v_alias, TRUE);
+            l_WHERE(l_WHERE.last) :=  ' AND ' || procesa_condicion_lookup (procesa_campo_filter(reg_detalle_in.TABLE_LKUP_COND), v_alias, TRUE);
           else
-            l_WHERE(l_WHERE.last) :=  ' AND ' || procesa_condicion_lookup (reg_detalle_in.TABLE_LKUP_COND, v_alias, FALSE);
+            l_WHERE(l_WHERE.last) :=  ' AND ' || procesa_condicion_lookup (procesa_campo_filter(reg_detalle_in.TABLE_LKUP_COND), v_alias, FALSE);
           end if;
           
         end if;
@@ -1964,7 +1965,38 @@ SELECT
         valor_retorno := ''' || var_seqg || ''';
       when 'BASE' then
         /* Se toma el valor del campo de la tabla de staging */
-        valor_retorno := reg_detalle_in.VALUE;
+        /* (20170502) Angel Ruiz. BUG. Calificamos los campos BASE con la table base name*/
+        if (instr(reg_detalle_in.VALUE, '.') = 0) then
+          /* Solo si el campo ya no esta calificado lo calificamos */
+          if (REGEXP_LIKE(trim(reg_detalle_in.TABLE_BASE_NAME), '^[a-zA-Z_0-9#]+\.[a-zA-Z_0-9]+') = true) then
+            /* La tabla esta calificada */
+            v_temporal := procesa_campo_filter(trim(reg_detalle_in.TABLE_BASE_NAME));
+            if (REGEXP_LIKE(trim(v_temporal), '^[a-zA-Z_0-9#]+\.[a-zA-Z_0-9]+ +[a-zA-Z0-9_]+$') = true) then
+              /* (20160329) Angel Ruiz. Detectamos si TABLE_BASE_NAME posee ALIAS */
+              v_alias_table_base_name := trim(REGEXP_SUBSTR(TRIM(v_temporal), ' +[a-zA-Z_0-9]+$'));
+              v_table_base_name := substr(trim(REGEXP_SUBSTR(TRIM(v_temporal), '\.[a-zA-Z_0-9]+ ')),2);
+            else
+              v_alias_table_base_name := substr(trim(REGEXP_SUBSTR(TRIM(v_temporal), '\.[a-zA-Z_0-9]+')),2);
+              v_table_base_name := substr(trim(REGEXP_SUBSTR(TRIM(v_temporal), '\.[a-zA-Z_0-9]+')),2);
+            end if;
+          else
+            /* La tabla no esta calificada */
+            --if (REGEXP_LIKE(trim(reg_detalle_in.TABLE_BASE_NAME), '^[a-zA-Z_0-9]+ +[a-zA-Z_0-9]+$') = true) then
+            if (REGEXP_LIKE(trim(reg_detalle_in.TABLE_BASE_NAME), '^[a-zA-Z_0-9]+\[*[a-zA-Z_0-9]+\]* +[a-zA-Z_0-9]+$') = true) then
+              /* (20160329) Angel Ruiz. Detectamos si TABLE_BASE_NAME posee ALIAS */
+              v_alias_table_base_name := trim(REGEXP_SUBSTR(TRIM(reg_detalle_in.TABLE_BASE_NAME), ' +[a-zA-Z_0-9]+$'));
+              v_table_base_name := trim(REGEXP_SUBSTR(TRIM(reg_detalle_in.TABLE_BASE_NAME), '^+[a-zA-Z_0-9]+ '));
+            else
+              v_alias_table_base_name := reg_detalle_in.TABLE_BASE_NAME;
+              v_table_base_name := reg_detalle_in.TABLE_BASE_NAME;
+            end if;
+          end if;
+          --valor_retorno := reg_detalle_in.VALUE;
+          valor_retorno := v_alias_table_base_name || '.' || reg_detalle_in.VALUE;
+        else
+          valor_retorno := reg_detalle_in.VALUE;
+        end if;
+        /* (20170502) Angel Ruiz. BUG. Calificamos los campos BASE con la table base name*/
       when 'VAR_FCH_INICIO' then
         --valor_retorno :=  '    ' || ''' || var_fch_inicio || ''';
         valor_retorno :=  'TO_CHAR(SYSDATE, ''YYYY-MM-DD'')';
@@ -3236,7 +3268,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, 'InsertaFinFallido()');
     UTL_FILE.put_line(fich_salida_load, '{');
     --UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "\');
-    UTL_FILE.put_line(fich_salida_load, 'beeline << EOF');
+    UTL_FILE.put_line(fich_salida_load, 'beeline << EOF >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log 2>&' || '1');
     UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
     UTL_FILE.put_line(fich_salida_load, 'INSERT INTO ${ESQUEMA_MT}.MTDT_MONITOREO');
     UTL_FILE.put_line(fich_salida_load, 'SELECT');
@@ -3262,8 +3294,8 @@ begin
     UTL_FILE.put_line(fich_salida_load, 'MTDT_PROCESO.NOMBRE_PROCESO = ''' || REQ_NUMBER || '_'|| reg_tabla.TABLE_NAME || '.sh'';');
     UTL_FILE.put_line(fich_salida_load, '!quit');
     UTL_FILE.put_line(fich_salida_load, 'EOF');
-    UTL_FILE.put_line(fich_salida_load, 'if [ $? -ne 0 ]');
-    UTL_FILE.put_line(fich_salida_load, 'then');
+    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log`');    
+    UTL_FILE.put_line(fich_salida_load, 'if [ ${ERROR} -ne 0 ] ; then');
     UTL_FILE.put_line(fich_salida_load, '  SUBJECT="${REQ_NUM}: ERROR: Al insertar en el metadato Fin Fallido."');
     UTL_FILE.put_line(fich_salida_load, '  echo "Surgio un error al insertar en el metadato que le proceso no ha terminado OK." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
     UTL_FILE.put_line(fich_salida_load, '  echo `date`');
@@ -3278,7 +3310,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, 'InsertaFinOK()');
     UTL_FILE.put_line(fich_salida_load, '{');
     --UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "\');
-    UTL_FILE.put_line(fich_salida_load, 'beeline << EOF');
+    UTL_FILE.put_line(fich_salida_load, 'beeline << EOF >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log 2>&' || '1');
     UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
     UTL_FILE.put_line(fich_salida_load, 'INSERT INTO ${ESQUEMA_MT}.MTDT_MONITOREO');
     UTL_FILE.put_line(fich_salida_load, 'SELECT');
@@ -3303,8 +3335,8 @@ begin
     UTL_FILE.put_line(fich_salida_load, 'MTDT_PROCESO.NOMBRE_PROCESO = ''' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '.sh'';');
     UTL_FILE.put_line(fich_salida_load, '!quit');
     UTL_FILE.put_line(fich_salida_load, 'EOF');
-    UTL_FILE.put_line(fich_salida_load, 'if [ $? -ne 0 ]');
-    UTL_FILE.put_line(fich_salida_load, 'then');
+    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log`');    
+    UTL_FILE.put_line(fich_salida_load, 'if [ ${ERROR} -ne 0 ] ; then');
     UTL_FILE.put_line(fich_salida_load, '  SUBJECT="${REQ_NUM}: ERROR: Al insertar en el metadato Fin OK."');
     UTL_FILE.put_line(fich_salida_load, '  echo "Surgio un error al insertar en el metadato que le proceso ha terminado OK." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
     UTL_FILE.put_line(fich_salida_load, '  echo `date`');
@@ -3368,29 +3400,29 @@ begin
     UTL_FILE.put_line(fich_salida_load, '  TraeOwnerExt $1 ${BD_USR_EXT}');
     UTL_FILE.put_line(fich_salida_load, '  if [ "${BD_USR_EXT}" = "" ] ; then');
     UTL_FILE.put_line(fich_salida_load, '    SUBJECT="Error BD ${REQ_NUM} (`date +%d/%m/%Y`)"');
-    UTL_FILE.put_line(fich_salida_load, '    echo "Error no se pudo obtener el usuario para el sistema fuente $1" | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-    UTL_FILE.put_line(fich_salida_load, '    echo `date`');
+    UTL_FILE.put_line(fich_salida_load, '    echo "Error no se pudo obtener el usuario para el sistema fuente $1" >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+    UTL_FILE.put_line(fich_salida_load, '    echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
     --UTL_FILE.put_line(fich_salida_load, '    InsertaFinFallido');
     UTL_FILE.put_line(fich_salida_load, '    exit 1;');
     UTL_FILE.put_line(fich_salida_load, '  fi');
     UTL_FILE.put_line(fich_salida_load, '  if [ "${PASSWORD_EXT}" = "" ] ; then');
     UTL_FILE.put_line(fich_salida_load, '    SUBJECT="Error BD ${REQ_NUM} (`date +%d/%m/%Y`)"');
-    UTL_FILE.put_line(fich_salida_load, '    echo "Error no se pudo obtener la password para el sistema fuente $1 y el usuario ${BD_USR}" | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-    UTL_FILE.put_line(fich_salida_load, '    echo `date`');
+    UTL_FILE.put_line(fich_salida_load, '    echo "Error no se pudo obtener la password para el sistema fuente $1 y el usuario ${BD_USR}" >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+    UTL_FILE.put_line(fich_salida_load, '    echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
     --UTL_FILE.put_line(fich_salida_load, '    InsertaFinFallido');
     UTL_FILE.put_line(fich_salida_load, '    exit 1;');
     UTL_FILE.put_line(fich_salida_load, '  fi');
     UTL_FILE.put_line(fich_salida_load, '  if [ "${CAD_CONEX_EXT}" = "" ] ; then');
     UTL_FILE.put_line(fich_salida_load, '    SUBJECT="Error BD ${REQ_NUM} (`date +%d/%m/%Y`)"');
-    UTL_FILE.put_line(fich_salida_load, '    echo "Error no se pudo obtener la cadena de conexion para el sistema fuente $1" | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-    UTL_FILE.put_line(fich_salida_load, '    echo `date`');
+    UTL_FILE.put_line(fich_salida_load, '    echo "Error no se pudo obtener la cadena de conexion para el sistema fuente $1" >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+    UTL_FILE.put_line(fich_salida_load, '    echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
     --UTL_FILE.put_line(fich_salida_load, '    InsertaFinFallido');
     UTL_FILE.put_line(fich_salida_load, '    exit 1;');
     UTL_FILE.put_line(fich_salida_load, '  fi');
     UTL_FILE.put_line(fich_salida_load, '  if [ "${OWNER_EXT}" = "" ] ; then');
     UTL_FILE.put_line(fich_salida_load, '    SUBJECT="Error BD ${REQ_NUM} (`date +%d/%m/%Y`)"');
-    UTL_FILE.put_line(fich_salida_load, '    echo "Error no se pudo obtener el propietario para el sistema fuente $1" | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-    UTL_FILE.put_line(fich_salida_load, '    echo `date`');
+    UTL_FILE.put_line(fich_salida_load, '    echo "Error no se pudo obtener el propietario para el sistema fuente $1" >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+    UTL_FILE.put_line(fich_salida_load, '    echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
     --UTL_FILE.put_line(fich_salida_load, '    InsertaFinFallido');
     UTL_FILE.put_line(fich_salida_load, '    exit 1;');
     UTL_FILE.put_line(fich_salida_load, '  fi');
@@ -3408,8 +3440,8 @@ begin
     UTL_FILE.put_line(fich_salida_load, '  TraePass HIVE ${BD_USER_HIVE}');
     UTL_FILE.put_line(fich_salida_load, '  if [ "${PASSWORD}" = "" ] ; then');
     UTL_FILE.put_line(fich_salida_load, '    SUBJECT="Error BD ${REQ_NUM} (`date +%d/%m/%Y`)"');
-    UTL_FILE.put_line(fich_salida_load, '    echo "Error no se pudo obtener la password para HIVE y el usuario ${BD_USR}" | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-    UTL_FILE.put_line(fich_salida_load, '    echo `date`');
+    UTL_FILE.put_line(fich_salida_load, '    echo "Error no se pudo obtener la password para HIVE y el usuario ${BD_USR}" >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+    UTL_FILE.put_line(fich_salida_load, '    echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
     --UTL_FILE.put_line(fich_salida_load, '    InsertaFinFallido');
     UTL_FILE.put_line(fich_salida_load, '    exit 1;');
     UTL_FILE.put_line(fich_salida_load, '  fi');
@@ -3444,8 +3476,8 @@ begin
       UTL_FILE.put_line(fich_salida_load, 'EOF`');
       UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
       UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
-      UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-      UTL_FILE.put_line(fich_salida_load, '      echo `date`');
+      UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_load, '      echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
       UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
       UTL_FILE.put_line(fich_salida_load, '      exit 1');
       UTL_FILE.put_line(fich_salida_load, '    fi');
@@ -3461,8 +3493,8 @@ begin
         UTL_FILE.put_line(fich_salida_load, 'EOF`');
         UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
         UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
-        UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-        UTL_FILE.put_line(fich_salida_load, '      echo `date`');
+        UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+        UTL_FILE.put_line(fich_salida_load, '      echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
         UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
         UTL_FILE.put_line(fich_salida_load, '      exit 1');
         UTL_FILE.put_line(fich_salida_load, '    fi');
@@ -3479,8 +3511,8 @@ begin
       UTL_FILE.put_line(fich_salida_load, 'EOF`');
       UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
       UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
-      UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-      UTL_FILE.put_line(fich_salida_load, '      echo `date`');
+      UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_load, '      echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
       UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
       UTL_FILE.put_line(fich_salida_load, '      exit 1');
       UTL_FILE.put_line(fich_salida_load, '    fi');
@@ -3496,8 +3528,8 @@ begin
         UTL_FILE.put_line(fich_salida_load, 'EOF`');
         UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
         UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha fin."');
-        UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-        UTL_FILE.put_line(fich_salida_load, '      echo `date`');
+        UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+        UTL_FILE.put_line(fich_salida_load, '      echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
         UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
         UTL_FILE.put_line(fich_salida_load, '      exit 1');
         UTL_FILE.put_line(fich_salida_load, '    fi');
@@ -3518,8 +3550,8 @@ begin
       UTL_FILE.put_line(fich_salida_load, 'EOF`');
       UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
       UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
-      UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-      UTL_FILE.put_line(fich_salida_load, '      echo `date`');
+      UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_load, '      echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
       UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
       UTL_FILE.put_line(fich_salida_load, '      exit 1');
       UTL_FILE.put_line(fich_salida_load, '    fi');
@@ -3555,8 +3587,8 @@ begin
       UTL_FILE.put_line(fich_salida_load, 'EOF`');
       UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
       UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
-      UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-      UTL_FILE.put_line(fich_salida_load, '      echo `date`');
+      UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_load, '      echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
       UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
       UTL_FILE.put_line(fich_salida_load, '      exit 1');
       UTL_FILE.put_line(fich_salida_load, '    fi');
@@ -3571,8 +3603,8 @@ begin
         UTL_FILE.put_line(fich_salida_load, 'EOF`');
         UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
         UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha fin."');
-        UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-        UTL_FILE.put_line(fich_salida_load, '      echo `date`');
+        UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+        UTL_FILE.put_line(fich_salida_load, '      echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
         UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
         UTL_FILE.put_line(fich_salida_load, '      exit 1');
         UTL_FILE.put_line(fich_salida_load, '    fi');
@@ -3600,8 +3632,8 @@ begin
     UTL_FILE.put_line(fich_salida_load, 'EOF`');
     UTL_FILE.put_line(fich_salida_load, 'if [ $? -ne 0 ]; then');
     UTL_FILE.put_line(fich_salida_load, '  SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha y hora del sistema."');
-    UTL_FILE.put_line(fich_salida_load, '  echo "Surgio un error al obtener la fecha y hora del sistema." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-    UTL_FILE.put_line(fich_salida_load, '  echo `date`');
+    UTL_FILE.put_line(fich_salida_load, '  echo "Surgio un error al obtener la fecha y hora del sistema." >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+    UTL_FILE.put_line(fich_salida_load, '  echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
     UTL_FILE.put_line(fich_salida_load, '  InsertaFinFallido');    
     UTL_FILE.put_line(fich_salida_load, '  exit 1');
     UTL_FILE.put_line(fich_salida_load, 'fi');
@@ -3960,8 +3992,8 @@ begin
     end if;
     UTL_FILE.put_line(fich_salida_load, '  if [ $? -ne 0 ]; then');
     UTL_FILE.put_line(fich_salida_load, '    SUBJECT="${REQ_NUM}:  ERROR: Al generar la interfaz ${ARCHIVO_SQL} (ERROR al ejecutar sqoop)."');
-    UTL_FILE.put_line(fich_salida_load, '    echo "Surgio un error al generar la interfaz ${ARCHIVO_SALIDA} (El error surgio al ejecutar sqoop)." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-    UTL_FILE.put_line(fich_salida_load, '    echo `date`');
+    UTL_FILE.put_line(fich_salida_load, '    echo "Surgio un error al generar la interfaz ${ARCHIVO_SALIDA} (El error surgio al ejecutar sqoop)." >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+    UTL_FILE.put_line(fich_salida_load, '    echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
     UTL_FILE.put_line(fich_salida_load, '    InsertaFinFallido');
     UTL_FILE.put_line(fich_salida_load, '    exit 1');
     UTL_FILE.put_line(fich_salida_load, '  fi');
@@ -4006,15 +4038,15 @@ begin
       UTL_FILE.put_line(fich_salida_load, '        hadoop fs -rm -r ' || '${' || NAME_DM || '_TMP}/${INTERFAZ}');
       UTL_FILE.put_line(fich_salida_load, '      else');
       UTL_FILE.put_line(fich_salida_load, '        SUBJECT="${REQ_NUM}:  ERROR: Al generar la interfaz ${ARCHIVO_SQL}. Al llevar a cabo el move del fichero generado a HDFS."');
-      UTL_FILE.put_line(fich_salida_load, '        echo "Surgio un error al generar la interfaz ${ARCHIVO_SALIDA} (El error surgio al llevar el ficehro a HDFS)." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-      UTL_FILE.put_line(fich_salida_load, '        echo `date`');
+      UTL_FILE.put_line(fich_salida_load, '        echo "Surgio un error al generar la interfaz ${ARCHIVO_SALIDA} (El error surgio al llevar el ficehro a HDFS)." >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_load, '        echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
       UTL_FILE.put_line(fich_salida_load, '        InsertaFinFallido');
       UTL_FILE.put_line(fich_salida_load, '        exit 1');
       UTL_FILE.put_line(fich_salida_load, '      fi');
       UTL_FILE.put_line(fich_salida_load, '    else');
       UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}:  ERROR: Al generar la interfaz ${ARCHIVO_SQL} (ERROR al llevar a cabo el hadoop fs -cat)."');
-      UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al generar la interfaz ${ARCHIVO_SALIDA} (El error surgio al ejecutar sqoop)." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-      UTL_FILE.put_line(fich_salida_load, '      echo `date`');
+      UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al generar la interfaz ${ARCHIVO_SALIDA} (El error surgio al ejecutar sqoop)." >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_load, '      echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
       UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
       UTL_FILE.put_line(fich_salida_load, '      exit 1');
       UTL_FILE.put_line(fich_salida_load, '    fi');
@@ -4060,8 +4092,8 @@ begin
       end if;
       UTL_FILE.put_line(fich_salida_load, '  if [ $? -ne 0 ]; then');
       UTL_FILE.put_line(fich_salida_load, '    SUBJECT="${REQ_NUM}:  ERROR: Al generar el conteo del fichero (ERROR al ejecutar wc)."');
-      UTL_FILE.put_line(fich_salida_load, '    echo "Surgio un error al generar el conteo de la interfaz ' || reg_tabla.TABLE_NAME || ' (El error surgio al ejecutar wc)." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-      UTL_FILE.put_line(fich_salida_load, '    echo `date`');
+      UTL_FILE.put_line(fich_salida_load, '    echo "Surgio un error al generar el conteo de la interfaz ' || reg_tabla.TABLE_NAME || ' (El error surgio al ejecutar wc)." >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_load, '    echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
       UTL_FILE.put_line(fich_salida_load, '    InsertaFinFallido');
       UTL_FILE.put_line(fich_salida_load, '    exit 1');
       UTL_FILE.put_line(fich_salida_load, '  fi');
@@ -4090,8 +4122,8 @@ begin
       --UTL_FILE.put_line(fich_salida_load, '  fi');
       UTL_FILE.put_line(fich_salida_load, '  if [ ${CONTEO_ARCHIVO} -ne ${B_CONTEO_BD} ]; then');
       UTL_FILE.put_line(fich_salida_load, '    SUBJECT="${REQ_NUM}:  ERROR: Los conteos no coinciden (ERROR al ejecutar comparacion de conteos )."');
-      UTL_FILE.put_line(fich_salida_load, '    echo "La validacion de conteo ha fallado, favor de validar la extraccion antes de continuar" | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-      UTL_FILE.put_line(fich_salida_load, '    echo `date`');
+      UTL_FILE.put_line(fich_salida_load, '    echo "La validacion de conteo ha fallado, favor de validar la extraccion antes de continuar" >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_load, '    echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
       UTL_FILE.put_line(fich_salida_load, '  fi');
       UTL_FILE.put_line(fich_salida_load, '}');
     end if;
@@ -4102,9 +4134,9 @@ begin
       UTL_FILE.put_line(fich_salida_load, 'GeneraFlag()');
       UTL_FILE.put_line(fich_salida_load, '{');
       UTL_FILE.put_line(fich_salida_load, '  NAME_FLAG=`echo ${ARCHIVO_SALIDA} | sed -e ''s/\.[Dd][Aa][Tt]/\.flag/''`');
-      UTL_FILE.put_line(fich_salida_load, '  echo "INICIA LA CREACION DEL ARCHIVO ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}/${NAME_FLAG} [`date +%d/%m/%Y\ %H:%M:%S`]"');
-      UTL_FILE.put_line(fich_salida_load, '  echo ${CONTEO_ARCHIVO}');
-      UTL_FILE.put_line(fich_salida_load, '  echo ${B_CONTEO_BD}');
+      UTL_FILE.put_line(fich_salida_load, '  echo "INICIA LA CREACION DEL ARCHIVO ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}/${NAME_FLAG} [`date +%d/%m/%Y\ %H:%M:%S`]" >> ${'|| NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_load, '  echo ${CONTEO_ARCHIVO} >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_load, '  echo ${B_CONTEO_BD} >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
       UTL_FILE.put_line(fich_salida_load, '  printf "%-50s%015d%015d\n" ${ARCHIVO_SALIDA} ${CONTEO_ARCHIVO} ${B_CONTEO_BD} > ${' || NAME_DM || '_TMP_LOCAL}/${NAME_FLAG}');
       --UTL_FILE.put_line(fich_salida_load, '  hadoop fs -test -e ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}/${NAME_FLAG}');
       --UTL_FILE.put_line(fich_salida_load, '  if [ $? -eq 0 ]; then');
@@ -4113,12 +4145,12 @@ begin
       UTL_FILE.put_line(fich_salida_load, '  # Movemos el ficehro de flag al destino');
       UTL_FILE.put_line(fich_salida_load, '  hadoop fs -put ${' || NAME_DM || '_TMP_LOCAL}/${NAME_FLAG} ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}/${NAME_FLAG}');
       UTL_FILE.put_line(fich_salida_load, '  if [ $? -ne 0 ]; then');
-      UTL_FILE.put_line(fich_salida_load, '    echo "Error al generar el archivo flag ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}/${NAME_FLAG}"');
+      UTL_FILE.put_line(fich_salida_load, '    echo "Error al generar el archivo flag ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}/${NAME_FLAG}" >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
       UTL_FILE.put_line(fich_salida_load, '    InsertaFinFallido');
       UTL_FILE.put_line(fich_salida_load, '    exit 3');
       UTL_FILE.put_line(fich_salida_load, '  fi');
       UTL_FILE.put_line(fich_salida_load, '  rm ${' || NAME_DM || '_TMP_LOCAL}/${NAME_FLAG}');
-      UTL_FILE.put_line(fich_salida_load, '  echo "TERMINA LA CREACION DEL ARCHIVO ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}/${NAME_FLAG} [`date +%d/%m/%Y\ %H:%M:%S`]"');
+      UTL_FILE.put_line(fich_salida_load, '  echo "TERMINA LA CREACION DEL ARCHIVO ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}/${NAME_FLAG} [`date +%d/%m/%Y\ %H:%M:%S`]" >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
       UTL_FILE.put_line(fich_salida_load, '}');
       --UTL_FILE.put_line(fich_salida_load, '################################################################################');
       --UTL_FILE.put_line(fich_salida_load, '# REALIZA EL ENVIO DE LOS ARCHIVOS POR SCP                                     #');
@@ -4171,7 +4203,19 @@ begin
     UTL_FILE.put_line(fich_salida_load, 'set -x');
     UTL_FILE.put_line(fich_salida_load, '#Permite los acentos');
     UTL_FILE.put_line(fich_salida_load, 'export NLS_LANG=AMERICAN_AMERICA.WE8ISO8859P1');
-    UTL_FILE.put_line(fich_salida_load, 'echo "Inicia Proceso: `date`"');
+    UTL_FILE.put_line(fich_salida_load, '# Comprobamos si hay parametro fecha de extraccion');
+    UTL_FILE.put_line(fich_salida_load, 'if [ $# -eq 0 ] ; then');
+    UTL_FILE.put_line(fich_salida_load, '  FECHA_LOG=`date +%Y%m%d`');
+    UTL_FILE.put_line(fich_salida_load, 'else');
+    UTL_FILE.put_line(fich_salida_load, '  FECHA_LOG=${1}');
+    UTL_FILE.put_line(fich_salida_load, 'fi');
+    UTL_FILE.put_line(fich_salida_load, '# Comprobamos si existe el directorio de Trazas para fecha de carga');
+    UTL_FILE.put_line(fich_salida_load, 'if ! [ -d ${' || NAME_DM || '_TRAZAS}/${FECHA_LOG} ] ; then');
+    UTL_FILE.put_line(fich_salida_load, '  mkdir ${' || NAME_DM || '_TRAZAS}/${FECHA_LOG}');
+    UTL_FILE.put_line(fich_salida_load, 'fi');
+    UTL_FILE.put_line(fich_salida_load, NAME_DM || '_TRAZAS=${' || NAME_DM || '_TRAZAS}/${FECHA_LOG}');
+    UTL_FILE.put_line(fich_salida_load, 'FECHA_HORA=${FECHA_LOG}_`date +%Y%m%d_%H%M%S`');
+    UTL_FILE.put_line(fich_salida_load, 'echo "Inicia Proceso: `date +%d/%m/%Y\ %H:%M:%S`" > ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
     UTL_FILE.put_line(fich_salida_load, '################################################################################');
     UTL_FILE.put_line(fich_salida_load, '# VARIABLES ESPECIFICAS PARA EL PROCESO                                        #');
     UTL_FILE.put_line(fich_salida_load, '################################################################################');
@@ -4284,7 +4328,8 @@ begin
     UTL_FILE.put_line(fich_salida_load, '################################################################################');
     UTL_FILE.put_line(fich_salida_load, '# FIN DEL SHELL                                                                #');
     UTL_FILE.put_line(fich_salida_load, '################################################################################');
-    UTL_FILE.put_line(fich_salida_load, 'echo "Termina Proceso: `date`"');
+    --UTL_FILE.put_line(fich_salida_load, 'echo "Termina Proceso: `date`"');
+    UTL_FILE.put_line(fich_salida_load, 'echo "Termina Proceso: `date +%d/%m/%Y\ %H:%M:%S`" >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
     --UTL_FILE.put_line(fich_salida_load, 'InsertaFinOK');
     UTL_FILE.put_line(fich_salida_load, 'exit 0');
     UTL_FILE.put_line(fich_salida_load, '');
