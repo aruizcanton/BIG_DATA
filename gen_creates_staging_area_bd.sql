@@ -12,7 +12,8 @@
       TRIM(DELAYED) "DELAYED",
       upper(trim(TYPE_VALIDATION)) TYPE_VALIDATION
   FROM MTDT_INTERFACE_SUMMARY
-  WHERE TRIM(SOURCE) <> 'SA' and TRIM(SOURCE) <> 'MAN' and
+  --WHERE TRIM(SOURCE) <> 'SA' and TRIM(SOURCE) <> 'MAN' and
+  WHERE TRIM(SOURCE) <> 'MAN' and
   (TRIM(STATUS) ='P' OR TRIM(STATUS) = 'D');
   --where CONCEPT_NAME = 'CICLO';
 
@@ -124,137 +125,142 @@ BEGIN
     /* Si no viene en el fichero plano, este campo no puede crearse en la tabla de Staging en la que se va cargar el mismo */
     /* Si viene en el fichero plano, entonces hay que crear la tabla de estagin con este campo */
     SELECT COUNT(*) INTO v_existe_file_name FROM MTDT_EXT_DETAIL WHERE TRIM(TABLE_NAME) = reg_summary.CONCEPT_NAME AND TRIM(TABLE_COLUMN) = 'FILE_NAME';
-    
-    /* (20160523) Angel Ruiz. NF: Funcionalidad para la creacion de Tablas Externas */
-    if (reg_summary.TYPE_VALIDATION = 'I') then
-      /* (20160523) Se trata de la creacion de una Tabla de Staging NORMAL. Cuando usamos el TYPE_VALIDATION='I', Sqoop inserta los datos en la tabla, y esta es tabla manejada */
-        --DBMS_OUTPUT.put_line('CREATE TABLE IF NOT EXISTS ' || OWNER_SA || '.SA_' || reg_summary.CONCEPT_NAME);
-        DBMS_OUTPUT.put_line('CREATE TABLE IF NOT EXISTS ' || OWNER_SA || '.SAH_' || reg_summary.CONCEPT_NAME);
-    else
-      /* Se trata de una tabla externa */
-        --DBMS_OUTPUT.put_line('CREATE EXTERNAL TABLE IF NOT EXISTS ' || OWNER_SA || '.SA_' || reg_summary.CONCEPT_NAME);
-        DBMS_OUTPUT.put_line('CREATE EXTERNAL TABLE IF NOT EXISTS ' || OWNER_SA || '.SAH_' || reg_summary.CONCEPT_NAME);
-    end if;
-    DBMS_OUTPUT.put_line('(');
-    OPEN dtd_interfaz_detail (reg_summary.CONCEPT_NAME, reg_summary.SOURCE);
-    primera_col := 1;
-    LOOP
-      FETCH dtd_interfaz_detail
-      INTO reg_datail;
-      EXIT WHEN dtd_interfaz_detail%NOTFOUND;
-      IF primera_col = 1 THEN /* Si es primera columna */
-        CASE 
-        WHEN reg_datail.TYPE = 'AN' THEN
-          --tipo_col := 'VARCHAR2 (' || reg_datail.LENGTH || ')';
-          tipo_col := 'STRING';
-        WHEN reg_datail.TYPE = 'NU' THEN
-          tipo_col := 'DECIMAL (' || reg_datail.LENGTH || ')';
-        WHEN reg_datail.TYPE = 'DE' THEN
-          tipo_col := 'DECIMAL (' || reg_datail.LENGTH || ')';
-        WHEN reg_datail.TYPE = 'FE' THEN
-          if reg_datail.LENGTH = '14' then
-            tipo_col := 'TIMESTAMP';
-          else
-            tipo_col := 'DATE';
-          end if;
-        WHEN reg_datail.TYPE = 'IM' THEN
-          tipo_col := 'DECIMAL (' || reg_datail.LENGTH || ')';
-          --tipo_col := 'NUMBER (15, 3)';
-        WHEN reg_datail.TYPE = 'TI' THEN
-          --tipo_col := 'VARCHAR (8)';
-          tipo_col := 'STRING';
-        END CASE;
-        /* (20161125) Angel Ruiz. Si el campo es FILE_NAME significa que */
-        /* tenemos que mirar si este campo va a venir en el fichero plano o no. */
-        /* Si viene en el fichero plano, entonces el campo FILE_NAME tambien hay que crearlo */
-        /* si no viene, entonces no lo creamos en la tabla de Staging ya que no viene en el fichero  */
-        /* sera cargado en un paso posterior en una carga temporal de Staging */
-        if (trim(reg_datail.COLUMNA) <> 'FILE_NAME') then
-          --v_existe_file_name := 1;
-          DBMS_OUTPUT.put_line(reg_datail.COLUMNA || '          ' || tipo_col);
-        else
-          /* (20161125) Angel Ruiz. Se trata del campo FILE_NAME */
-          if (v_existe_file_name > 0) then
-            /* (20161125) Angel Ruiz. El fichero va a venir desde la extraccion ya que asi lo hemos especificado en MTDT_EXT_DETAIL */
-            /* POR LO QUE LO CREAMOS EN LA TABLA DE STAGING */
-            DBMS_OUTPUT.put_line(reg_datail.COLUMNA || '          ' || tipo_col);
-          end if;
-        end if;
-        primera_col := 0;
-      ELSE  /* si no es primera columna */
-        CASE 
-        WHEN reg_datail.TYPE = 'AN' THEN
-          --tipo_col := 'VARCHAR2 (' || reg_datail.LENGTH || ')';
-          tipo_col := 'STRING';
-        WHEN reg_datail.TYPE = 'NU' THEN
-          tipo_col := 'DECIMAL (' || reg_datail.LENGTH || ')';
-        WHEN reg_datail.TYPE = 'DE' THEN
-          tipo_col := 'DECIMAL (' || reg_datail.LENGTH || ')';
-        WHEN reg_datail.TYPE = 'FE' THEN
-          if (reg_datail.LENGTH = '14') then
-            tipo_col := 'TIMESTAMP';
-          else
-            tipo_col := 'DATE';
-          end if;
-        WHEN reg_datail.TYPE = 'IM' THEN
-          tipo_col := 'DECIMAL (' || reg_datail.LENGTH || ')';
-          --tipo_col := 'NUMBER (15, 3)';
-        WHEN reg_datail.TYPE = 'TI' THEN
-          --tipo_col := 'VARCHAR2 (8)';
-          tipo_col := 'STRING';
-        END CASE;
-        /* (20161125) Angel Ruiz. Si el campo es FILE_NAME significa que */
-        /* tenemos que mirar si este campo va a venir en el fichero plano o no. */
-        /* Si viene en el fichero plano, entonces el campo FILE_NAME tambien hay que crearlo */
-        /* si no viene, entonces no lo creamos en la tabla de Staging ya que no viene en el fichero  */
-        /* sera cargado en un paso posterior en una carga temporal de Staging */
-        if (trim(reg_datail.COLUMNA) <> 'FILE_NAME') then
-          --v_existe_file_name := 1;
-          DBMS_OUTPUT.put_line(', ' || reg_datail.COLUMNA || '          '  || tipo_col);
-        else
-          /* (20161125) Angel Ruiz. Se trata del campo FILE_NAME */
-          if (v_existe_file_name > 0) then
-            /* (20161125) Angel Ruiz. El fichero va a venir desde la extraccion ya que asi lo hemos especificado en MTDT_EXT_DETAIL */
-            /* POR LO QUE LO CREAMOS EN LA TABLA DE STAGING */
-            DBMS_OUTPUT.put_line(', ' || reg_datail.COLUMNA || '          '  || tipo_col);
-          end if;
-        end if;
-      END IF;
-      IF reg_datail.PARTITIONED = 'S' then
-        lista_par.EXTEND;
-        lista_par(lista_par.LAST) := ', ' || reg_datail.COLUMNA || ' ' || tipo_col;
-      END IF;
-    END LOOP;
-    CLOSE dtd_interfaz_detail;
-    IF (lista_par.COUNT = 0) THEN
-      /* (20160811) No hay particionado explicito aunque si que esta el particionado */
-      /* que toda tabla lleva */
-      DBMS_OUTPUT.put_line(')');
-      DBMS_OUTPUT.put_line('PARTITIONED BY (FCH_CARGA STRING)');
-      DBMS_OUTPUT.put_line('ROW FORMAT DELIMITED');
-      DBMS_OUTPUT.put_line('FIELDS TERMINATED BY ''' || reg_summary.SEPARATOR || '''');
-      DBMS_OUTPUT.put_line('STORED AS TEXTFILE;');
-    END IF;
-    /* tomamos el campo por el que va a estar particionada la tabla */
-    if (lista_par.COUNT > 0) then
-      FOR indx IN lista_par.FIRST .. lista_par.LAST
+    if (reg_summary.SOURCE <> 'SA') then
+    /* (20170420) Angel Ruiz. NF: Se admiten tablas de INTEGRACION */
+    /* Tablas tipo SA_* pero que no se cargan de fichero si no en TC */
+      /* (20160523) Angel Ruiz. NF: Funcionalidad para la creacion de Tablas Externas */
+      if (reg_summary.TYPE_VALIDATION = 'I') then
+        /* (20160523) Se trata de la creacion de una Tabla de Staging NORMAL. Cuando usamos el TYPE_VALIDATION='I', Sqoop inserta los datos en la tabla, y esta es tabla manejada */
+          --DBMS_OUTPUT.put_line('CREATE TABLE IF NOT EXISTS ' || OWNER_SA || '.SA_' || reg_summary.CONCEPT_NAME);
+          DBMS_OUTPUT.put_line('CREATE TABLE IF NOT EXISTS ' || OWNER_SA || '.SAH_' || reg_summary.CONCEPT_NAME);
+      else
+        /* Se trata de una tabla externa */
+          --DBMS_OUTPUT.put_line('CREATE EXTERNAL TABLE IF NOT EXISTS ' || OWNER_SA || '.SA_' || reg_summary.CONCEPT_NAME);
+          DBMS_OUTPUT.put_line('CREATE EXTERNAL TABLE IF NOT EXISTS ' || OWNER_SA || '.SAH_' || reg_summary.CONCEPT_NAME);
+      end if;
+      DBMS_OUTPUT.put_line('(');
+      OPEN dtd_interfaz_detail (reg_summary.CONCEPT_NAME, reg_summary.SOURCE);
+      primera_col := 1;
       LOOP
-        IF indx = lista_par.FIRST THEN
-          lista_campos_particion:= lista_par (indx);
-        ELSE
-          lista_campos_particion:=lista_campos_particion || lista_par (indx);
+        FETCH dtd_interfaz_detail
+        INTO reg_datail;
+        EXIT WHEN dtd_interfaz_detail%NOTFOUND;
+        IF primera_col = 1 THEN /* Si es primera columna */
+          CASE 
+          WHEN reg_datail.TYPE = 'AN' THEN
+            --tipo_col := 'VARCHAR2 (' || reg_datail.LENGTH || ')';
+            tipo_col := 'STRING';
+          WHEN reg_datail.TYPE = 'NU' THEN
+            tipo_col := 'DECIMAL (' || reg_datail.LENGTH || ')';
+          WHEN reg_datail.TYPE = 'DE' THEN
+            tipo_col := 'DECIMAL (' || reg_datail.LENGTH || ')';
+          WHEN reg_datail.TYPE = 'FE' THEN
+            if reg_datail.LENGTH = '14' then
+              tipo_col := 'TIMESTAMP';
+            else
+              tipo_col := 'DATE';
+            end if;
+          WHEN reg_datail.TYPE = 'IM' THEN
+            tipo_col := 'DECIMAL (' || reg_datail.LENGTH || ')';
+            --tipo_col := 'NUMBER (15, 3)';
+          WHEN reg_datail.TYPE = 'TI' THEN
+            --tipo_col := 'VARCHAR (8)';
+            tipo_col := 'STRING';
+          END CASE;
+          /* (20161125) Angel Ruiz. Si el campo es FILE_NAME significa que */
+          /* tenemos que mirar si este campo va a venir en el fichero plano o no. */
+          /* Si viene en el fichero plano, entonces el campo FILE_NAME tambien hay que crearlo */
+          /* si no viene, entonces no lo creamos en la tabla de Staging ya que no viene en el fichero  */
+          /* sera cargado en un paso posterior en una carga temporal de Staging */
+          if (trim(reg_datail.COLUMNA) <> 'FILE_NAME') then
+            --v_existe_file_name := 1;
+            DBMS_OUTPUT.put_line(reg_datail.COLUMNA || '          ' || tipo_col);
+          else
+            /* (20161125) Angel Ruiz. Se trata del campo FILE_NAME */
+            if (v_existe_file_name > 0) then
+              /* (20161125) Angel Ruiz. El fichero va a venir desde la extraccion ya que asi lo hemos especificado en MTDT_EXT_DETAIL */
+              /* POR LO QUE LO CREAMOS EN LA TABLA DE STAGING */
+              DBMS_OUTPUT.put_line(reg_datail.COLUMNA || '          ' || tipo_col);
+            end if;
+          end if;
+          primera_col := 0;
+        ELSE  /* si no es primera columna */
+          CASE 
+          WHEN reg_datail.TYPE = 'AN' THEN
+            --tipo_col := 'VARCHAR2 (' || reg_datail.LENGTH || ')';
+            tipo_col := 'STRING';
+          WHEN reg_datail.TYPE = 'NU' THEN
+            tipo_col := 'DECIMAL (' || reg_datail.LENGTH || ')';
+          WHEN reg_datail.TYPE = 'DE' THEN
+            tipo_col := 'DECIMAL (' || reg_datail.LENGTH || ')';
+          WHEN reg_datail.TYPE = 'FE' THEN
+            if (reg_datail.LENGTH = '14') then
+              tipo_col := 'TIMESTAMP';
+            else
+              tipo_col := 'DATE';
+            end if;
+          WHEN reg_datail.TYPE = 'IM' THEN
+            tipo_col := 'DECIMAL (' || reg_datail.LENGTH || ')';
+            --tipo_col := 'NUMBER (15, 3)';
+          WHEN reg_datail.TYPE = 'TI' THEN
+            --tipo_col := 'VARCHAR2 (8)';
+            tipo_col := 'STRING';
+          END CASE;
+          /* (20161125) Angel Ruiz. Si el campo es FILE_NAME significa que */
+          /* tenemos que mirar si este campo va a venir en el fichero plano o no. */
+          /* Si viene en el fichero plano, entonces el campo FILE_NAME tambien hay que crearlo */
+          /* si no viene, entonces no lo creamos en la tabla de Staging ya que no viene en el fichero  */
+          /* sera cargado en un paso posterior en una carga temporal de Staging */
+          if (trim(reg_datail.COLUMNA) <> 'FILE_NAME') then
+            --v_existe_file_name := 1;
+            DBMS_OUTPUT.put_line(', ' || reg_datail.COLUMNA || '          '  || tipo_col);
+          else
+            /* (20161125) Angel Ruiz. Se trata del campo FILE_NAME */
+            if (v_existe_file_name > 0) then
+              /* (20161125) Angel Ruiz. El fichero va a venir desde la extraccion ya que asi lo hemos especificado en MTDT_EXT_DETAIL */
+              /* POR LO QUE LO CREAMOS EN LA TABLA DE STAGING */
+              DBMS_OUTPUT.put_line(', ' || reg_datail.COLUMNA || '          '  || tipo_col);
+            end if;
+          end if;
+        END IF;
+        IF reg_datail.PARTITIONED = 'S' then
+          lista_par.EXTEND;
+          lista_par(lista_par.LAST) := ', ' || reg_datail.COLUMNA || ' ' || tipo_col;
         END IF;
       END LOOP;
-      DBMS_OUTPUT.put_line('PARTITIONED BY');
-      DBMS_OUTPUT.put_line('(FCH_CARGA STRING' || lista_campos_particion || ')');
-      DBMS_OUTPUT.put_line('ROW FORMAT DELIMITED');
-      DBMS_OUTPUT.put_line('FIELDS TERMINATED BY ''' || reg_summary.SEPARATOR || '''');
-      DBMS_OUTPUT.put_line('STORED AS TEXTFILE;');
-      DBMS_OUTPUT.put_line('');
-      lista_par.DELETE;
-      /* (20151118) Angel Ruiz. NF: Creacion de tablas para inyeccion SAD */
-      /* (20151118) Angel Ruiz. FIN NF. Tablas para inyeccion SAD_ */
-    end if;
+      CLOSE dtd_interfaz_detail;
+      IF (lista_par.COUNT = 0) THEN
+        /* (20160811) No hay particionado explicito aunque si que esta el particionado */
+        /* que toda tabla lleva */
+        DBMS_OUTPUT.put_line(')');
+        DBMS_OUTPUT.put_line('PARTITIONED BY (FCH_CARGA STRING)');
+        DBMS_OUTPUT.put_line('ROW FORMAT DELIMITED');
+        DBMS_OUTPUT.put_line('FIELDS TERMINATED BY ''' || reg_summary.SEPARATOR || '''');
+        DBMS_OUTPUT.put_line('STORED AS TEXTFILE;');
+      END IF;
+      /* tomamos el campo por el que va a estar particionada la tabla */
+      if (lista_par.COUNT > 0) then
+        FOR indx IN lista_par.FIRST .. lista_par.LAST
+        LOOP
+          IF indx = lista_par.FIRST THEN
+            lista_campos_particion:= lista_par (indx);
+          ELSE
+            lista_campos_particion:=lista_campos_particion || lista_par (indx);
+          END IF;
+        END LOOP;
+        DBMS_OUTPUT.put_line('PARTITIONED BY');
+        DBMS_OUTPUT.put_line('(FCH_CARGA STRING' || lista_campos_particion || ')');
+        DBMS_OUTPUT.put_line('ROW FORMAT DELIMITED');
+        DBMS_OUTPUT.put_line('FIELDS TERMINATED BY ''' || reg_summary.SEPARATOR || '''');
+        DBMS_OUTPUT.put_line('STORED AS TEXTFILE;');
+        DBMS_OUTPUT.put_line('');
+        lista_par.DELETE;
+        /* (20151118) Angel Ruiz. NF: Creacion de tablas para inyeccion SAD */
+        /* (20151118) Angel Ruiz. FIN NF. Tablas para inyeccion SAD_ */
+      end if;
+    end if; /* if (reg_summary.SOURCE <> 'SA') then */
+    /* (20170420) Angel Ruiz. NF FIN */
+    
     /******************************/
     /* (20170112) Angel Ruiz. NF: Cambio la estructura de la zona de Staging.*/
     /* Vamos a crear tablas EXTERNAS para almacenar los ficheros planos */
