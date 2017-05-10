@@ -17,7 +17,8 @@ SELECT
     trim(MTDT_TC_SCENARIO.TABLE_NAME) = trim(mtdt_modelo_summary.TABLE_NAME) and
     trim(MTDT_TC_SCENARIO.TABLE_NAME) in ('NGA_PARQUE_ABO_MES', 'NGA_PARQUE_SVA_MES', 'NGA_PARQUE_BENEF_MES', 
     'NGG_TRANSACCIONES_DETAIL', 'NGA_COMIS_POS_ABO_MES', 'NGA_AJUSTE_ABO_MES', 'NGA_NOSTNDR_CONTRATOS_MES', 
-    'NGA_ALTAS_CANAL_MES', 'NGF_PERIMETRO', 'NGA_NOSTNDR_PLANTA_MES', 'NGA_PARQUE_ABO_DESA_MES');
+    'NGA_ALTAS_CANAL_MES', 'NGF_PERIMETRO', 'NGA_NOSTNDR_PLANTA_MES', 'NGA_PARQUE_ABO_DESA_MES',
+    'NGA_DESC_ADQR_ABO_MES', 'NGA_DESC_EJEC_ABO_MES', 'NGA_PRECIO_UNITARIO_SIM', 'NGA_VIDA_MEDIA_ABO_PRE', 'NGA_MATERIALIDAD_SIM');
     --trim(MTDT_TC_SCENARIO.TABLE_NAME) in ('NGA_PARQUE_ABO_DESA_MES');
     
   cursor MTDT_SCENARIO (table_name_in IN VARCHAR2)
@@ -3652,7 +3653,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, '#                                                                           #');
     UTL_FILE.put_line(fich_salida_load, '# Ejecucion  :                                                              #');
     UTL_FILE.put_line(fich_salida_load, '#                                                                           #');
-    UTL_FILE.put_line(fich_salida_load, '# Historia : 31-Octubre-2014 -> Creacion                                    #');
+    UTL_FILE.put_line(fich_salida_load, '# Historia : 05-Mayo-2017 -> Creacion                                    #');
     UTL_FILE.put_line(fich_salida_load, '# Caja de Control - M :                                                     #');
     UTL_FILE.put_line(fich_salida_load, '#                                                                           #');
     UTL_FILE.put_line(fich_salida_load, '# Observaciones: En caso de reproceso colocar la fecha deseada              #');
@@ -3875,7 +3876,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
     UTL_FILE.put_line(fich_salida_load, '!quit');
     UTL_FILE.put_line(fich_salida_load, 'EOF');
-    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: Error while compiling statement: FAILED:'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log`');
+    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log`');
     --UTL_FILE.put_line(fich_salida_load, 'err_salida=$?');
     UTL_FILE.put_line(fich_salida_load, '');
     --UTL_FILE.put_line(fich_salida_load, 'if [ ${err_salida} -ne 0 ]; then');
