@@ -17,6 +17,128 @@ cursor MTDT_QUALITY_ASSURANCE
     WHERE
       (TRIM(STATUS) = 'P' or TRIM(STATUS) = 'D');
       
+cursor MTDT_TABLA
+  is
+SELECT
+      DISTINCT TRIM(MTDT_TC_SCENARIO.TABLE_NAME) "TABLE_NAME", /*(20150907) Angel Ruiz NF. Nuevas tablas.*/
+      --TRIM(MTDT_TC_SCENARIO.TABLE_NAME) "TABLE_NAME",
+      --TRIM(TABLE_BASE_NAME) "TABLE_BASE_NAME",
+      --TRIM(mtdt_modelo_logico.TABLESPACE) "TABLESPACE" (20150907) Angel Ruiz NF. Nuevas tablas.
+      TRIM(mtdt_modelo_summary.TABLESPACE) "TABLESPACE",
+      TRIM(mtdt_modelo_summary.PARTICIONADO) "PARTICIONADO"
+    FROM
+      --MTDT_TC_SCENARIO, mtdt_modelo_logico (20150907) Angel Ruiz NF. Nuevas tablas.
+      MTDT_TC_SCENARIO, mtdt_modelo_summary
+    WHERE MTDT_TC_SCENARIO.TABLE_TYPE = 'H' and
+    --trim(MTDT_TC_SCENARIO.TABLE_NAME) = trim(mtdt_modelo_logico.TABLE_NAME) and (20150907) Angel Ruiz NF. Nuevas tablas.
+    trim(MTDT_TC_SCENARIO.TABLE_NAME) = trim(mtdt_modelo_summary.TABLE_NAME) and
+    trim(MTDT_TC_SCENARIO.TABLE_NAME) in ('NGA_PARQUE_ABO_MES', 'NGA_PARQUE_SVA_MES', 'NGA_PARQUE_BENEF_MES', 
+    'NGG_TRANSACCIONES_DETAIL', 'NGA_COMIS_POS_ABO_MES', 'NGA_AJUSTE_ABO_MES', 'NGA_NOSTNDR_CONTRATOS_MES', 
+    'NGA_ALTAS_CANAL_MES', 'NGF_PERIMETRO', 'NGA_NOSTNDR_PLANTA_MES', 'NGA_PARQUE_ABO_DESA_MES',
+    'NGA_DESC_ADQR_ABO_MES', 'NGA_DESC_EJEC_ABO_MES', 'NGA_PRECIO_UNITARIO_SIM', 'NGA_VIDA_MEDIA_ABO_PRE', 'NGA_MATERIALIDAD_SIM');
+    --trim(MTDT_TC_SCENARIO.TABLE_NAME) in ('NGA_PARQUE_ABO_DESA_MES');
+    
+  cursor MTDT_SCENARIO (table_name_in IN VARCHAR2)
+  is
+    SELECT 
+      TRIM(TABLE_NAME) "TABLE_NAME",
+      TRIM(TABLE_TYPE) "TABLE_TYPE",
+      TRIM(TABLE_COLUMNS) "TABLE_COLUMNS",
+      TRIM(TABLE_BASE_NAME) "TABLE_BASE_NAME",
+      TRIM("SELECT") "SELECT",
+      TRIM ("GROUP") "GROUP",
+      TRIM(FILTER) "FILTER",
+      TRIM(INTERFACE_COLUMNS) "INTERFACE_COLUMNS",
+      TRIM(SCENARIO) "SCENARIO",
+      DATE_CREATE,
+      DATE_MODIFY
+    FROM 
+      MTDT_TC_SCENARIO
+    WHERE
+      TRIM(TABLE_NAME) = table_name_in;
+  
+  CURSOR MTDT_TC_DETAIL (table_name_in IN VARCHAR2, scenario_in IN VARCHAR2)
+  IS
+    SELECT 
+      TRIM(MTDT_TC_DETAIL.TABLE_NAME) "TABLE_NAME",
+      TRIM(MTDT_TC_DETAIL.TABLE_COLUMN) "TABLE_COLUMN",
+      TRIM(MTDT_TC_DETAIL.TABLE_BASE_NAME) "TABLE_BASE_NAME",
+      TRIM(MTDT_TC_DETAIL.SCENARIO) "SCENARIO",
+      TRIM(MTDT_TC_DETAIL.OUTER) "OUTER",
+      MTDT_TC_DETAIL.SEVERIDAD,
+      TRIM(MTDT_TC_DETAIL.TABLE_LKUP) "TABLE_LKUP",
+      TRIM(MTDT_TC_DETAIL.TABLE_COLUMN_LKUP) "TABLE_COLUMN_LKUP",
+      TRIM(MTDT_TC_DETAIL.TABLE_LKUP_COND) "TABLE_LKUP_COND",
+      TRIM(MTDT_TC_DETAIL.IE_COLUMN_LKUP) "IE_COLUMN_LKUP",
+      TRIM(MTDT_TC_DETAIL.LKUP_COM_RULE) "LKUP_COM_RULE",
+      TRIM(MTDT_TC_DETAIL.VALUE) "VALUE",
+      TRIM(MTDT_TC_DETAIL.RUL) "RUL",
+      MTDT_TC_DETAIL.DATE_CREATE,
+      MTDT_TC_DETAIL.DATE_MODIFY
+  FROM
+      MTDT_TC_DETAIL, MTDT_MODELO_DETAIL
+  WHERE
+      TRIM(MTDT_TC_DETAIL.TABLE_NAME) = table_name_in and
+      TRIM(MTDT_TC_DETAIL.SCENARIO) = scenario_in and
+      UPPER(trim(MTDT_TC_DETAIL.TABLE_NAME)) = UPPER(trim(MTDT_MODELO_DETAIL.TABLE_NAME)) and
+      UPPER(trim(MTDT_TC_DETAIL.TABLE_COLUMN)) = UPPER(trim(MTDT_MODELO_DETAIL.COLUMN_NAME))
+  ORDER BY MTDT_MODELO_DETAIL.POSITION ASC;
+
+  /* (20161228) Angel Ruiz. */
+  CURSOR c_mtdt_modelo_logico_COLUMNA (table_name_in IN VARCHAR2)
+  IS
+    SELECT 
+      TRIM(MTDT_MODELO_DETAIL.TABLE_NAME) "TABLE_NAME",
+      TRIM(MTDT_MODELO_DETAIL.COLUMN_NAME) "COLUMN_NAME",
+      MTDT_MODELO_DETAIL.DATA_TYPE,
+      MTDT_MODELO_DETAIL.PK,
+      TRIM(MTDT_MODELO_DETAIL.NULABLE) "NULABLE",
+      TRIM(MTDT_MODELO_DETAIL.VDEFAULT) "VDEFAULT",
+      TRIM(MTDT_MODELO_DETAIL.INDICE) "INDICE"
+    FROM MTDT_MODELO_DETAIL
+    WHERE
+      MTDT_MODELO_DETAIL.TABLE_NAME = table_name_in
+    ORDER BY POSITION ASC;
+      
+  CURSOR MTDT_TC_LOOKUP (table_name_in IN VARCHAR2)
+  IS
+    SELECT
+      DISTINCT
+      TRIM(TABLE_LKUP) "TABLE_LKUP",
+      TABLE_COLUMN_LKUP "TABLE_COLUMN_LKUP",
+      TABLE_LKUP_COND "TABLE_LKUP_COND",
+      --IE_COLUMN_LKUP "IE_COLUMN_LKUP",
+      TRIM("VALUE") "VALUE"
+    FROM
+      MTDT_TC_DETAIL
+  WHERE
+      (trim(RUL) = 'LKUP' or trim(RUL) = 'LKUPC') and
+      TRIM(TABLE_NAME) = table_name_in;
+
+  CURSOR MTDT_TC_FUNCTION (table_name_in IN VARCHAR2)
+  IS
+    SELECT
+      DISTINCT
+      TRIM(TABLE_LKUP) "TABLE_LKUP",
+      TABLE_COLUMN_LKUP "TABLE_COLUMN_LKUP",
+      TABLE_LKUP_COND "TABLE_LKUP_COND",
+      IE_COLUMN_LKUP "IE_COLUMN_LKUP",
+      TRIM("VALUE") "VALUE"
+    FROM
+      MTDT_TC_DETAIL
+  WHERE
+      RUL = 'FUNCTION' and
+      TRIM(TABLE_NAME) = table_name_in;
+
+
+  reg_tabla MTDT_TABLA%rowtype;     
+  reg_scenario MTDT_SCENARIO%rowtype;
+  reg_detail MTDT_TC_DETAIL%rowtype;
+  reg_lookup MTDT_TC_LOOKUP%rowtype;
+  reg_function MTDT_TC_FUNCTION%rowtype;
+  reg_modelo_logico_col c_mtdt_modelo_logico_COLUMNA%rowtype;
+      
+      
       
   reg_quality MTDT_QUALITY_ASSURANCE%rowtype;      
 
@@ -2957,7 +3079,7 @@ begin
     fetch MTDT_QUALITY_ASSURANCE
     into reg_quality;
     exit when MTDT_QUALITY_ASSURANCE%NOTFOUND;
-    dbms_output.put_line ('Estoy en el primer LOOP. La VALIDACION que tengo es: ' || reg_quality.TABLE_NAME);
+    dbms_output.put_line ('Estoy en el primer LOOP. La VALIDACION que tengo es: ' || reg_quality.QUALITY_NAME);
     nombre_fich_carga := reg_quality.QUALITY_NAME || '.sh';
     --nombre_fich_exchange := 'load_ex_' || reg_tabla.TABLE_NAME || '.sh';
     nombre_fich_pkg := reg_quality.QUALITY_NAME || '.sql';
@@ -2982,46 +3104,79 @@ begin
     UTL_FILE.put_line(fich_salida_pkg, '');
     UTL_FILE.put_line(fich_salida_pkg, '-- ### INICIO DEL SCRIPT');
     UTL_FILE.put_line(fich_salida_pkg, '');
-    UTL_FILE.put_line(fich_salida_pkg, 'SELECT');
-    if (reg_quality.FILE_SPOOL = 'S' and reg_quality.PARTE_SELECT is null and reg_quality.PARTE_GROUP is null) then
-      /* Si no hay parte SELECT ni GROUP y ademas se genera fichero, FILE_SPOOL='S' */
+    
+    if (reg_quality.FILE_SPOOL = 'N' and reg_quality.PARTE_SELECT is null and reg_quality.PARTE_GROUP is null) then
+      UTL_FILE.put_line(fich_salida_pkg, 'SELECT');
+      UTL_FILE.put_line(fich_salida_pkg, 'COUNT(1)');
+      UTL_FILE.put_line(fich_salida_pkg, 'FROM');
+      UTL_FILE.put_line(fich_salida_pkg, '(');
+      UTL_FILE.put_line(fich_salida_pkg, 'SELECT');
       UTL_FILE.put_line(fich_salida_pkg, '*');
-    elsif (reg_quality.FILE_SPOOL = 'N' and reg_quality.PARTE_SELECT is null and reg_quality.PARTE_GROUP is null) then
-      UTL_FILE.put_line(fich_salida_pkg, 'COUNT(1)');
-    elsif (reg_quality.FILE_SPOOL = 'S' and reg_quality.PARTE_SELECT is null and reg_quality.PARTE_GROUP is not null) then
-      UTL_FILE.put_line(fich_salida_pkg, reg_quality.PARTE_GROUP);
-      UTL_FILE.put_line(fich_salida_pkg, ', COUNT(1)');
-    elsif (reg_quality.FILE_SPOOL = 'S' and reg_quality.PARTE_SELECT is not null and reg_quality.PARTE_GROUP is null) then
-      UTL_FILE.put_line(fich_salida_pkg, reg_quality.PARTE_SELECT);
+      UTL_FILE.put_line(fich_salida_pkg, 'FROM');
+      UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.TABLE_BASE_NAME));
     elsif (reg_quality.FILE_SPOOL = 'N' and reg_quality.PARTE_SELECT is not null and reg_quality.PARTE_GROUP is null) then
+      UTL_FILE.put_line(fich_salida_pkg, 'SELECT');
       UTL_FILE.put_line(fich_salida_pkg, 'COUNT(1)');
       UTL_FILE.put_line(fich_salida_pkg, 'FROM');
       UTL_FILE.put_line(fich_salida_pkg, '(');
       UTL_FILE.put_line(fich_salida_pkg, 'SELECT');
-      UTL_FILE.put_line(fich_salida_pkg, reg_quality.PARTE_SELECT);
+      UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.PARTE_SELECT));
+      UTL_FILE.put_line(fich_salida_pkg, 'FROM');
+      UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.TABLE_BASE_NAME));
     elsif (reg_quality.FILE_SPOOL = 'N' and reg_quality.PARTE_SELECT is null and reg_quality.PARTE_GROUP is not null) then
+      UTL_FILE.put_line(fich_salida_pkg, 'SELECT');
       UTL_FILE.put_line(fich_salida_pkg, 'COUNT(1)');
       UTL_FILE.put_line(fich_salida_pkg, 'FROM');
       UTL_FILE.put_line(fich_salida_pkg, '(');
       UTL_FILE.put_line(fich_salida_pkg, 'SELECT');
-      UTL_FILE.put_line(fich_salida_pkg, reg_quality.PARTE_GROUP);
+      UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.PARTE_GROUP));
       UTL_FILE.put_line(fich_salida_pkg, ', COUNT(1)');
+      UTL_FILE.put_line(fich_salida_pkg, 'FROM');
+      UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.TABLE_BASE_NAME));
+    elsif (reg_quality.FILE_SPOOL = 'N' and reg_quality.PARTE_SELECT is not null and reg_quality.PARTE_GROUP is not null) then
+      UTL_FILE.put_line(fich_salida_pkg, 'SELECT');
+      UTL_FILE.put_line(fich_salida_pkg, 'COUNT(1)');
+      UTL_FILE.put_line(fich_salida_pkg, 'FROM');
+      UTL_FILE.put_line(fich_salida_pkg, '(');
+      UTL_FILE.put_line(fich_salida_pkg, 'SELECT');
+      UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.PARTE_GROUP));
+      UTL_FILE.put_line(fich_salida_pkg, ', COUNT(1)');
+      UTL_FILE.put_line(fich_salida_pkg, 'FROM');
+      UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.TABLE_BASE_NAME));
+    elsif (reg_quality.FILE_SPOOL = 'S' and reg_quality.PARTE_SELECT is null and reg_quality.PARTE_GROUP is null) then
+      /* Si no hay parte SELECT ni GROUP y ademas se genera fichero, FILE_SPOOL='S' */
+      UTL_FILE.put_line(fich_salida_pkg, 'SELECT');
+      UTL_FILE.put_line(fich_salida_pkg, '*');
+      UTL_FILE.put_line(fich_salida_pkg, 'FROM');
+      UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.TABLE_BASE_NAME));
+    elsif (reg_quality.FILE_SPOOL = 'S' and reg_quality.PARTE_SELECT is not null and reg_quality.PARTE_GROUP is null) then
+      UTL_FILE.put_line(fich_salida_pkg, 'SELECT');
+      UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.PARTE_SELECT));
+      UTL_FILE.put_line(fich_salida_pkg, 'FROM');
+      UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.TABLE_BASE_NAME));
+    elsif (reg_quality.FILE_SPOOL = 'S' and reg_quality.PARTE_SELECT is null and reg_quality.PARTE_GROUP is not null) then
+      UTL_FILE.put_line(fich_salida_pkg, 'SELECT');
+      UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.PARTE_GROUP));
+      UTL_FILE.put_line(fich_salida_pkg, ', COUNT(1)');
+      UTL_FILE.put_line(fich_salida_pkg, 'FROM');
+      UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.TABLE_BASE_NAME));
     end if;
-    UTL_FILE.put_line(fich_salida_pkg,'FROM');
-    UTL_FILE.put_line(fich_salida_pkg, reg_quality.TABLE_BASE_NAME);
-    UTL_FILE.put_line(fich_salida_pkg,'WHERE');
-    UTL_FILE.put_line(fich_salida_pkg, reg_quality.FILTER);
-    if (reg_quality.FILE_SPOOL = 'N' and reg_quality.PARTE_SELECT is not null and reg_quality.PARTE_GROUP is null) then
+    if (reg_quality.FILTER is not null) then
+      UTL_FILE.put_line(fich_salida_pkg,'WHERE');
+      UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.FILTER));
+    end if;
+    if (reg_quality.PARTE_GROUP is not null) then
+      /* Tenemos una subquery con un Group By */
+      UTL_FILE.put_line(fich_salida_pkg,'GROUP BY');
+      UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.PARTE_GROUP));
+    end if;
+    if (reg_quality.FILE_SPOOL = 'N') then       
       /* En este caso tenemos una subquery por lo que hay que cerrar el parentesis */
-      UTL_FILE.put_line(fich_salida_pkg,')');
-    elsif (reg_quality.FILE_SPOOL = 'N' and reg_quality.PARTE_SELECT is null and reg_quality.PARTE_GROUP is not null) then
-      /* En este caso tenemos una subquery por lo que hay que cerrar el parentesis */
-      UTL_FILE.put_line(fich_salida_pkg,')');
+      UTL_FILE.put_line(fich_salida_pkg,') ' || reg_quality.QUALITY_NAME  );
     end if;      
     UTL_FILE.put_line(fich_salida_pkg,';');
     UTL_FILE.put_line(fich_salida_pkg,'');
-
-    UTL_FILE.put_line(fich_salida_pkg, '');
+    UTL_FILE.put_line(fich_salida_pkg,'');
     
         
   
@@ -3102,14 +3257,14 @@ begin
     UTL_FILE.put_line(fich_salida_load, '${ESQUEMA_MT}.MTDT_PROCESO');
     UTL_FILE.put_line(fich_salida_load, 'WHERE');
     /* (20160817) Angel Ruiz. Cambio temporal para adecuarse a la entrega de produccion*/
-    UTL_FILE.put_line(fich_salida_load, 'MTDT_PROCESO.NOMBRE_PROCESO = ''' || reg_tabla.TABLE_NAME || '.sh'';');
+    UTL_FILE.put_line(fich_salida_load, 'MTDT_PROCESO.NOMBRE_PROCESO = ''' || reg_quality.QUALITY_NAME || '.sh'';');
     UTL_FILE.put_line(fich_salida_load, '!quit');
     UTL_FILE.put_line(fich_salida_load, 'EOF');
-    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log`');    
+    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}.log`');    
     UTL_FILE.put_line(fich_salida_load, 'if [ ${ERROR} -ne 0 ] ; then');
     UTL_FILE.put_line(fich_salida_load, '  SUBJECT="${INTERFAZ}: ERROR: Al insertar en el metadato Fin Fallido."');
-    UTL_FILE.put_line(fich_salida_load, '  echo "Surgio un error al insertar en el metadato que le proceso no ha terminado OK." >> ${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}.log 2>&' || '1');
-    UTL_FILE.put_line(fich_salida_load, '  echo `date`');
+    UTL_FILE.put_line(fich_salida_load, '  echo "Surgio un error al insertar en el metadato que le proceso no ha terminado OK." >> ${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}.log');
+    UTL_FILE.put_line(fich_salida_load, '  echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}.log');
     UTL_FILE.put_line(fich_salida_load, '  exit 1');
     UTL_FILE.put_line(fich_salida_load, 'fi');
     UTL_FILE.put_line(fich_salida_load, 'return 0');
@@ -3141,16 +3296,16 @@ begin
     UTL_FILE.put_line(fich_salida_load, '${ESQUEMA_MT}.MTDT_PROCESO');
     UTL_FILE.put_line(fich_salida_load, 'WHERE');
     /* (20160817) Angel Ruiz. Cambio temporal para adecuarse a la entrega de produccion*/    
-    UTL_FILE.put_line(fich_salida_load, 'MTDT_PROCESO.NOMBRE_PROCESO = ''' || reg_tabla.TABLE_NAME || '.sh'';');
+    UTL_FILE.put_line(fich_salida_load, 'MTDT_PROCESO.NOMBRE_PROCESO = ''' || reg_quality.QUALITY_NAME || '.sh'';');
     UTL_FILE.put_line(fich_salida_load, '!quit');
     UTL_FILE.put_line(fich_salida_load, 'EOF');
     --UTL_FILE.put_line(fich_salida_load, '  MTDT_PROCESO.NOMBRE_PROCESO = ''' || 'ONIX' || '_' || reg_tabla.TABLE_NAME || '.sh'';');
     /* (20160817) Angel Ruiz FIN Cambio temporal para adecuarse a la entrega de produccion*/
-    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log`');    
+    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}.log`');    
     UTL_FILE.put_line(fich_salida_load, 'if [ ${ERROR} -ne 0 ] ; then');
     UTL_FILE.put_line(fich_salida_load, '    SUBJECT="${INTERFAZ}: ERROR: Al insertar en el metadato Fin OK."');
     UTL_FILE.put_line(fich_salida_load, '    echo "Surgio un error al insertar en el metadato que le proceso ha terminado OK." >> ${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}.log 2>&' || '1');
-    UTL_FILE.put_line(fich_salida_load, '    echo `date`');
+    UTL_FILE.put_line(fich_salida_load, '    echo `date` ${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}.log 2>&' || '1');
     UTL_FILE.put_line(fich_salida_load, '    exit 1');
     UTL_FILE.put_line(fich_salida_load, '  fi');
     UTL_FILE.put_line(fich_salida_load, '  return 0');
@@ -3188,11 +3343,11 @@ begin
     UTL_FILE.put_line(fich_salida_load, '  mkdir ${' || NAME_DM || '_TRAZAS}/${FCH_CARGA}');
     UTL_FILE.put_line(fich_salida_load, 'fi');
     UTL_FILE.put_line(fich_salida_load, '' || NAME_DM || '_TRAZAS=${' || NAME_DM || '_TRAZAS}/${FCH_CARGA}');
-    UTL_FILE.put_line(fich_salida_load, 'echo "${0}" > ${' || NAME_DM || '_TRAZAS}/load_he_' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}' || '.log ');
-    UTL_FILE.put_line(fich_salida_load, 'echo "Inicia Proceso: `date +%d/%m/%Y\ %H:%M:%S`"  >> ${' || NAME_DM || '_TRAZAS}/load_he_' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}' || '.log ');
-    UTL_FILE.put_line(fich_salida_load, 'echo "Fecha de Carga: ${FCH_CARGA}"  >> ${' || NAME_DM || '_TRAZAS}/load_he_' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}' || '.log ');
-    UTL_FILE.put_line(fich_salida_load, 'echo "Fecha de Datos: ${FCH_DATOS}"  >> ${' || NAME_DM || '_TRAZAS}/load_he_' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}' || '.log ');
-    UTL_FILE.put_line(fich_salida_load, 'echo "Forzado: ${BAN_FORZADO}"  >> ${' || NAME_DM || '_TRAZAS}/load_he_' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}' || '.log ');
+    UTL_FILE.put_line(fich_salida_load, 'echo "${0}" > ${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}' || '.log ');
+    UTL_FILE.put_line(fich_salida_load, 'echo "Inicia Proceso: `date +%d/%m/%Y\ %H:%M:%S`"  >> ${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}' || '.log ');
+    UTL_FILE.put_line(fich_salida_load, 'echo "Fecha de Carga: ${FCH_CARGA}"  >> ${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}' || '.log ');
+    UTL_FILE.put_line(fich_salida_load, 'echo "Fecha de Datos: ${FCH_DATOS}"  >> ${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}' || '.log ');
+    UTL_FILE.put_line(fich_salida_load, 'echo "Forzado: ${BAN_FORZADO}"  >> ${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}' || '.log ');
     --UTL_FILE.put_line(fich_salida_sh, 'set -x');
     UTL_FILE.put_line(fich_salida_load, '#Permite los acentos y U');
     UTL_FILE.put_line(fich_salida_load, 'NLS_LANG=AMERICAN_AMERICA.WE8ISO8859P1');
@@ -3269,44 +3424,81 @@ begin
     UTL_FILE.put_line(fich_salida_load, 'EOF`');
     --UTL_FILE.put_line(fich_salida_load, 'INICIO_PASO_TMR=`echo ${INICIO_PASO_TMR_PREV} | sed -e ''s/ //g'' -e ''s/\n//g'' -e ''s/\r//g''`');    
     UTL_FILE.put_line(fich_salida_load, 'INICIO_PASO_TMR=`echo ${INICIO_PASO_TMR_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');    
-    UTL_FILE.put_line(fich_salida_load, 'echo "Inicio de la carga de ' || reg_quality.QUALITY_NAME || '"' || ' >> ' || '${' || 'NGRD' || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}.log');
+    UTL_FILE.put_line(fich_salida_load, 'echo "Inicio de la carga de ' || reg_quality.QUALITY_NAME || '"' || ' >> ' || '${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}.log');
     UTL_FILE.put_line(fich_salida_load, '');
-    UTL_FILE.put_line(fich_salida_load, 'sed -e "s/#VAR_FCH_REGISTRO#/${INICIO_PASO_TMR}/g" -e "s/#VAR_FCH_CARGA#/${FCH_CARGA_FMT_HIVE}/g" -e "s/#VAR_FCH_DATOS#/${FCH_DATOS_FMT_HIVE}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" -e "s/#VAR_CVE_MES#/${FCH_CARGA_MES}/g" -e "s/#VAR_CVE_DIA#/${VAR_FCH_CARGA}/g" ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '.sql > ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
+    UTL_FILE.put_line(fich_salida_load, 'sed -e "s/#VAR_FCH_REGISTRO#/${INICIO_PASO_TMR}/g" -e "s/#VAR_FCH_CARGA#/${FCH_CARGA_FMT_HIVE}/g" -e "s/#VAR_FCH_DATOS#/${FCH_DATOS_FMT_HIVE}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" -e "s/#VAR_CVE_MES#/${FCH_CARGA_MES}/g" -e "s/#VAR_CVE_DIA#/${VAR_FCH_CARGA}/g" ${NGRD_SQL}/' || reg_quality.QUALITY_NAME || '.sql > ${NGRD_SQL}/' || reg_quality.QUALITY_NAME || '_tmp.sql');
 
     /***********************************************************************************/
     --UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -f ' || '${NGRD_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
-    UTL_FILE.put_line(fich_salida_load, 'beeline << EOF >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
-    UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
-    UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
-    UTL_FILE.put_line(fich_salida_load, '!quit');
-    UTL_FILE.put_line(fich_salida_load, 'EOF');
-    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log`');
-    --UTL_FILE.put_line(fich_salida_load, 'err_salida=$?');
+    /* (20170509) Angel Ruiz. Dependiendo de si estamos generando un script que a su vez genera un fichero de salida */
+    /* o en cambio no lo hace */
+    if (reg_quality.FILE_SPOOL = 'S') then
+      /* (20170509) Angel Ruiz. Se tarta de un proceso de calidad que genera un fichero de contraste */
+      UTL_FILE.put_line(fich_salida_load, 'beeline --silent=true --showHeader=false --outputformat=dsv --nullemptystring=true << EOF > ' || '${' || NAME_DM || '_TMP_LOCAL}/' || reg_quality.QUALITY_NAME || '_${FCH_DATOS}.dat 2>> ' || '${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+      UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/' || reg_quality.QUALITY_NAME || '_tmp.sql');
+      UTL_FILE.put_line(fich_salida_load, '!quit');
+      UTL_FILE.put_line(fich_salida_load, 'EOF');
+    else
+      /* (20170509) Angel Ruiz. Se trata de un proceso de calidad que no genera un fichero de contraste */
+      UTL_FILE.put_line(fich_salida_load, 'TOT_INSERTADOS_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv --nullemptystring=true << EOF 2>> ' || '${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+      UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/' || reg_quality.QUALITY_NAME || '_tmp.sql');
+      UTL_FILE.put_line(fich_salida_load, '!quit');
+      UTL_FILE.put_line(fich_salida_load, 'EOF`');
+    end if;
+    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}.log`');
     UTL_FILE.put_line(fich_salida_load, '');
-    --UTL_FILE.put_line(fich_salida_load, 'if [ ${err_salida} -ne 0 ]; then');
     UTL_FILE.put_line(fich_salida_load, 'if [ ${ERROR} != 0 ] ; then');
-    UTL_FILE.put_line(fich_salida_load, '  SUBJECT="${INTERFAZ}: Surgio un error en la carga de la dimension ' || reg_tabla.TABLE_NAME || '. Error:  ${err_salida}."');
+    UTL_FILE.put_line(fich_salida_load, '  SUBJECT="${INTERFAZ}: Surgio un error en el proceso de calidad ' || reg_quality.QUALITY_NAME || '. Error:  ${err_salida}."');
     UTL_FILE.put_line(fich_salida_load, '  ${SHELL_SMS} "${TELEFONOS_DWH}" "${SUBJECT}"');
-    UTL_FILE.put_line(fich_salida_load, '  echo ${SUBJECT} >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');    
-    UTL_FILE.put_line(fich_salida_load, '  echo `date` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+    UTL_FILE.put_line(fich_salida_load, '  echo ${SUBJECT} >> ' || '${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}.log');    
+    UTL_FILE.put_line(fich_salida_load, '  echo `date` >> ' || '${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}.log');
     UTL_FILE.put_line(fich_salida_load, '  InsertaFinFallido');
     UTL_FILE.put_line(fich_salida_load, '  exit 1');    
     UTL_FILE.put_line(fich_salida_load, 'fi');
     UTL_FILE.put_line(fich_salida_load, '');
     UTL_FILE.put_line(fich_salida_load, '# Borro el fichero temporal .sql generado en vuelo');
-    UTL_FILE.put_line(fich_salida_load, 'rm ${NGRD_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
-    UTL_FILE.put_line(fich_salida_load, '# Obtenemos el numero de registros nuevos para despues grabarlo en el metadato');
-    --UTL_FILE.put_line(fich_salida_load, 'TOT_INSERTADOS=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_ML}.T_' || nombre_tabla_reducido || ';"` >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
-    UTL_FILE.put_line(fich_salida_load, 'TOT_INSERTADOS_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
-    UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
-    UTL_FILE.put_line(fich_salida_load, 'select count(*) from ${ESQUEMA_ML}.T_' || nombre_tabla_reducido || ';');
-    UTL_FILE.put_line(fich_salida_load, '!quit');
-    UTL_FILE.put_line(fich_salida_load, 'EOF` >> '|| '${' || NAME_DM || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
-    UTL_FILE.put_line(fich_salida_load, 'TOT_INSERTADOS=`echo ${TOT_INSERTADOS_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
+    UTL_FILE.put_line(fich_salida_load, 'rm ${NGRD_SQL}/' || reg_quality.QUALITY_NAME || '_tmp.sql');
+    if (reg_quality.FILE_SPOOL = 'S') then
+      /* (20170509) Angel Ruiz. Se tarta de un proceso de calidad que genera un fichero de contraste */
+      UTL_FILE.put_line(fich_salida_load, '  # Surpimimos las lineas en blanco del fichero obtenido');
+      UTL_FILE.put_line(fich_salida_load, '  grep -G -v -e ''^.$'' -e ''^[ ]*.$'' -e ''^$'' ' || '${' || NAME_DM || '_TMP_LOCAL}/' || reg_quality.QUALITY_NAME || '_${FCH_DATOS}.dat > ' || '${' || NAME_DM || '_TMP_LOCAL}/' || reg_quality.QUALITY_NAME || '_${FCH_DATOS}.dat_tmp');
+      UTL_FILE.put_line(fich_salida_load, '  rm -f ${' || NAME_DM || '_TMP_LOCAL}/' || reg_quality.QUALITY_NAME || '_${FCH_DATOS}.dat');
+      UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_TMP_LOCAL}/' || reg_quality.QUALITY_NAME || '_${FCH_DATOS}.dat_tmp ${' || NAME_DM || '_TMP_LOCAL}/' || reg_quality.QUALITY_NAME || '_${FCH_DATOS}.dat');
+      UTL_FILE.put_line(fich_salida_load, '  # Procesamos el fichero obtenido');
+      UTL_FILE.put_line(fich_salida_load, '  hadoop fs -test -d ' || '${' || NAME_DM || '_QUALITY}/' || reg_quality.QUALITY_NAME);      
+      UTL_FILE.put_line(fich_salida_load, '  if [ $? -ne 0 ]; then');
+      UTL_FILE.put_line(fich_salida_load, '    # El directorio al que se van a copiar los ficheros no existe. Se crea.');
+      UTL_FILE.put_line(fich_salida_load, '    hadoop fs -mkdir ${' || NAME_DM || '_QUALITY}/' || reg_quality.QUALITY_NAME);
+      UTL_FILE.put_line(fich_salida_load, '  fi');
+      UTL_FILE.put_line(fich_salida_load, '  hadoop fs -test -d ' || '${' || NAME_DM || '_QUALITY}/' || reg_quality.QUALITY_NAME || '/${FCH_CARGA}');      
+      UTL_FILE.put_line(fich_salida_load, '  if [ $? -ne 0 ]; then');
+      UTL_FILE.put_line(fich_salida_load, '    # El directorio al que se van a copiar los ficheros no existe. Se crea.');
+      UTL_FILE.put_line(fich_salida_load, '    hadoop fs -mkdir ${' || NAME_DM || '_QUALITY}/' || reg_quality.QUALITY_NAME || '/${FCH_CARGA}');
+      UTL_FILE.put_line(fich_salida_load, '  fi');
+      UTL_FILE.put_line(fich_salida_load, '  # Borramos el fichero en el destino si existe. Opcion -f');
+      UTL_FILE.put_line(fich_salida_load, '  hadoop fs -rm -f ' || '${' || NAME_DM || '_QUALITY}/' || reg_quality.QUALITY_NAME || '/${FCH_CARGA}/' || reg_quality.QUALITY_NAME || '_${FCH_DATOS}.dat');
+      UTL_FILE.put_line(fich_salida_load, '  # Generamos el fichero extraido en el destino');
+      UTL_FILE.put_line(fich_salida_load, '  NUM_FILES=`ls -1 ${' || NAME_DM || '_TMP_LOCAL}/' || reg_quality.QUALITY_NAME || '_${FCH_DATOS}.dat | wc -l`');
+      UTL_FILE.put_line(fich_salida_load, '  if [ ${NUM_FILES} -eq 1 ]; then');
+      /* (20170112) Angel Ruiz. NF: Nueva estructura de la parte de STAGING */
+      --UTL_FILE.put_line(fich_salida_load, '    hadoop fs -mv ' || '${' || NAME_DM || '_TMP}/${INTERFAZ}/part-m-00000 ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${ARCHIVO_SALIDA}');
+      UTL_FILE.put_line(fich_salida_load, '    hadoop fs -put ' || '${' || NAME_DM || '_TMP_LOCAL}/' || reg_quality.QUALITY_NAME || '_${FCH_DATOS}.dat ${' || NAME_DM || '_QUALITY}/' || reg_quality.QUALITY_NAME || '/${FCH_CARGA}');
+      UTL_FILE.put_line(fich_salida_load, '  fi');
+    end if;
+    UTL_FILE.put_line(fich_salida_load, '');
+    UTL_FILE.put_line(fich_salida_load, '# Obtenemos el numero de registros para despues grabarlo en el metadato');
+    if (reg_quality.FILE_SPOOL = 'S') then
+      /* (20170509) Angel Ruiz. Se tarta de un proceso de calidad que genera un fichero de contraste */
+      UTL_FILE.put_line(fich_salida_load, 'TOT_INSERTADOS=`hadoop fs -cat ${' || NAME_DM || '_QUALITY}/' || reg_quality.QUALITY_NAME || '/${FCH_CARGA}/' || reg_quality.QUALITY_NAME || '_${FCH_DATOS}.dat | wc -l`');
+    else
+      UTL_FILE.put_line(fich_salida_load, 'TOT_INSERTADOS=`echo ${TOT_INSERTADOS_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
+    end if;
     UTL_FILE.put_line(fich_salida_load, '# Insertamos que el proceso se ha Ejecutado Correctamente');
     UTL_FILE.put_line(fich_salida_load, 'InsertaFinOK');
     UTL_FILE.put_line(fich_salida_load, '');
-    UTL_FILE.put_line(fich_salida_load, 'echo "El proceso load_' ||  'he_' || reg_tabla.TABLE_NAME || ' se ha realizado correctamente." >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_he_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+    UTL_FILE.put_line(fich_salida_load, 'echo "El proceso ' || reg_quality.QUALITY_NAME || ' se ha realizado correctamente." >> ' || '${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}.log');
     UTL_FILE.put_line(fich_salida_load, '');
     UTL_FILE.put_line(fich_salida_load, 'exit 0');
     /******/
@@ -3326,6 +3518,6 @@ begin
     --UTL_FILE.FCLOSE (fich_salida_exchange);
     UTL_FILE.FCLOSE (fich_salida_pkg);
   end loop;
-  close MTDT_TABLA;
+  close MTDT_QUALITY_ASSURANCE;
 end;
 
