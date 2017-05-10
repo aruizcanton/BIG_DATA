@@ -10,7 +10,8 @@
       SEPARATOR,
       DELAYED
     FROM MTDT_INTERFACE_SUMMARY
-    WHERE SOURCE <> 'SA' and TRIM(SOURCE) <> 'MAN' and
+    --WHERE SOURCE <> 'SA' and TRIM(SOURCE) <> 'MAN' and
+    WHERE TRIM(SOURCE) <> 'MAN' and
   (TRIM(STATUS) ='P' OR TRIM(STATUS) = 'D');
     
   CURSOR dtd_interfaz_summary_history
@@ -69,8 +70,12 @@ BEGIN
   LOOP
     FETCH dtd_interfaz_summary
       INTO reg_summary;
-      EXIT WHEN dtd_interfaz_summary%NOTFOUND;  
-      DBMS_OUTPUT.put_line('DROP TABLE IF EXISTS ' || OWNER_SA || '.' || 'SAH_' || reg_summary.CONCEPT_NAME || ' PURGE;');
+      EXIT WHEN dtd_interfaz_summary%NOTFOUND;
+      if (reg_summary.SOURCE <> 'SA') then
+      /* (20170420) Angel Ruiz. NF: Se admiten tablas de INTEGRACION */
+      /* Tablas tipo SA_* pero que no se cargan de fichero si no en TC */
+        DBMS_OUTPUT.put_line('DROP TABLE IF EXISTS ' || OWNER_SA || '.' || 'SAH_' || reg_summary.CONCEPT_NAME || ' PURGE;');
+      end if;
       --DBMS_OUTPUT.put_line('DROP TABLE IF EXISTS ' || OWNER_SA || '.' || 'SA_' || reg_summary.CONCEPT_NAME || ' PURGE;');
       DBMS_OUTPUT.put_line('DROP TABLE IF EXISTS ' || OWNER_DM || '.' || 'SA_' || reg_summary.CONCEPT_NAME || ' PURGE;');
       /* (20161012) Angel Ruiz. Carga de tablas de longitud fija */
