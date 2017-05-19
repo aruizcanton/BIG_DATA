@@ -23,7 +23,7 @@ SELECT
     --'CATEGORIA_CLIENTE', 'CICLO', 'ESTATUS_OPERACION', 'FORMA_PAGO', 'PROMOCION', 'SEGMENTO_CLIENTE', 
     --'GRUPO_ABONADO', 'REL_GRUPO_ABONADO');
     --and trim(MTDT_EXT_SCENARIO_1.TABLE_NAME) in ('OFFER_ITEM', 'EQUIPO');
-    and trim(MTDT_EXT_SCENARIO_1.TABLE_NAME) in ('OFFER_ITEM');
+    and trim(MTDT_EXT_SCENARIO_1.TABLE_NAME) in ('OFFER_ITEM', 'EQUIPO');
 
   /********************************/
   /* (20170413) Angel Ruiz. NF: Extraccion de interfaces desde diferentes */
@@ -3369,15 +3369,17 @@ begin
     --UTL_FILE.put_line(fich_salida_load, '    exit 1');
     --UTL_FILE.put_line(fich_salida_load, '  fi');
     UTL_FILE.put_line(fich_salida_load, '  BD_PWD="${PASSWORD_EXT}"');
-    UTL_FILE.put_line(fich_salida_load, '  TraePass HIVE ${BD_USER_HIVE}');
-    UTL_FILE.put_line(fich_salida_load, '  if [ "${PASSWORD}" = "" ] ; then');
-    UTL_FILE.put_line(fich_salida_load, '    SUBJECT="Error BD ${REQ_NUM} (`date +%d/%m/%Y`)"');
-    UTL_FILE.put_line(fich_salida_load, '    echo "Error no se pudo obtener la password para HIVE y el usuario ${BD_USR}" >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
-    UTL_FILE.put_line(fich_salida_load, '    echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+    /* (20170518) Angel Ruiz. BUG. Ya no hace falta llamar a TraePass ya que esto se hace al inicio en el programa */
+    /* principal. POr lo que comento las siguientes lineas */
+    --UTL_FILE.put_line(fich_salida_load, '  TraePass HIVE ${BD_USER_HIVE}');
+    --UTL_FILE.put_line(fich_salida_load, '  if [ "${PASSWORD}" = "" ] ; then');
+    --UTL_FILE.put_line(fich_salida_load, '    SUBJECT="Error BD ${REQ_NUM} (`date +%d/%m/%Y`)"');
+    --UTL_FILE.put_line(fich_salida_load, '    echo "Error no se pudo obtener la password para HIVE y el usuario ${BD_USR}" >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+    --UTL_FILE.put_line(fich_salida_load, '    echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
     --UTL_FILE.put_line(fich_salida_load, '    InsertaFinFallido');
-    UTL_FILE.put_line(fich_salida_load, '    exit 1;');
-    UTL_FILE.put_line(fich_salida_load, '  fi');
-    UTL_FILE.put_line(fich_salida_load, '  BD_CLAVE_HIVE="${PASSWORD}"');
+    --UTL_FILE.put_line(fich_salida_load, '    exit 1;');
+    --UTL_FILE.put_line(fich_salida_load, '  fi');
+    --UTL_FILE.put_line(fich_salida_load, '  BD_CLAVE_HIVE="${PASSWORD}"');
     UTL_FILE.put_line(fich_salida_load, '  return 0');
     UTL_FILE.put_line(fich_salida_load, '}');
     UTL_FILE.put_line(fich_salida_load, '################################################################################');
@@ -4378,6 +4380,13 @@ begin
     /* (20170418) Angel Ruiz. NF Fin */
     UTL_FILE.put_line(fich_salida_load, '#OBTIENE LA CONTRASENA DE HIVE');
     UTL_FILE.put_line(fich_salida_load, 'TraePass HIVE ${BD_USER_HIVE}');
+    UTL_FILE.put_line(fich_salida_load, 'if [ "${PASSWORD}" = "" ] ; then');
+    UTL_FILE.put_line(fich_salida_load, '  SUBJECT="Error BD ${REQ_NUM} (`date +%d/%m/%Y`)"');
+    UTL_FILE.put_line(fich_salida_load, '  echo "Error no se pudo obtener la password para HIVE y el usuario ${BD_USR}" >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+    UTL_FILE.put_line(fich_salida_load, '  echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+    --UTL_FILE.put_line(fich_salida_load, '    InsertaFinFallido');
+    UTL_FILE.put_line(fich_salida_load, '  exit 1;');
+    UTL_FILE.put_line(fich_salida_load, 'fi');    
     UTL_FILE.put_line(fich_salida_load, 'BD_CLAVE_HIVE=PASSWORD');
     UTL_FILE.put_line(fich_salida_load, '#OBTIENE LA FECHA');
     UTL_FILE.put_line(fich_salida_load, 'ObtieneFecha $1');
