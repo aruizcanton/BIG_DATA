@@ -15,10 +15,13 @@ SELECT
     WHERE MTDT_TC_SCENARIO.TABLE_TYPE = 'H' and
     --trim(MTDT_TC_SCENARIO.TABLE_NAME) = trim(mtdt_modelo_logico.TABLE_NAME) and (20150907) Angel Ruiz NF. Nuevas tablas.
     trim(MTDT_TC_SCENARIO.TABLE_NAME) = trim(mtdt_modelo_summary.TABLE_NAME) and
-    trim(MTDT_TC_SCENARIO.TABLE_NAME) in ('NGA_PARQUE_ABO_MES', 'NGA_PARQUE_SVA_MES', 'NGA_PARQUE_BENEF_MES', 
+    trim(MTDT_TC_SCENARIO.TABLE_NAME) in 
+    (
+    'NGA_PARQUE_ABO_MES', 'NGA_PARQUE_SVA_MES', 'NGA_PARQUE_BENEF_MES', 
     'NGG_TRANSACCIONES_DETAIL', 'NGA_COMIS_POS_ABO_MES', 'NGA_AJUSTE_ABO_MES', 'NGA_NOSTNDR_CONTRATOS_MES', 
     'NGA_ALTAS_CANAL_MES', 'NGF_PERIMETRO', 'NGA_NOSTNDR_PLANTA_MES', 'NGA_PARQUE_ABO_DESA_MES',
-    'NGA_DESC_ADQR_ABO_MES', 'NGA_DESC_EJEC_ABO_MES', 'NGA_PRECIO_UNITARIO_SIM', 'NGA_VIDA_MEDIA_ABO_PRE', 'NGA_MATERIALIDAD_SIM');
+    'NGA_DESC_ADQR_ABO_MES', 'NGA_DESC_EJEC_ABO_MES', 'NGA_PRECIO_UNITARIO_SIM', 'NGA_VIDA_MEDIA_ABO_PRE', 'NGA_MATERIALIDAD_SIM'
+    );
     --trim(MTDT_TC_SCENARIO.TABLE_NAME) in ('NGA_PARQUE_ABO_DESA_MES');
     
   cursor MTDT_SCENARIO (table_name_in IN VARCHAR2)
@@ -217,6 +220,12 @@ SELECT
       else
         v_cadena_result := cadena_in;
       end if;
+    elsif (regexp_instr(cadena_in, '[Ii][Ff] *\(') > 0) then
+      /* Se trata de que el campo de join posee la funcion IF */
+        v_cadena_temp := regexp_replace (cadena_in, ' *([Ii][Ff]) *\( *([A-Za-z_\.]+) *', ' \1(' || alias_in || '.' || '\2');
+        v_cadena_temp := regexp_replace (v_cadena_temp, ', *([A-Za-z_\.]+) *,', ', ' || alias_in || '.' || '\1,');
+        v_cadena_temp := regexp_replace (v_cadena_temp, ', *([A-Za-z_\.'']+) *\)', ', ' || alias_in || '.' || '\1' || ')');
+        v_cadena_result := v_cadena_temp;
     else
       v_cadena_result := alias_in || '.' || cadena_in;
     end if;
@@ -233,6 +242,7 @@ SELECT
     v_cadena_temp varchar2(200);
     v_cadena_result varchar2(200);
   begin
+    dbms_output.put_line('Estoy en el extrae_campo. La cadena de entrada es: ' || cadena_in);
     /* Detecto si existen funciones SQL en el campo */
     if (regexp_instr(cadena_in, '[Dd][Ee][Cc][Oo][Dd][Ee]') > 0 ) then
       if (regexp_instr(cadena_in, ' *[Dd][Ee][Cc][Oo][Dd][Ee] *\( *[A-Za-z_]+ *,') > 0) then
@@ -270,9 +280,23 @@ SELECT
       else
         v_cadena_result := cadena_in;
       end if;
+    elsif (regexp_instr(cadena_in, '[Ii][Ff] *\(') > 0) then
+      v_cadena_temp := regexp_substr (cadena_in,' *[Ii][Ff] *\( *[A-Za-z_\.]+ *');
+      dbms_output.put_line('Estoy en el extrae_campo. Entro en el IF. El primer substr es : ' || v_cadena_temp);
+      
+      if (instr(v_cadena_temp, '.') > 0 )then
+        /* El campo viene calificado */
+        v_campo := regexp_substr (v_cadena_temp,'\.[A-Za-z_]+', instr( v_cadena_temp, '('));
+        v_campo := substr(v_campo, 2); /* ME QUITO EL PUNTO */
+        v_cadena_result := v_campo;
+      else
+        v_campo := regexp_substr (v_cadena_temp,'[A-Za-z_]+', instr( v_cadena_temp, '('));
+        v_cadena_result := v_campo;
+      end if;
     else
       v_cadena_result := cadena_in;
     end if;
+    dbms_output.put_line('Estoy en el extrae_campo. La cadena de salida es: ' || v_cadena_result);
     return v_cadena_result;
   end;
 /* (20150918) Angel Ruiz. NUEVA FUNCION */
@@ -2004,7 +2028,8 @@ SELECT
             if (regexp_instr(ie_column_lkup(indx), '[Dd][Ee][Cc][Oo][Dd][Ee]') > 0) or
             (regexp_instr(ie_column_lkup(indx), '[Nn][Vv][Ll]') > 0) or
             (regexp_instr(ie_column_lkup(indx), '[Uu][Pp][Pp][Ee][Rr]') > 0) or
-            (regexp_instr(ie_column_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0)
+            (regexp_instr(ie_column_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) or
+            (regexp_instr(ie_column_lkup(indx), '[Ii][Ff] *\(') > 0)
             then
               --nombre_campo := extrae_campo_decode (ie_column_lkup(indx));
               /* (20161117) Angel Ruiz. NF: Pueden venir funciones en los campos de join como */
@@ -2019,6 +2044,7 @@ SELECT
               UPPER(TRIM(COLUMN_NAME)) = UPPER(TRIM(nombre_campo)))
               loop
                 v_existe_valor:=true;
+                dbms_output.put_line('EXISTE VALOR IGUAL A TRUE. Tabla: ' || mi_tabla_base_name || ' Campo: ' || nombre_campo);
               end loop;
               if (v_existe_valor = true) then
                 SELECT * INTO l_registro2
@@ -2062,6 +2088,8 @@ SELECT
                       l_WHERE_ON_clause(l_WHERE_ON_clause.last) := 'NVL(' || transformo_funcion(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || ', ''NI#'')' ||  v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
                     elsif (regexp_instr(ie_column_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0 or regexp_instr(table_columns_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) then
                       l_WHERE_ON_clause(l_WHERE_ON_clause.last) := 'NVL(' || transformo_funcion(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || ', ''NI#'')' ||  v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
+                    elsif (regexp_instr(ie_column_lkup(indx), '[Ii][Ff] *\(') > 0 or regexp_instr(table_columns_lkup(indx), '[Ii][Ff] *\(') > 0) then
+                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) := 'NVL(' || transformo_funcion(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || ', ''NI#'')' ||  v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
                     else
                       /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
                       if (instr(ie_column_lkup(indx), '.') > 0) then
@@ -2079,6 +2107,8 @@ SELECT
                     elsif (regexp_instr(ie_column_lkup(indx), '[Uu][Pp][Pp][Ee][Rr]') > 0 or regexp_instr(table_columns_lkup(indx), '[Uu][Pp][Pp][Ee][Rr]') > 0) then
                       l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  transformo_funcion(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
                     elsif (regexp_instr(ie_column_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0 or regexp_instr(table_columns_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) then
+                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  transformo_funcion(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
+                    elsif (regexp_instr(ie_column_lkup(indx), '[Ii][Ff] *\(') > 0 or regexp_instr(table_columns_lkup(indx), '[Ii][Ff] *\(') > 0) then
                       l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  transformo_funcion(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
                     else
                       /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
@@ -2099,6 +2129,8 @@ SELECT
                   elsif (regexp_instr(ie_column_lkup(indx), '[Uu][Pp][Pp][Ee][Rr]') > 0 or regexp_instr(table_columns_lkup(indx), '[Uu][Pp][Pp][Ee][Rr]') > 0) then
                     l_WHERE_ON_clause(l_WHERE_ON_clause.last) := transformo_funcion(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
                   elsif (regexp_instr(ie_column_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0 or regexp_instr(table_columns_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) then
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) := transformo_funcion(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
+                  elsif (regexp_instr(ie_column_lkup(indx), '[Ii][Ff] *\(') > 0 or regexp_instr(table_columns_lkup(indx), '[Ii][Ff] *\(') > 0) then
                     l_WHERE_ON_clause(l_WHERE_ON_clause.last) := transformo_funcion(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
                   else
                     /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
@@ -2143,6 +2175,8 @@ SELECT
                       l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND NVL(' || transformo_funcion(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || ', ''NI#'')' || v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
                     elsif (regexp_instr(ie_column_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0 or regexp_instr(table_columns_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) then
                       l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND NVL(' || transformo_funcion(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || ', ''NI#'')' || v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
+                    elsif (regexp_instr(ie_column_lkup(indx), '[Ii][Ff] *\(') > 0 or regexp_instr(table_columns_lkup(indx), '[Ii][Ff] *\(') > 0) then
+                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND NVL(' || transformo_funcion(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || ', ''NI#'')' || v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
                     else
                       /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
                       if (instr(ie_column_lkup(indx), '.') > 0) then
@@ -2160,6 +2194,8 @@ SELECT
                     elsif (regexp_instr(ie_column_lkup(indx), '[Uu][Pp][Pp][Ee][Rr]') > 0 or regexp_instr(table_columns_lkup(indx), '[Uu][Pp][Pp][Ee][Rr]') > 0) then
                       l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || transformo_funcion (ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
                     elsif (regexp_instr(ie_column_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0 or regexp_instr(table_columns_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) then
+                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || transformo_funcion (ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
+                    elsif (regexp_instr(ie_column_lkup(indx), '[Ii][Ff] *\(') > 0 or regexp_instr(table_columns_lkup(indx), '[Ii][Ff] *\(') > 0) then
                       l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || transformo_funcion (ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
                     else
                       /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
@@ -2180,6 +2216,8 @@ SELECT
                   elsif (regexp_instr(ie_column_lkup(indx), '[Uu][Pp][Pp][Ee][Rr]') > 0 or regexp_instr(table_columns_lkup(indx), '[Uu][Pp][Pp][Ee][Rr]') > 0) then
                     l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || transformo_funcion(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
                   elsif (regexp_instr(ie_column_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0 or regexp_instr(table_columns_lkup(indx), '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) then
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || transformo_funcion(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
+                  elsif (regexp_instr(ie_column_lkup(indx), '[Ii][Ff] *\(') > 0 or regexp_instr(table_columns_lkup(indx), '[Ii][Ff] *\(') > 0) then
                     l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || transformo_funcion(ie_column_lkup(indx), reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(table_columns_lkup(indx), v_alias);
                   else
                     /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
@@ -2246,7 +2284,8 @@ SELECT
             if (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Dd][Ee][Cc][Oo][Dd][Ee]') > 0) or
             (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Nn][Vv][Ll]') > 0) or
             (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Uu][Pp][Pp][Ee][Rr]') > 0) or
-            (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0)
+            (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) or
+            (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Ii][Ff] *\(') > 0)
             then
             --if (instr(reg_detalle_in.IE_COLUMN_LKUP, 'DECODE') > 0 or instr(reg_detalle_in.IE_COLUMN_LKUP, 'decode') > 0) then
               --nombre_campo := extrae_campo_decode (reg_detalle_in.IE_COLUMN_LKUP);
@@ -2298,6 +2337,8 @@ SELECT
                       l_WHERE_ON_clause(l_WHERE_ON_clause.last) := 'NVL(' || transformo_funcion(reg_detalle_in.IE_COLUMN_LKUP, reg_detalle_in.TABLE_BASE_NAME) || ', ''NI#'')' ||  v_operador_para_join || transformo_funcion(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias);
                     elsif (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0 or regexp_instr(reg_detalle_in.TABLE_COLUMN_LKUP, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) then
                       l_WHERE_ON_clause(l_WHERE_ON_clause.last) := 'NVL(' || transformo_funcion(reg_detalle_in.IE_COLUMN_LKUP, reg_detalle_in.TABLE_BASE_NAME) || ', ''NI#'')' ||  v_operador_para_join || transformo_funcion(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias);
+                    elsif (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Ii][Ff] *\(') > 0 or regexp_instr(reg_detalle_in.TABLE_COLUMN_LKUP, '[Ii][Ff] *\(') > 0) then
+                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) := 'NVL(' || transformo_funcion(reg_detalle_in.IE_COLUMN_LKUP, reg_detalle_in.TABLE_BASE_NAME) || ', ''NI#'')' ||  v_operador_para_join || transformo_funcion(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias);
                     else
                       /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
                       if (instr(reg_detalle_in.IE_COLUMN_LKUP, '.') > 0) then
@@ -2314,6 +2355,8 @@ SELECT
                     elsif (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Uu][Pp][Pp][Ee][Rr]') > 0 or regexp_instr(reg_detalle_in.TABLE_COLUMN_LKUP, '[Uu][Pp][Pp][Ee][Rr]') > 0) then
                       l_WHERE_ON_clause(l_WHERE_ON_clause.last) := transformo_funcion(reg_detalle_in.IE_COLUMN_LKUP, reg_detalle_in.TABLE_BASE_NAME) ||  v_operador_para_join || transformo_funcion(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias);
                     elsif (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0 and regexp_instr(reg_detalle_in.TABLE_COLUMN_LKUP, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) then
+                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) := transformo_funcion(reg_detalle_in.IE_COLUMN_LKUP, reg_detalle_in.TABLE_BASE_NAME) ||  v_operador_para_join || transformo_funcion(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias);
+                    elsif (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Ii][Ff] *\(') > 0 and regexp_instr(reg_detalle_in.TABLE_COLUMN_LKUP, '[Ii][Ff] *\(') > 0) then
                       l_WHERE_ON_clause(l_WHERE_ON_clause.last) := transformo_funcion(reg_detalle_in.IE_COLUMN_LKUP, reg_detalle_in.TABLE_BASE_NAME) ||  v_operador_para_join || transformo_funcion(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias);
                     else
                       /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
@@ -2333,6 +2376,8 @@ SELECT
                   elsif (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Uu][Pp][Pp][Ee][Rr]') > 0 or regexp_instr(reg_detalle_in.TABLE_COLUMN_LKUP, '[Uu][Pp][Pp][Ee][Rr]') > 0) then
                     l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  transformo_funcion(reg_detalle_in.IE_COLUMN_LKUP, reg_detalle_in.TABLE_BASE_NAME) ||  v_operador_para_join || transformo_funcion(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias);
                   elsif (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0 or regexp_instr(reg_detalle_in.TABLE_COLUMN_LKUP, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) then
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  transformo_funcion(reg_detalle_in.IE_COLUMN_LKUP, reg_detalle_in.TABLE_BASE_NAME) ||  v_operador_para_join || transformo_funcion(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias);
+                  elsif (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Ii][Ff] *\(') > 0 or regexp_instr(reg_detalle_in.TABLE_COLUMN_LKUP, '[Ii][Ff] *\(') > 0) then
                     l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  transformo_funcion(reg_detalle_in.IE_COLUMN_LKUP, reg_detalle_in.TABLE_BASE_NAME) ||  v_operador_para_join || transformo_funcion(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias);
                   else
                     /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
@@ -2375,6 +2420,8 @@ SELECT
                       l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND NVL(' || transformo_funcion(reg_detalle_in.IE_COLUMN_LKUP, reg_detalle_in.TABLE_BASE_NAME) || ', ''NI#'')' || v_operador_para_join || transformo_funcion(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias);
                     elsif (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0 or regexp_instr(reg_detalle_in.TABLE_COLUMN_LKUP, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) then
                       l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND NVL(' || transformo_funcion(reg_detalle_in.IE_COLUMN_LKUP, reg_detalle_in.TABLE_BASE_NAME) || ', ''NI#'')' || v_operador_para_join || transformo_funcion(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias);
+                    elsif (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Ii][Ff] *\(') > 0 or regexp_instr(reg_detalle_in.TABLE_COLUMN_LKUP, '[Ii][Ff] *\(') > 0) then
+                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND NVL(' || transformo_funcion(reg_detalle_in.IE_COLUMN_LKUP, reg_detalle_in.TABLE_BASE_NAME) || ', ''NI#'')' || v_operador_para_join || transformo_funcion(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias);
                     else
                       /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
                       if (instr(reg_detalle_in.IE_COLUMN_LKUP, '.') > 0) then
@@ -2391,6 +2438,8 @@ SELECT
                     elsif (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Uu][Pp][Pp][Ee][Rr]') > 0 or regexp_instr(reg_detalle_in.TABLE_COLUMN_LKUP, '[Uu][Pp][Pp][Ee][Rr]') > 0) then
                       l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || transformo_funcion(reg_detalle_in.IE_COLUMN_LKUP, reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias);
                     elsif (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0 or regexp_instr(reg_detalle_in.TABLE_COLUMN_LKUP, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) then
+                      l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || transformo_funcion(reg_detalle_in.IE_COLUMN_LKUP, reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias);
+                    elsif (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Ii][Ff] *\(') > 0 or regexp_instr(reg_detalle_in.TABLE_COLUMN_LKUP, '[Ii][Ff] *\(') > 0) then
                       l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || transformo_funcion(reg_detalle_in.IE_COLUMN_LKUP, reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias);
                     else
                       /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
@@ -2410,6 +2459,8 @@ SELECT
                   elsif (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Uu][Pp][Pp][Ee][Rr]') > 0 or regexp_instr(reg_detalle_in.TABLE_COLUMN_LKUP, '[Uu][Pp][Pp][Ee][Rr]') > 0) then
                     l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || transformo_funcion(reg_detalle_in.IE_COLUMN_LKUP, reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias);
                   elsif (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0 or regexp_instr(reg_detalle_in.TABLE_COLUMN_LKUP, '[Rr][Ee][Pp][Ll][Aa][Cc][Ee]') > 0) then
+                    l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || transformo_funcion(reg_detalle_in.IE_COLUMN_LKUP, reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias);
+                  elsif (regexp_instr(reg_detalle_in.IE_COLUMN_LKUP, '[Ii][Ff] *\(') > 0 or regexp_instr(reg_detalle_in.TABLE_COLUMN_LKUP, '[Ii][Ff] *\(') > 0) then
                     l_WHERE_ON_clause(l_WHERE_ON_clause.last) :=  ' AND ' || transformo_funcion(reg_detalle_in.IE_COLUMN_LKUP, reg_detalle_in.TABLE_BASE_NAME) || v_operador_para_join || transformo_funcion(reg_detalle_in.TABLE_COLUMN_LKUP, v_alias);
                   else
                     /* (20170316) Angel Ruiz. BUG. Proceso si he de anyadir la calificacion al campo where */
