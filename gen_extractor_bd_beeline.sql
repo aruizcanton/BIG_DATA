@@ -2517,20 +2517,26 @@ begin
                 when reg_detail.TYPE = 'FE' then
                   /* Se trata de un valor de tipo fecha */
                   /* (20160907) Angel Ruiz. Cambio TEMPORAL para HUSO HORARIO */
-                  if (reg_detail.LONGITUD = 8) then
-                    --UTL_FILE.put_line(fich_salida_pkg, '|| CASE WHEN ' || columna || ' IS NULL THEN RPAD('' '',' || reg_detail.LONGITUD ||', '' '') ELSE TO_CHAR(' || columna || ', ''YYYYMMDD'') END' || '          --' || reg_detail.TABLE_COLUMN);
-                    if (regexp_instr(columna, '[Dd][Aa][Tt][Ee]_[Ff][Oo][Rr][Mm][Aa][Tt]') = 0) then
-                      UTL_FILE.put_line(fich_salida_pkg, 'date_format(' || columna || ', ''yyyyMMdd'')' || ' AS ' || reg_detail.TABLE_COLUMN);
+                  /* (20170512) Angel Ruiz. BUG. Cuando en el campo VALUE posee NULL entonces no hay que hacer */
+                  /* el dateformat */
+                  if (reg_detail.VALUE <> 'NULL') then     
+                    if (reg_detail.LONGITUD = 8) then
+                      --UTL_FILE.put_line(fich_salida_pkg, '|| CASE WHEN ' || columna || ' IS NULL THEN RPAD('' '',' || reg_detail.LONGITUD ||', '' '') ELSE TO_CHAR(' || columna || ', ''YYYYMMDD'') END' || '          --' || reg_detail.TABLE_COLUMN);
+                      if (regexp_instr(columna, '[Dd][Aa][Tt][Ee]_[Ff][Oo][Rr][Mm][Aa][Tt]') = 0) then
+                        UTL_FILE.put_line(fich_salida_pkg, 'date_format(' || columna || ', ''yyyyMMdd'')' || ' AS ' || reg_detail.TABLE_COLUMN);
+                      else
+                        UTL_FILE.put_line(fich_salida_pkg, columna || ' AS ' || reg_detail.TABLE_COLUMN);
+                      end if;
                     else
-                      UTL_FILE.put_line(fich_salida_pkg, columna || ' AS ' || reg_detail.TABLE_COLUMN);
+                      if (regexp_instr(columna, '[Dd][Aa][Tt][Ee]_[Ff][Oo][Rr][Mm][Aa][Tt]') = 0) then
+                      --UTL_FILE.put_line(fich_salida_pkg, '|| CASE WHEN ' || columna || ' IS NULL THEN RPAD('' '',' || reg_detail.LONGITUD ||', '' '') ELSE TO_CHAR(' || columna || ', ''YYYYMMDDHH24MISS'') END' || '          --' || reg_detail.TABLE_COLUMN);
+                        UTL_FILE.put_line(fich_salida_pkg, 'date_format(' || columna || ', ''yyyyMMddhhmmss'')' || ' AS ' || reg_detail.TABLE_COLUMN);
+                      else
+                        UTL_FILE.put_line(fich_salida_pkg, columna || ' AS ' || reg_detail.TABLE_COLUMN);
+                      end if;
                     end if;
                   else
-                    if (regexp_instr(columna, '[Dd][Aa][Tt][Ee]_[Ff][Oo][Rr][Mm][Aa][Tt]') = 0) then
-                    --UTL_FILE.put_line(fich_salida_pkg, '|| CASE WHEN ' || columna || ' IS NULL THEN RPAD('' '',' || reg_detail.LONGITUD ||', '' '') ELSE TO_CHAR(' || columna || ', ''YYYYMMDDHH24MISS'') END' || '          --' || reg_detail.TABLE_COLUMN);
-                      UTL_FILE.put_line(fich_salida_pkg, 'date_format(' || columna || ', ''yyyyMMddhhmmss'')' || ' AS ' || reg_detail.TABLE_COLUMN);
-                    else
-                      UTL_FILE.put_line(fich_salida_pkg, columna || ' AS ' || reg_detail.TABLE_COLUMN);
-                    end if;
+                    UTL_FILE.put_line(fich_salida_pkg, columna || ' AS ' || reg_detail.TABLE_COLUMN);
                   end if;
                 else
                   UTL_FILE.put_line(fich_salida_pkg, columna || ' AS ' || reg_detail.TABLE_COLUMN);
@@ -2677,22 +2683,28 @@ begin
                 when reg_detail.TYPE = 'FE' then
                   /* Se trata de un valor de tipo fecha */
                   /* (20160907) Angel Ruiz. Cambio TEMPORAL para HUSO HORARIO */
-                  if (reg_detail.LONGITUD = 8) then
-                    /* (20160907) Angel Ruiz. Cambio TEMPORAL para HUSO HORARIO */
-                    if (regexp_instr(columna, '[Dd][Aa][Tt][Ee]_[Ff][Oo][Rr][Mm][Aa][Tt]') = 0) then
-                      --UTL_FILE.put_line(fich_salida_pkg, '|| CASE WHEN ' || columna || ' IS NULL THEN RPAD('' '',' || reg_detail.LONGITUD ||', '' '') ELSE TO_CHAR(' || columna || ', ''YYYYMMDD'') END' || '          --' || reg_detail.TABLE_COLUMN);
-                      UTL_FILE.put_line(fich_salida_pkg, ', ' || 'date_format(' || columna || ', ''yyyyMMdd'')' || ' AS ' || reg_detail.TABLE_COLUMN);
+                  /* (20170512) Angel Ruiz. BUG. Cuando en el campo VALUE posee NULL entonces no hay que hacer */
+                  /* el dateformat */
+                  if (reg_detail.VALUE <> 'NULL') then     
+                    if (reg_detail.LONGITUD = 8) then
+                      /* (20160907) Angel Ruiz. Cambio TEMPORAL para HUSO HORARIO */
+                      if (regexp_instr(columna, '[Dd][Aa][Tt][Ee]_[Ff][Oo][Rr][Mm][Aa][Tt]') = 0) then
+                        --UTL_FILE.put_line(fich_salida_pkg, '|| CASE WHEN ' || columna || ' IS NULL THEN RPAD('' '',' || reg_detail.LONGITUD ||', '' '') ELSE TO_CHAR(' || columna || ', ''YYYYMMDD'') END' || '          --' || reg_detail.TABLE_COLUMN);
+                        UTL_FILE.put_line(fich_salida_pkg, ', ' || 'date_format(' || columna || ', ''yyyyMMdd'')' || ' AS ' || reg_detail.TABLE_COLUMN);
+                      else
+                        UTL_FILE.put_line(fich_salida_pkg, ', ' || columna || ' AS ' || reg_detail.TABLE_COLUMN);
+                      end if;
                     else
-                      UTL_FILE.put_line(fich_salida_pkg, ', ' || columna || ' AS ' || reg_detail.TABLE_COLUMN);
+                      /* (20160907) Angel Ruiz. Cambio TEMPORAL para HUSO HORARIO */
+                      if (regexp_instr(columna, '[Dd][Aa][Tt][Ee]_[Ff][Oo][Rr][Mm][Aa][Tt]') = 0) then
+                      --UTL_FILE.put_line(fich_salida_pkg, '|| CASE WHEN ' || columna || ' IS NULL THEN RPAD('' '',' || reg_detail.LONGITUD ||', '' '') ELSE TO_CHAR(' || columna || ', ''YYYYMMDDHH24MISS'') END' || '          --' || reg_detail.TABLE_COLUMN);
+                        UTL_FILE.put_line(fich_salida_pkg, ', ' || 'date_format(' || columna || ', ''yyyyMMddhhmmss'')' || ' AS ' || reg_detail.TABLE_COLUMN);
+                      else
+                        UTL_FILE.put_line(fich_salida_pkg, ', ' || columna || ' AS ' || reg_detail.TABLE_COLUMN);
+                      end if;
                     end if;
                   else
-                    /* (20160907) Angel Ruiz. Cambio TEMPORAL para HUSO HORARIO */
-                    if (regexp_instr(columna, '[Dd][Aa][Tt][Ee]_[Ff][Oo][Rr][Mm][Aa][Tt]') = 0) then
-                    --UTL_FILE.put_line(fich_salida_pkg, '|| CASE WHEN ' || columna || ' IS NULL THEN RPAD('' '',' || reg_detail.LONGITUD ||', '' '') ELSE TO_CHAR(' || columna || ', ''YYYYMMDDHH24MISS'') END' || '          --' || reg_detail.TABLE_COLUMN);
-                      UTL_FILE.put_line(fich_salida_pkg, ', ' || 'date_format(' || columna || ', ''yyyyMMddhhmmss'')' || ' AS ' || reg_detail.TABLE_COLUMN);
-                    else
-                      UTL_FILE.put_line(fich_salida_pkg, ', ' || columna || ' AS ' || reg_detail.TABLE_COLUMN);
-                    end if;
+                    UTL_FILE.put_line(fich_salida_pkg, ', ' || columna || ' AS ' || reg_detail.TABLE_COLUMN);
                   end if;
                 else
                   UTL_FILE.put_line(fich_salida_pkg, ', ' || columna || ' AS ' || reg_detail.TABLE_COLUMN);
