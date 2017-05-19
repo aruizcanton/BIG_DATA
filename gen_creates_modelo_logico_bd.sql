@@ -5,12 +5,20 @@ DECLARE
   CURSOR c_mtdt_modelo_logico_TABLA
   IS
     SELECT 
-      TRIM(TABLE_NAME) "TABLE_NAME",
-      TRIM(TABLESPACE) "TABLESPACE",
-      TRIM(CI) "CI",
-      TRIM(PARTICIONADO) "PARTICIONADO"
-    FROM MTDT_MODELO_SUMMARY
-    WHERE TRIM(CI) <> 'P';    /* Las que poseen un valor "P" en esta columna son las tablas de PERMITED_VALUES, por lo que no hya que generar su modelo */
+      TRIM(MTDT_MODELO_SUMMARY.TABLE_NAME) "TABLE_NAME",
+      TRIM(MTDT_MODELO_SUMMARY.TABLESPACE) "TABLESPACE",
+      TRIM(MTDT_MODELO_SUMMARY.CI) "CI",
+      TRIM(MTDT_MODELO_SUMMARY.PARTICIONADO) "PARTICIONADO",
+      TRIM(MTDT_SCENARIO.TABLE_TYPE) "TABLE_TYPE"
+    FROM 
+    MTDT_MODELO_SUMMARY,
+    /* (20170516) Angel Ruiz. Para ver si se trata de una tabla DIMENSION o HECHO */
+    /* lo hacemos con un JOIN con MTDT_TC_SCENARIO */
+    (SELECT DISTINCT TRIM(TABLE_NAME) "TABLE_NAME", TRIM(TABLE_TYPE) "TABLE_TYPE" FROM MTDT_TC_SCENARIO) MTDT_SCENARIO
+    WHERE 
+    TRIM(MTDT_MODELO_SUMMARY.TABLE_NAME) = MTDT_SCENARIO.TABLE_NAME and
+    TRIM(MTDT_MODELO_SUMMARY.CI) <> 'P'    /* Las que poseen un valor "P" en esta columna son las tablas de PERMITED_VALUES, por lo que no hya que generar su modelo */
+    order by TABLE_NAME;
     
   CURSOR c_mtdt_modelo_logico_COLUMNA (table_name_in IN VARCHAR2)
   IS
@@ -356,8 +364,12 @@ BEGIN
       
       if (r_mtdt_modelo_logico_TABLA.CI = 'N' or r_mtdt_modelo_logico_TABLA.CI = 'I') then
         /* Generamos los inserts para aquellas tablas que no son de carga inicial */
-        if (regexp_count(substr(r_mtdt_modelo_logico_TABLA.TABLE_NAME, 1, 4) ,'??D_',1,'i') >0 or regexp_count(substr(r_mtdt_modelo_logico_TABLA.TABLE_NAME, 1, 4), 'DMT_',1,'i') >0 
-        or regexp_count(substr(r_mtdt_modelo_logico_TABLA.TABLE_NAME, 1, 4), 'DWD_',1,'i') >0) then
+        /* (20170516) Angel Ruiz. Para ver si se trata de una tabla DIMENSION o HECHO */
+        /* lo hacemos con un JOIN con MTDT_TC_SCENARIO */
+        --if (regexp_count(substr(r_mtdt_modelo_logico_TABLA.TABLE_NAME, 1, 4) ,'??D_',1,'i') >0 or regexp_count(substr(r_mtdt_modelo_logico_TABLA.TABLE_NAME, 1, 4), 'DMT_',1,'i') >0 
+        --or regexp_count(substr(r_mtdt_modelo_logico_TABLA.TABLE_NAME, 1, 4), 'DWD_',1,'i') >0) or  
+        --r_mtdt_modelo_logico_TABLA.TABLE_NAME = 'NGG_OFERTA_ESTANDAR' then
+        if (r_mtdt_modelo_logico_TABLA.TABLE_TYPE = 'D') then
           /* Solo si se trata de una dimension generamos los inserts por defecto y la secuencia */
           --if (r_mtdt_modelo_logico_TABLA.CI = 'N') then
             --DBMS_OUTPUT.put_line('CREATE SEQUENCE ' || OWNER_DM || '.SEQ_' || SUBSTR(r_mtdt_modelo_logico_TABLA.TABLE_NAME,5));
