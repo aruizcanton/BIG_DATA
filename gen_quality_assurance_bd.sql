@@ -3426,7 +3426,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, 'INICIO_PASO_TMR=`echo ${INICIO_PASO_TMR_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');    
     UTL_FILE.put_line(fich_salida_load, 'echo "Inicio de la carga de ' || reg_quality.QUALITY_NAME || '"' || ' >> ' || '${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}.log');
     UTL_FILE.put_line(fich_salida_load, '');
-    UTL_FILE.put_line(fich_salida_load, 'sed -e "s/#VAR_FCH_REGISTRO#/${INICIO_PASO_TMR}/g" -e "s/#VAR_FCH_CARGA#/${FCH_CARGA_FMT_HIVE}/g" -e "s/#VAR_FCH_DATOS#/${FCH_DATOS_FMT_HIVE}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" -e "s/#VAR_CVE_MES#/${FCH_CARGA_MES}/g" -e "s/#VAR_CVE_DIA#/${VAR_FCH_CARGA}/g" ${NGRD_SQL}/' || reg_quality.QUALITY_NAME || '.sql > ${NGRD_SQL}/' || reg_quality.QUALITY_NAME || '_tmp.sql');
+    UTL_FILE.put_line(fich_salida_load, 'sed -e "s/#VAR_FCH_REGISTRO#/${INICIO_PASO_TMR}/g" -e "s/#VAR_FCH_CARGA#/${FCH_CARGA_FMT_HIVE}/g" -e "s/#VAR_FCH_DATOS#/${FCH_DATOS_FMT_HIVE}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" -e "s/#VAR_CVE_MES#/${FCH_CARGA_MES}/g" -e "s/#VAR_CVE_DIA#/${FCH_CARGA_FMT_HIVE}/g" ${NGRD_SQL}/' || reg_quality.QUALITY_NAME || '.sql > ${NGRD_SQL}/' || reg_quality.QUALITY_NAME || '_tmp.sql');
 
     /***********************************************************************************/
     --UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -f ' || '${NGRD_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
@@ -3484,7 +3484,7 @@ begin
       UTL_FILE.put_line(fich_salida_load, '  if [ ${NUM_FILES} -eq 1 ]; then');
       /* (20170112) Angel Ruiz. NF: Nueva estructura de la parte de STAGING */
       --UTL_FILE.put_line(fich_salida_load, '    hadoop fs -mv ' || '${' || NAME_DM || '_TMP}/${INTERFAZ}/part-m-00000 ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${ARCHIVO_SALIDA}');
-      UTL_FILE.put_line(fich_salida_load, '    hadoop fs -put ' || '${' || NAME_DM || '_TMP_LOCAL}/' || reg_quality.QUALITY_NAME || '_${FCH_DATOS}.dat ${' || NAME_DM || '_QUALITY}/' || reg_quality.QUALITY_NAME || '/${FCH_CARGA}');
+      UTL_FILE.put_line(fich_salida_load, '    hadoop fs -moveFromLocal ' || '${' || NAME_DM || '_TMP_LOCAL}/' || reg_quality.QUALITY_NAME || '_${FCH_DATOS}.dat ${' || NAME_DM || '_QUALITY}/' || reg_quality.QUALITY_NAME || '/${FCH_CARGA}');
       UTL_FILE.put_line(fich_salida_load, '  fi');
     end if;
     UTL_FILE.put_line(fich_salida_load, '');
