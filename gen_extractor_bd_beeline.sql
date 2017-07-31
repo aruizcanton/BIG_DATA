@@ -231,6 +231,8 @@ SELECT
   v_hay_usu_owner                   boolean:=false;
   v_multiplicador_proc              varchar2(60);
   v_separator                       varchar2(3);
+  v_ip_productivo                   varchar2(20);
+  
 
 
 /************/
@@ -2253,6 +2255,7 @@ begin
   SELECT VALOR INTO BD_USR FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'BD_USR';
   SELECT VALOR INTO OWNER_EX FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'OWNER_EX';
   SELECT VALOR INTO v_multiplicador_proc FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'MULTIPLICADOR_PROC';
+  SELECT VALOR INTO v_ip_productivo FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'IP_PRODUCTIVO';  
   /* (20141223) FIN*/
 
   open MTDT_TABLA;
@@ -2459,7 +2462,32 @@ begin
         /* Fin de la inicializacion */
         if (reg_scenario.OVER_PARTION is not null) then
           /* (20160510) Angel Ruiz. Hay clausula OVER PARTITION */
-          UTL_FILE.put_line(fich_salida_pkg,'SELECT REGISTRY FROM ( ' || '     --ESCENARIO: ' || reg_scenario.SCENARIO);
+          /* (20170714) Angel Ruiz. BUG: NO es necesario REGISTRY */
+          --UTL_FILE.put_line(fich_salida_pkg,'SELECT REGISTRY FROM ( ' || '     --ESCENARIO: ' || reg_scenario.SCENARIO);
+          UTL_FILE.put_line(fich_salida_pkg,'SELECT' || '     --ESCENARIO: ' || reg_scenario.SCENARIO);
+          /*****/
+          open MTDT_TC_DETAIL (reg_scenario.TABLE_NAME, reg_scenario.SCENARIO);
+          primera_col := 1;
+          loop
+            fetch MTDT_TC_DETAIL
+            into reg_detail;
+            exit when MTDT_TC_DETAIL%NOTFOUND;
+            if (primera_col = 1) then
+              if (reg_scenario.TYPE = 'S') then
+                /* Se trata de un fichero plano con separador */
+                UTL_FILE.put_line(fich_salida_pkg, reg_detail.TABLE_COLUMN);
+              end if;
+              primera_col := 0;
+            else
+              if (reg_scenario.TYPE = 'S') then
+                /* Se trata de un fichero plano con separador */
+                UTL_FILE.put_line(fich_salida_pkg, ', ' || reg_detail.TABLE_COLUMN);
+              end if;
+            end if;
+          end loop;
+          close MTDT_TC_DETAIL; 
+          /*******/
+          UTL_FILE.put_line(fich_salida_pkg,'FROM ( ' || '     --ESCENARIO: ' || reg_scenario.SCENARIO);
         end if;
         if (reg_scenario.HINT is not null) then
           /* (20160421) Angel Ruiz. Miro si se ha incluido un HINT */
@@ -2513,6 +2541,19 @@ begin
                     end if;
                   else
                     UTL_FILE.put_line(fich_salida_pkg, columna || ' AS ' || reg_detail.TABLE_COLUMN);
+                  end if;
+                when reg_detail.TYPE = 'IM' then
+                  /* (20170621) Angel Ruiz. Aparece una nueva funcionalidad. Aparecen los campos IMPORTE*/
+                  if (reg_detail.RUL = 'HARDC') then
+                    /* Se trata de un valor literal */
+                    /* Comprobamos si es un NA# */
+                    if (reg_detail.VALUE = 'NA#') then
+                      UTL_FILE.put_line(fich_salida_pkg, '''-1''' || ' AS ' || reg_detail.TABLE_COLUMN);
+                    else
+                      UTL_FILE.put_line(fich_salida_pkg, columna || ' AS ' || reg_detail.TABLE_COLUMN);
+                    end if;
+                  else
+                    UTL_FILE.put_line(fich_salida_pkg, 'regexp_replace(cast(' || columna || ' as string), ''\\.'', '','') AS ' || reg_detail.TABLE_COLUMN);
                   end if;
                 when reg_detail.TYPE = 'FE' then
                   /* Se trata de un valor de tipo fecha */
@@ -2680,6 +2721,19 @@ begin
                   else
                     UTL_FILE.put_line(fich_salida_pkg, ', ' || columna || ' AS ' || reg_detail.TABLE_COLUMN);
                   end if;
+                when reg_detail.TYPE = 'IM' then
+                  /* (20170621) Angel Ruiz. Aparece una nueva funcionalidad. Aparecen los campos IMPORTE*/
+                  if (reg_detail.RUL = 'HARDC') then
+                    /* Se trata de un valor literal */
+                    /* Comprobamos si es un NA# */
+                    if (reg_detail.VALUE = 'NA#') then
+                      UTL_FILE.put_line(fich_salida_pkg, ', ' || '''-1''' || ' AS ' || reg_detail.TABLE_COLUMN);
+                    else
+                      UTL_FILE.put_line(fich_salida_pkg, ', ' || columna || ' AS ' || reg_detail.TABLE_COLUMN);
+                    end if;
+                  else
+                    UTL_FILE.put_line(fich_salida_pkg, ', ' || 'regexp_replace(cast(' || columna || ' as string), ''\\.'', '','') AS ' || reg_detail.TABLE_COLUMN);
+                  end if;
                 when reg_detail.TYPE = 'FE' then
                   /* Se trata de un valor de tipo fecha */
                   /* (20160907) Angel Ruiz. Cambio TEMPORAL para HUSO HORARIO */
@@ -2831,7 +2885,8 @@ begin
         /*(20160421) Angel Ruiz. Antes de comenzar a generar el FROM comprobamos si existe */
         /* informacion en el campo OVER_PARTITION. Si existe hay que escribirla como ultimo campo */
         if (reg_scenario.OVER_PARTION is not null) then
-          UTL_FILE.put_line(fich_salida_pkg, 'REGISTRY');
+          /* (20170614) Angel Ruiz. BUG. REGISTRY ya no sirve para nada */
+          --UTL_FILE.put_line(fich_salida_pkg, 'REGISTRY');
           UTL_FILE.put_line(fich_salida_pkg, ', ' || reg_scenario.OVER_PARTION);
         end if;
         /****/
@@ -2900,8 +2955,8 @@ begin
         /*(20160510) Angel Ruiz. Antes de comenzar a generar el FROM comprobamos si existe */
         /* informacion en el campo OVER_PARTITION. Si existe hay que escribirla como ultimo campo */
         if (reg_scenario.OVER_PARTION is not null) then
-          UTL_FILE.put_line(fich_salida_pkg, ')');
-          UTL_FILE.put_line(fich_salida_pkg, 'WHERE RN = 1');
+          UTL_FILE.put_line(fich_salida_pkg, ') AA_OVER_PART');
+          UTL_FILE.put_line(fich_salida_pkg, 'WHERE AA_OVER_PART.RN = 1');
         end if;
         if (reg_scenario.COLUMNA_GROUP is not null) then
         /* (20160907) Angel Ruiz. Implementacion del GROUP BY */
@@ -2929,7 +2984,10 @@ begin
           /* y eso es precisamente lo que no funciona. el workaround es usar UNION ALL */
           --UTL_FILE.put_line (fich_salida_pkg, v_lista_elementos_scenario (v_num_scenarios * 2));
           if (v_lista_elementos_scenario (v_num_scenarios * 2) = 'UNION') then
-            UTL_FILE.put_line (fich_salida_pkg, 'UNION ALL');
+            /* (20170703) Angel Ruiz. BUG. Resulta que el UNION no funciona bien ya que ocurre que */
+            /* hay veces en que el campo es null y entonces no esta funcionando */
+            --UTL_FILE.put_line (fich_salida_pkg, 'UNION ALL');
+            UTL_FILE.put_line (fich_salida_pkg, ';');
           else            
             UTL_FILE.put_line (fich_salida_pkg, v_lista_elementos_scenario (v_num_scenarios * 2));
           end if;
@@ -3235,7 +3293,9 @@ begin
     UTL_FILE.put_line(fich_salida_load, '    fi');
     UTL_FILE.put_line(fich_salida_load, '    FECHA=`echo ${FECHA_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
     --UTL_FILE.put_line(fich_salida_load, '    FECHA_FMT_HIVE=`echo ${FECHA} | awk ''{ printf "%s-%s-%s", substr($1,0,4), substr($1,5,2), substr($1,7,2) ; }''`');    
-    UTL_FILE.put_line(fich_salida_load, '    FECHA_FMT_HIVE=${FECHA}');    
+    UTL_FILE.put_line(fich_salida_load, '    FECHA_FMT_HIVE=${FECHA}');
+    /* (20170619) Angel Ruiz. BUG. Me creo una variable con formato YYYYMMDD para usarla posteriormente*/
+    UTL_FILE.put_line(fich_salida_load, '    FECHA_SIN_FMT=`echo ${FECHA_FMT_HIVE} | awk ''{ printf "%s%s%s", substr($1,0,4), substr($1,6,2), substr($1,9,2) ; }''`');
     if (v_fecha_ini_param = true and v_fecha_fin_param = true) then
       /* (20160419) Angel Ruiz. Si tenemos parametros de FCH_INI y FCH_FIN tenmos que generar codigo para recuperar la fecha Inicial */
       --UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=${FECHA}');
@@ -3286,7 +3346,11 @@ begin
     UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
     UTL_FILE.put_line(fich_salida_load, '      exit 1');
     UTL_FILE.put_line(fich_salida_load, '    fi');
+    /* (20170619) Angel Ruiz. BUG. Corrijo el formato de FECHA para que siempre tenga formato YYYYMMDD*/
     UTL_FILE.put_line(fich_salida_load, '    FECHA=`echo ${FECHA_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
+    /* (20170619) Angel Ruiz. BUG. Me creo una variable para usarla despues con formato YYYYMMDD*/
+    UTL_FILE.put_line(fich_salida_load, '    FECHA_SIN_FMT=${1}');
+    
     if (v_fecha_ini_param = true and v_fecha_fin_param = true) then
       /* (20160419) Angel Ruiz. Si tenemos parametros de FCH_INI y FCH_FIN tenmos que generar codigo para recuperar la fecha Inicial */
       UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=${FECHA}');
@@ -3418,7 +3482,7 @@ begin
           UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1.tmp  ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1');
         end if;
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}/${ARCHIVO_SQL} ${PATH_SALIDA}/${ARCHIVO_SALIDA} ${FECHA_MES}');
-        UTL_FILE.put_line(fich_salida_load, 'beeline --silent=true --showHeader=false --outputformat=dsv --nullemptystring=true << EOF > ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} 2>> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+        UTL_FILE.put_line(fich_salida_load, 'beeline --silent=true --showHeader=true --outputformat=dsv --nullemptystring=true << EOF > ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} 2>> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
         UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_EXT}/${OWNER_EXT}${PARAM_CONEX} ${BD_USR_EXT} ${BD_PWD}');
         UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1');
         UTL_FILE.put_line(fich_salida_load, '!quit');
@@ -3464,7 +3528,7 @@ begin
           UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${OWNER_EXT}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.3 > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.3.tmp');
           UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.3.tmp  ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.3');
         end if;
-        UTL_FILE.put_line(fich_salida_load, 'beeline --silent=true --showHeader=false --outputformat=dsv --nullemptystring=true << EOF > ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} 2>> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+        UTL_FILE.put_line(fich_salida_load, 'beeline --silent=true --showHeader=true --outputformat=dsv --nullemptystring=true << EOF > ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} 2>> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
         UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_EXT}/${OWNER_EXT}${PARAM_CONEX} ${BD_USR_EXT} ${BD_PWD}');
         UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.3');
         UTL_FILE.put_line(fich_salida_load, '!quit');
@@ -3508,7 +3572,7 @@ begin
           UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${OWNER_EXT}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2 > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2.tmp');
           UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2.tmp  ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2');
         end if;
-        UTL_FILE.put_line(fich_salida_load, 'beeline --silent=true --showHeader=false --outputformat=dsv --nullemptystring=true << EOF > ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} 2>> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+        UTL_FILE.put_line(fich_salida_load, 'beeline --silent=true --showHeader=true --outputformat=dsv --nullemptystring=true << EOF > ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} 2>> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
         UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_EXT}/${OWNER_EXT}${PARAM_CONEX} ${BD_USR_EXT} ${BD_PWD}');
         UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2');
         UTL_FILE.put_line(fich_salida_load, '!quit');
@@ -3554,7 +3618,7 @@ begin
           UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2.tmp  ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2');
         end if;
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}/${ARCHIVO_SQL} ${PATH_SALIDA}/${ARCHIVO_SALIDA} ${FECHA} ${FECHA_FIN}');
-        UTL_FILE.put_line(fich_salida_load, 'beeline --silent=true --showHeader=false --outputformat=dsv --nullemptystring=true << EOF > ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} 2>> ' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+        UTL_FILE.put_line(fich_salida_load, 'beeline --silent=true --showHeader=true --outputformat=dsv --nullemptystring=true << EOF > ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} 2>> ' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
         UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_EXT}/${OWNER_EXT}${PARAM_CONEX} ${BD_USR_EXT} ${BD_PWD}');
         UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2');
         UTL_FILE.put_line(fich_salida_load, '!quit');
@@ -3596,7 +3660,7 @@ begin
           UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1.tmp  ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1');
         end if;                
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}/${ARCHIVO_SQL} ${PATH_SALIDA}/${ARCHIVO_SALIDA} ${FECHA}');
-        UTL_FILE.put_line(fich_salida_load, 'beeline --silent=true --showHeader=false --outputformat=dsv --nullemptystring=true << EOF > ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} 2>> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+        UTL_FILE.put_line(fich_salida_load, 'beeline --silent=true --showHeader=true --outputformat=dsv --nullemptystring=true << EOF > ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} 2>> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
         UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_EXT}/${OWNER_EXT}${PARAM_CONEX} ${BD_USR_EXT} ${BD_PWD}');
         UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1');
         UTL_FILE.put_line(fich_salida_load, '!quit');
@@ -3638,7 +3702,7 @@ begin
           UTL_FILE.put_line(fich_salida_load, '  sed -e "s/' || v_usuario_owner || '/${OWNER_EXT}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL} > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1');
         end if;                
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}/${ARCHIVO_SQL} ${PATH_SALIDA}/${ARCHIVO_SALIDA}');
-        UTL_FILE.put_line(fich_salida_load, 'beeline --silent=true --showHeader=false --outputformat=dsv --nullemptystring=true << EOF > ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} 2>> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+        UTL_FILE.put_line(fich_salida_load, 'beeline --silent=true --showHeader=true --outputformat=dsv --nullemptystring=true << EOF > ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} 2>> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
         UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_EXT}/${BD_USR_EXT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
         if (v_hay_usu_owner = true) then
           UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1');
@@ -3661,7 +3725,9 @@ begin
     UTL_FILE.put_line(fich_salida_load, '    exit 1');
     UTL_FILE.put_line(fich_salida_load, '  fi');
     UTL_FILE.put_line(fich_salida_load, '  # Surpimimos las lineas en blanco del fichero obtenido');
-    UTL_FILE.put_line(fich_salida_load, '  grep -G -v -e ''^.$'' -e ''^[ ]*.$'' -e ''^$'' ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} > ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}_tmp');
+    /* (20170718) Angel Ruiz. BUG. Al cambiar la cadena de conexion nos retorna mas basura que hay que filatrar */
+    --UTL_FILE.put_line(fich_salida_load, '  grep -G -v -e ''^.$'' -e ''^[ ]*.$'' -e ''^$'' ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} > ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}_tmp');
+    UTL_FILE.put_line(fich_salida_load, '  grep -G -v -e ''^.$'' -e ''^[ ]*.$'' -e ''^$'' -e ''^ *...$'' ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} > ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}_tmp');
     UTL_FILE.put_line(fich_salida_load, '  rm -f ${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}');
     UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}_tmp ${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}');
     if (v_type_validation <> 'I') then
@@ -3675,14 +3741,22 @@ begin
       UTL_FILE.put_line(fich_salida_load, '    hadoop fs -mkdir ${' || NAME_DM || '_SALIDA}/${INTERFAZ}');
       UTL_FILE.put_line(fich_salida_load, '  fi');
       /* (20170112) Angel Ruiz. NF: Nueva estructura de la parte de STAGING */
-      UTL_FILE.put_line(fich_salida_load, '  hadoop fs -test -d ' || '${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}');      
+      /* (20170619) Angel Ruiz. BUG: El directorio en el que se deja el fichero siempre tiene la forma YYYYMMDD */
+      --UTL_FILE.put_line(fich_salida_load, '  hadoop fs -test -d ' || '${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}');      
+      UTL_FILE.put_line(fich_salida_load, '  hadoop fs -test -d ' || '${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA_SIN_FMT}');
       UTL_FILE.put_line(fich_salida_load, '  if [ $? -ne 0 ]; then');
       UTL_FILE.put_line(fich_salida_load, '    # El directorio al que se van a copiar los ficheros no existe. Se crea.');
-      UTL_FILE.put_line(fich_salida_load, '    hadoop fs -mkdir ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}');
+      /* (20170619) Angel Ruiz. BUG: El directorio en el que se deja el fichero siempre tiene la forma YYYYMMDD */      
+      --UTL_FILE.put_line(fich_salida_load, '    hadoop fs -mkdir ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}');
+      UTL_FILE.put_line(fich_salida_load, '    hadoop fs -mkdir ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA_SIN_FMT}');
       UTL_FILE.put_line(fich_salida_load, '  fi');
       /* (20170112) Angel Ruiz. FIN NF: Nueva estructura de la parte de STAGING */
       UTL_FILE.put_line(fich_salida_load, '  # Borramos el fichero en el destino si existe. Opcion -f');
-      UTL_FILE.put_line(fich_salida_load, '  hadoop fs -rm -f ' || '${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}/${ARCHIVO_SALIDA}');
+      /* (20170619) Angel Ruiz. BUG: El directorio en el que se deja el fichero siempre tiene la forma YYYYMMDD */      
+      --UTL_FILE.put_line(fich_salida_load, '  hadoop fs -rm -f ' || '${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}/${ARCHIVO_SALIDA}');
+      /* (20170619) Angel Ruiz. BUG. Debemos borrar cualquier fichero que exista */
+      --UTL_FILE.put_line(fich_salida_load, '  hadoop fs -rm -f ' || '${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA_SIN_FMT}/${ARCHIVO_SALIDA}');
+      UTL_FILE.put_line(fich_salida_load, '  hadoop fs -rm -f ' || '${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA_SIN_FMT}/*');
       UTL_FILE.put_line(fich_salida_load, '  # Generamos el fichero extraido en el destino');
       
       --UTL_FILE.put_line(fich_salida_load, '  NUM_FILES=`hadoop fs -ls ${' || NAME_DM || '_TMP}/${INTERFAZ}/part-m-* | wc -l`');
@@ -3690,7 +3764,9 @@ begin
       UTL_FILE.put_line(fich_salida_load, '  if [ ${NUM_FILES} -eq 1 ]; then');
       /* (20170112) Angel Ruiz. NF: Nueva estructura de la parte de STAGING */
       --UTL_FILE.put_line(fich_salida_load, '    hadoop fs -mv ' || '${' || NAME_DM || '_TMP}/${INTERFAZ}/part-m-00000 ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${ARCHIVO_SALIDA}');
-      UTL_FILE.put_line(fich_salida_load, '    hadoop fs -put ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}');
+      /* (20170619) Angel Ruiz. BUG: El directorio en el que se deja el fichero siempre tiene la forma YYYYMMDD */      
+      --UTL_FILE.put_line(fich_salida_load, '    hadoop fs -put ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}');
+      UTL_FILE.put_line(fich_salida_load, '    hadoop fs -put ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA_SIN_FMT}');
       /* (20170112) Angel Ruiz. FIN NF: Nueva estructura de la parte de STAGING */
       --UTL_FILE.put_line(fich_salida_load, '    if [ $? -eq 0 ]; then');
       --UTL_FILE.put_line(fich_salida_load, '      hadoop fs -rm -r ' || '${' || NAME_DM || '_TMP}/${INTERFAZ}');
@@ -3742,7 +3818,7 @@ begin
         --UTL_FILE.put_line(fich_salida_load, 'quit');
         --UTL_FILE.put_line(fich_salida_load, '!eof`');
       else
-        UTL_FILE.put_line(fich_salida_load, '  CONTEO_ARCHIVO=`hadoop fs -cat ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}/${ARCHIVO_SALIDA} | wc -l`');
+        UTL_FILE.put_line(fich_salida_load, '  CONTEO_ARCHIVO=`hadoop fs -cat ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA_SIN_FMT}/${ARCHIVO_SALIDA} | wc -l`');
       end if;
       UTL_FILE.put_line(fich_salida_load, '  if [ $? -ne 0 ]; then');
       UTL_FILE.put_line(fich_salida_load, '    SUBJECT="${REQ_NUM}:  ERROR: Al generar el conteo del fichero (ERROR al ejecutar wc)."');
@@ -3882,10 +3958,11 @@ begin
     UTL_FILE.put_line(fich_salida_load, 'ULT_PASO_EJECUTADO=1');
     UTL_FILE.put_line(fich_salida_load, 'BAN_FORZADO=''N''');
     --UTL_FILE.put_line(fich_salida_load, 'SHELL_SCP="${PATH_SHELL}' || REQ_NUMBER || '_EnviaArchivos.sh"');
-    UTL_FILE.put_line(fich_salida_load, 'if [ "`/sbin/ifconfig -a | grep ''10.225.244.'' | awk -F'':'' ''{print substr($2,1,13) }''`" = "10.225.244.21" ]; then');
+    UTL_FILE.put_line(fich_salida_load, 'if [ "`/sbin/ifconfig -a | grep ''' || substr(v_ip_productivo, 1, 10) || ''' | awk -F'':'' ''{print substr($2,1,14) }''`" = "' || substr(v_ip_productivo, 1, 14) || '" ]; then');
     --UTL_FILE.put_line(fich_salida_load, '  OWNER="ONIX"');
-    UTL_FILE.put_line(fich_salida_load, '  #CUENTAS PARA MANTENIMIENTO');
-    UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL="ulises.rosales.ext@telefonica.com"');
+    UTL_FILE.put_line(fich_salida_load, '  #CUENTAS PARA PRODUCCION');
+    --UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL=`cat ${' || NAME_DM || '_REQ}/shells/Utilerias/Correos_Mtto_ReportesBI.txt`');
+    UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL=`cat ${' || NAME_DM || '_CONFIGURACION}/Correos_Mtto_ReportesBI.txt`');
     UTL_FILE.put_line(fich_salida_load, '  #BASE DONDE SE CARGARA LA INFORMACION');
     --UTL_FILE.put_line(fich_salida_load, '  BD_SID="QSIEMDESA"');
     --UTL_FILE.put_line(fich_salida_load, '  BD_USR="ONIX"');
@@ -3898,9 +3975,12 @@ begin
     --end if;
     UTL_FILE.put_line(fich_salida_load, 'else');
     --UTL_FILE.put_line(fich_salida_load, '  OWNER="ONIX"');
-    UTL_FILE.put_line(fich_salida_load, '  #CUENTAS PARA MANTENIMIENTO');
+    --UTL_FILE.put_line(fich_salida_load, '  #CUENTAS PARA MANTENIMIENTO');
     --UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL=`cat ${' || NAME_DM || '_REQ}/shells/Utilerias/Correos_Mtto_ReportesBI.txt`');
-    UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL=`cat ${' || NAME_DM || '_CONFIGURACION}/Correos_Mtto_ReportesBI.txt`');
+    --UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL=`cat ${' || NAME_DM || '_CONFIGURACION}/Correos_Mtto_ReportesBI.txt`');
+    UTL_FILE.put_line(fich_salida_load, '  #CUENTAS PARA MANTENIMIENTO');
+    UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL="ulises.rosales.ext@telefonica.com"');
+    --UTL_FILE.put_line(fich_salida_load, '  OWNER="ONIX"');
     UTL_FILE.put_line(fich_salida_load, '  #BASE DONDE SE CARGARA LA INFORMACION');
     --UTL_FILE.put_line(fich_salida_load, '  BD_SID="' || BD_SID || '"');
     --UTL_FILE.put_line(fich_salida_load, '  BD_USR="' || BD_USR || '"');

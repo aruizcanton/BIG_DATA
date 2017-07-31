@@ -409,24 +409,29 @@ BEGIN
                       end if;
                     end if;
                   WHEN regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME, 1, 4), 'DES_',1,'i') >0 THEN
-                    pos_abre_paren := instr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE,'(');
-                    pos_cierra_paren := instr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE,')');
-                    longitud_des := substr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE, pos_abre_paren+1, (pos_cierra_paren - pos_abre_paren)-1);
-                    longitud_des_numerico := to_number(longitud_des);
-                    if (longitud_des_numerico > 8) then
-                      cadena_values := '''NO APLICA''';
-                    elsif (longitud_des_numerico > 2) then
-                      cadena_values := '''NA#''';
+                    if (regexp_count(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE, '^ARRAY *< *STRING *>$') > 0) then
+                      cadena_values := 'array(''NO APLICA'')';
                     else
-                      if (r_mtdt_modelo_logico_COLUMNA.NULABLE = 'N') then
-                        case 
-                          when longitud_des_numerico = 2 then
-                            cadena_values := '''NA''';
-                          when longitud_des_numerico = 1 then
-                            cadena_values := '''N''';
-                        end case;
+                      pos_abre_paren := instr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE,'(');
+                      pos_cierra_paren := instr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE,')');
+                      longitud_des := substr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE, pos_abre_paren+1, (pos_cierra_paren - pos_abre_paren)-1);
+                      
+                      longitud_des_numerico := to_number(longitud_des);
+                      if (longitud_des_numerico > 8) then
+                        cadena_values := '''NO APLICA''';
+                      elsif (longitud_des_numerico > 2) then
+                        cadena_values := '''NA#''';
                       else
-                        cadena_values := 'NULL';
+                        if (r_mtdt_modelo_logico_COLUMNA.NULABLE = 'N') then
+                          case 
+                            when longitud_des_numerico = 2 then
+                              cadena_values := '''NA''';
+                            when longitud_des_numerico = 1 then
+                              cadena_values := '''N''';
+                          end case;
+                        else
+                          cadena_values := 'NULL';
+                        end if;
                       end if;
                     end if;
                   WHEN regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME, 1, 4), 'FCH_',1,'i') >0 THEN
@@ -479,24 +484,28 @@ BEGIN
                       end if;
                   end if;
                 WHEN regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME, 1, 4), 'DES_',1,'i') >0 THEN
-                  pos_abre_paren := instr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE,'(');
-                  pos_cierra_paren := instr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE,')');
-                  longitud_des := substr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE, pos_abre_paren+1, (pos_cierra_paren - pos_abre_paren)-1);
-                  longitud_des_numerico := to_number(longitud_des);
-                  if (longitud_des_numerico > 8) then
-                    cadena_values := cadena_values || ', ''NO APLICA''';
-                  elsif (longitud_des_numerico > 2) then
-                    cadena_values := cadena_values || ', ''NA#''';
+                  if (regexp_count(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE, '^ARRAY *< *STRING *>$') > 0) then
+                    cadena_values := cadena_values || ', array(''NO APLICA'')';
                   else
-                    if (r_mtdt_modelo_logico_COLUMNA.NULABLE = 'N') then
-                      case 
-                        when longitud_des_numerico = 2 then
-                          cadena_values := cadena_values || ', ''NA''';
-                        when longitud_des_numerico = 1 then
-                          cadena_values := cadena_values || ', ''N''';
-                      end case;
+                    pos_abre_paren := instr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE,'(');
+                    pos_cierra_paren := instr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE,')');
+                    longitud_des := substr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE, pos_abre_paren+1, (pos_cierra_paren - pos_abre_paren)-1);
+                    longitud_des_numerico := to_number(longitud_des);
+                    if (longitud_des_numerico > 8) then
+                      cadena_values := cadena_values || ', ''NO APLICA''';
+                    elsif (longitud_des_numerico > 2) then
+                      cadena_values := cadena_values || ', ''NA#''';
                     else
-                      cadena_values := cadena_values || ', NULL';
+                      if (r_mtdt_modelo_logico_COLUMNA.NULABLE = 'N') then
+                        case 
+                          when longitud_des_numerico = 2 then
+                            cadena_values := cadena_values || ', ''NA''';
+                          when longitud_des_numerico = 1 then
+                            cadena_values := cadena_values || ', ''N''';
+                        end case;
+                      else
+                        cadena_values := cadena_values || ', NULL';
+                      end if;
                     end if;
                   end if;
                 WHEN regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME, 1, 4), 'FCH_',1,'i') >0 THEN
@@ -566,25 +575,29 @@ BEGIN
                         cadena_values := '''GE#''';
                       end if;
                   end if;
-                WHEN regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME, 1, 4),'DES_',1,'i') >0 THEN
-                  pos_abre_paren := instr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE,'(');
-                  pos_cierra_paren := instr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE,')');
-                  longitud_des := substr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE, pos_abre_paren+1, (pos_cierra_paren - pos_abre_paren)-1);
-                  longitud_des_numerico := to_number(longitud_des);
-                  if (longitud_des_numerico > 7) then
-                    cadena_values := '''GENERICO''';
-                  elsif (longitud_des_numerico > 2) then
-                    cadena_values := '''GE#''';
+                 WHEN regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME, 1, 4),'DES_',1,'i') >0 THEN
+                  if (regexp_count(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE, '^ARRAY *< *STRING *>$') > 0) then
+                    cadena_values := 'array(''GENERICO'')';
                   else
-                    if (r_mtdt_modelo_logico_COLUMNA.NULABLE = 'N') then
-                      case 
-                        when longitud_des_numerico = 2 then
-                          cadena_values := '''GE''';
-                        when longitud_des_numerico = 1 then
-                          cadena_values := '''G''';
-                      end case;
+                    pos_abre_paren := instr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE,'(');
+                    pos_cierra_paren := instr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE,')');
+                    longitud_des := substr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE, pos_abre_paren+1, (pos_cierra_paren - pos_abre_paren)-1);
+                    longitud_des_numerico := to_number(longitud_des);
+                    if (longitud_des_numerico > 7) then
+                      cadena_values := '''GENERICO''';
+                    elsif (longitud_des_numerico > 2) then
+                      cadena_values := '''GE#''';
                     else
-                      cadena_values := 'NULL';
+                      if (r_mtdt_modelo_logico_COLUMNA.NULABLE = 'N') then
+                        case 
+                          when longitud_des_numerico = 2 then
+                            cadena_values := '''GE''';
+                          when longitud_des_numerico = 1 then
+                            cadena_values := '''G''';
+                        end case;
+                      else
+                        cadena_values := 'NULL';
+                      end if;
                     end if;
                   end if;
                 WHEN regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME, 1, 4), 'FCH_',1,'i') >0 THEN
@@ -637,24 +650,28 @@ BEGIN
                     end if;
                   end if;
                 WHEN regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME, 1, 4), 'DES_',1,'i') >0 THEN
-                  pos_abre_paren := instr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE,'(');
-                  pos_cierra_paren := instr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE,')');
-                  longitud_des := substr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE, pos_abre_paren+1, (pos_cierra_paren - pos_abre_paren)-1);
-                  longitud_des_numerico := to_number(longitud_des);
-                  if (longitud_des_numerico > 7) then
-                    cadena_values := cadena_values || ', ''GENERICO''';
-                  elsif (longitud_des_numerico > 2) then
-                    cadena_values := cadena_values || ', ''GE#''';
+                  if (regexp_count(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE, '^ARRAY *< *STRING *>$') > 0) then
+                    cadena_values := cadena_values || ', array(''GENERICO'')';
                   else
-                    if (r_mtdt_modelo_logico_COLUMNA.NULABLE = 'N') then
-                      case 
-                        when longitud_des_numerico = 2 then
-                          cadena_values := cadena_values || ', ''GE''';
-                        when longitud_des_numerico = 1 then
-                          cadena_values := cadena_values || ', ''G''';
-                      end case;
+                    pos_abre_paren := instr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE,'(');
+                    pos_cierra_paren := instr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE,')');
+                    longitud_des := substr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE, pos_abre_paren+1, (pos_cierra_paren - pos_abre_paren)-1);
+                    longitud_des_numerico := to_number(longitud_des);
+                    if (longitud_des_numerico > 7) then
+                      cadena_values := cadena_values || ', ''GENERICO''';
+                    elsif (longitud_des_numerico > 2) then
+                      cadena_values := cadena_values || ', ''GE#''';
                     else
-                      cadena_values := cadena_values || ', NULL';
+                      if (r_mtdt_modelo_logico_COLUMNA.NULABLE = 'N') then
+                        case 
+                          when longitud_des_numerico = 2 then
+                            cadena_values := cadena_values || ', ''GE''';
+                          when longitud_des_numerico = 1 then
+                            cadena_values := cadena_values || ', ''G''';
+                        end case;
+                      else
+                        cadena_values := cadena_values || ', NULL';
+                      end if;
                     end if;
                   end if;
                 WHEN regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME, 1, 4), 'FCH_',1,'i') >0 THEN
@@ -725,24 +742,28 @@ BEGIN
                     end if;
                   end if;
                 WHEN regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME, 1, 4), 'DES_',1,'i') >0 THEN
-                  pos_abre_paren := instr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE,'(');
-                  pos_cierra_paren := instr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE,')');
-                  longitud_des := substr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE, pos_abre_paren+1, (pos_cierra_paren - pos_abre_paren)-1);
-                  longitud_des_numerico := to_number(longitud_des);
-                  if (longitud_des_numerico > 11) then
-                    cadena_values := '''NO INFORMADO''';
-                  elsif (longitud_des_numerico > 2) then
-                    cadena_values := '''NI#''';
+                  if (regexp_count(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE, '^ARRAY *< *STRING *>$') > 0) then
+                    cadena_values := 'array(''NO INFORMADO'')';
                   else
-                    if (r_mtdt_modelo_logico_COLUMNA.NULABLE = 'N') then
-                      case 
-                        when longitud_des_numerico = 2 then
-                          cadena_values := '''NI''';
-                        when longitud_des_numerico = 1 then
-                          cadena_values := '''N''';
-                      end case;
+                    pos_abre_paren := instr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE,'(');
+                    pos_cierra_paren := instr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE,')');
+                    longitud_des := substr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE, pos_abre_paren+1, (pos_cierra_paren - pos_abre_paren)-1);
+                    longitud_des_numerico := to_number(longitud_des);
+                    if (longitud_des_numerico > 11) then
+                      cadena_values := '''NO INFORMADO''';
+                    elsif (longitud_des_numerico > 2) then
+                      cadena_values := '''NI#''';
                     else
-                      cadena_values := 'NULL';
+                      if (r_mtdt_modelo_logico_COLUMNA.NULABLE = 'N') then
+                        case 
+                          when longitud_des_numerico = 2 then
+                            cadena_values := '''NI''';
+                          when longitud_des_numerico = 1 then
+                            cadena_values := '''N''';
+                        end case;
+                      else
+                        cadena_values := 'NULL';
+                      end if;
                     end if;
                   end if;
                 WHEN regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME, 1, 4), 'FCH_',1,'i') >0 THEN
@@ -795,24 +816,28 @@ BEGIN
                     end if;
                   end if;
                 WHEN regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME, 1, 4), 'DES_',1,'i') >0 THEN
-                  pos_abre_paren := instr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE,'(');
-                  pos_cierra_paren := instr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE,')');
-                  longitud_des := substr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE, pos_abre_paren+1, (pos_cierra_paren - pos_abre_paren)-1);
-                  longitud_des_numerico := to_number(longitud_des);
-                  if (longitud_des_numerico > 11) then
-                    cadena_values := cadena_values || ', ''NO INFORMADO''';
-                  elsif (longitud_des_numerico > 2) then
-                    cadena_values := cadena_values || ', ''NI#''';
+                  if (regexp_count(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE, '^ARRAY *< *STRING *>$') > 0) then
+                    cadena_values := cadena_values || ', array(''NO INFORMADO'')';
                   else
-                    if (r_mtdt_modelo_logico_COLUMNA.NULABLE = 'N') then
-                      case 
-                        when longitud_des_numerico = 2 then
-                          cadena_values := cadena_values || ', ''NA''';
-                        when longitud_des_numerico = 1 then
-                          cadena_values := cadena_values || ', ''N''';
-                      end case;
+                    pos_abre_paren := instr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE,'(');
+                    pos_cierra_paren := instr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE,')');
+                    longitud_des := substr(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE, pos_abre_paren+1, (pos_cierra_paren - pos_abre_paren)-1);
+                    longitud_des_numerico := to_number(longitud_des);
+                    if (longitud_des_numerico > 11) then
+                      cadena_values := cadena_values || ', ''NO INFORMADO''';
+                    elsif (longitud_des_numerico > 2) then
+                      cadena_values := cadena_values || ', ''NI#''';
                     else
-                      cadena_values := cadena_values || ', NULL';
+                      if (r_mtdt_modelo_logico_COLUMNA.NULABLE = 'N') then
+                        case 
+                          when longitud_des_numerico = 2 then
+                            cadena_values := cadena_values || ', ''NA''';
+                          when longitud_des_numerico = 1 then
+                            cadena_values := cadena_values || ', ''N''';
+                        end case;
+                      else
+                        cadena_values := cadena_values || ', NULL';
+                      end if;
                     end if;
                   end if;
                 WHEN regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME, 1, 4),'FCH_',1,'i') >0 THEN

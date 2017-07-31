@@ -166,6 +166,8 @@ BEGIN
           WHEN reg_datail.TYPE = 'TI' THEN
             --tipo_col := 'VARCHAR (8)';
             tipo_col := 'STRING';
+          WHEN reg_datail.TYPE = 'AS' THEN
+            tipo_col := 'ARRAY<STRING>';
           END CASE;
           /* (20161125) Angel Ruiz. Si el campo es FILE_NAME significa que */
           /* tenemos que mirar si este campo va a venir en el fichero plano o no. */
@@ -205,6 +207,8 @@ BEGIN
           WHEN reg_datail.TYPE = 'TI' THEN
             --tipo_col := 'VARCHAR2 (8)';
             tipo_col := 'STRING';
+          WHEN reg_datail.TYPE = 'AS' THEN
+            tipo_col := 'ARRAY<STRING>';
           END CASE;
           /* (20161125) Angel Ruiz. Si el campo es FILE_NAME significa que */
           /* tenemos que mirar si este campo va a venir en el fichero plano o no. */
@@ -296,6 +300,8 @@ BEGIN
         WHEN reg_datail.TYPE = 'TI' THEN
           --tipo_col := 'VARCHAR (8)';
           tipo_col := 'STRING';
+        WHEN reg_datail.TYPE = 'AS' THEN
+          tipo_col := 'ARRAY<STRING>';
         END CASE;
         /* (20161125) Angel Ruiz. Si el campo es FILE_NAME significa que */
         /* tenemos que mirar si este campo va a venir en el fichero plano o no. */
@@ -340,6 +346,8 @@ BEGIN
         WHEN reg_datail.TYPE = 'TI' THEN
           --tipo_col := 'VARCHAR2 (8)';
           tipo_col := 'STRING';
+        WHEN reg_datail.TYPE = 'AS' THEN
+          tipo_col := 'ARRAY<STRING>';
         END CASE;
         /* (20161125) Angel Ruiz. Si el campo es FILE_NAME significa que */
         /* tenemos que mirar si este campo va a venir en el fichero plano o no. */

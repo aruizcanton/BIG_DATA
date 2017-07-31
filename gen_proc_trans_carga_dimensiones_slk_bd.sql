@@ -1159,7 +1159,7 @@ cursor MTDT_TABLA
     l_registro1         MTDT_MODELO_DETAIL%rowtype;
     l_registro2         v_MTDT_CAMPOS_DETAIL%rowtype;
     v_value VARCHAR(200);
-    nombre_campo  VARCHAR2(30);
+    nombre_campo  VARCHAR2(100);
     v_alias_incluido PLS_Integer:=0;
     v_tipo_campo  VARCHAR2(30);
     

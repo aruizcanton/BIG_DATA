@@ -12,10 +12,10 @@ SELECT
       (trim(MTDT_EXT_SCENARIO.STATUS) = 'P' or trim(MTDT_EXT_SCENARIO.STATUS) = 'D')
       and trim(MTDT_EXT_SCENARIO.TABLE_NAME) in (
       'EQUIPO', 'REGION_COMERCIAL_NIVEL3', 'REGION_COMERCIAL_NIVEL2', 'REGION_COMERCIAL_NIVEL1', 'PRIMARY_OFFER'
-      , 'PARQUE_ABO_MES', 'SUPPLEMENTARY_OFFER', 'BONUS', 'HANDSET_PRICE', 'PARQUE_SVA_MES', 'PARQUE_BENEF_MES', 'PSD_RESIDENCIAL'
+      , 'PARQUE_ABO_MES', 'SUPPLEMENTARY_OFFER', 'BONUS', 'PARQUE_SVA_MES', 'PARQUE_BENEF_MES', 'PSD_RESIDENCIAL'
       , 'MOVIMIENTOS_ABO_MES', 'MOVIMIENTO_ABO', 'COMIS_POS_ABO_MES', 'AJUSTE_ABO_MES', 'MODALIDAD_VENTA'
-      , 'DESCUENTO', 'DESC_ADQR_ABO_MES', 'DESC_EJEC_ABO_MES', 'OFFER_RENT'
-      , 'COMIS_PAGADAS', 'COMIS_CALCULADAS', 'NUM_SERIE', 'CUOTAS', 'OFFER_ITEM');
+      , 'DESC_EJEC_ABO_MES'
+      , 'COMIS_PAGADAS', 'COMIS_CALCULADAS', 'NUM_SERIE');
     
       --and trim(MTDT_EXT_SCENARIO.TABLE_NAME) in ('HANDSET_PRICE', 'EQUIPO'
       --);
@@ -229,7 +229,8 @@ SELECT
   v_hay_usu_owner                   boolean:=false;
   v_multiplicador_proc              varchar2(60);
   v_separator                       varchar2(3);
-  v_frequency     varchar2(1);
+  v_frequency                       varchar2(1);
+  v_ip_productivo                   varchar2(20);
 
 
 /************/
@@ -1128,6 +1129,9 @@ SELECT
   is
     v_cadena_result varchar2(20000);
   begin
+    /* (20170601) Angel Ruiz. BUG. Pueden venir varios retornos de carro al final de la condicion */
+    /* que he de suprimir y que antes no se estaba haciendo */
+    --v_cadena_result := REGEXP_REPLACE(cadena_in,chr(10) || ' *$', ''); /* Suprimo el posible retorno de carro final */
     v_cadena_result := REGEXP_REPLACE(cadena_in,chr(10) || ' *$', ''); /* Suprimo el posible retorno de carro final */
     v_cadena_result := REGEXP_REPLACE(v_cadena_result, chr(10), ' \\' || chr(10));
     return v_cadena_result;
@@ -1641,11 +1645,11 @@ SELECT
           condicion := substr(cadena,pos_del_si+length('SI'), pos_del_then-(pos_del_si+length('SI')));
           condicion_pro := procesa_COM_RULE_lookup(condicion);
           constante := substr(cadena, pos_del_else+length('ELSE'),pos_del_end-(pos_del_else+length('ELSE')));
-          valor_retorno := 'CASE WHEN ' || trim(condicion_pro) || ' THEN NVL(' || reg_detalle_in.VALUE || ', '' '') ELSE ' || trim(constante) || ' END';
+          valor_retorno := 'CASE WHEN ' || trim(condicion_pro) || ' THEN NVL(' || cambia_fin_linea(reg_detalle_in.VALUE) || ', '' '') ELSE ' || trim(constante) || ' END';
         else
           /* Construyo el campo de SELECT */
           --valor_retorno :=  'NVL(' || reg_detalle_in.VALUE || ', '' '')';
-          valor_retorno :=  reg_detalle_in.VALUE;
+          valor_retorno :=  cambia_fin_linea(reg_detalle_in.VALUE);
         end if;
         
         /****************************************************************************/
@@ -2391,6 +2395,7 @@ begin
   SELECT VALOR INTO BD_USR FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'BD_USR';
   SELECT VALOR INTO OWNER_EX FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'OWNER_EX';
   SELECT VALOR INTO v_multiplicador_proc FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'MULTIPLICADOR_PROC';
+  SELECT VALOR INTO v_ip_productivo FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'IP_PRODUCTIVO';
   /* (20141223) FIN*/
 
   open MTDT_TABLA;
@@ -2618,7 +2623,9 @@ begin
               /* Fin de la inicializacion */
               if (reg_scenario.OVER_PARTION is not null) then
                 /* (20160510) Angel Ruiz. Hay clausula OVER PARTITION */
-                UTL_FILE.put_line(fich_salida_pkg,'SELECT REGISTRY FROM ( ' || '/* ESCENARIO: ' || reg_scenario.SCENARIO || ' */ \');
+                /* (20170614) Angel Ruiz. BUG. No es necesario el REGISTRY */
+                --UTL_FILE.put_line(fich_salida_pkg,'SELECT REGISTRY FROM ( ' || '/* ESCENARIO: ' || reg_scenario.SCENARIO || ' */ \');
+                UTL_FILE.put_line(fich_salida_pkg,'SELECT * FROM ( ' || '/* ESCENARIO: ' || reg_scenario.SCENARIO || ' */ \');
               end if;
               if (reg_scenario.HINT is not null) then
                 /* (20160421) Angel Ruiz. Miro si se ha incluido un HINT */
@@ -2676,11 +2683,19 @@ begin
                         /* Se trata de un valor de tipo fecha */
                         /* (20160907) Angel Ruiz. Cambio TEMPORAL para HUSO HORARIO */
                         if (reg_detail.LONGITUD = 8) then
-                          --UTL_FILE.put_line(fich_salida_pkg, '|| CASE WHEN ' || columna || ' IS NULL THEN RPAD('' '',' || reg_detail.LONGITUD ||', '' '') ELSE TO_CHAR(' || columna || ', ''YYYYMMDD'') END' || '          --' || reg_detail.TABLE_COLUMN);
-                          UTL_FILE.put_line(fich_salida_pkg, 'TO_CHAR(' || columna || ', ''YYYY-MM-DD'')' || ' "' || reg_detail.TABLE_COLUMN || '" \');
+                          if (reg_detail.VALUE <> 'NULL') then
+                            --UTL_FILE.put_line(fich_salida_pkg, '|| CASE WHEN ' || columna || ' IS NULL THEN RPAD('' '',' || reg_detail.LONGITUD ||', '' '') ELSE TO_CHAR(' || columna || ', ''YYYYMMDD'') END' || '          --' || reg_detail.TABLE_COLUMN);
+                            UTL_FILE.put_line(fich_salida_pkg, 'TO_CHAR(' || columna || ', ''YYYY-MM-DD'')' || ' "' || reg_detail.TABLE_COLUMN || '" \');
+                          else
+                            UTL_FILE.put_line(fich_salida_pkg, columna || ' "' || reg_detail.TABLE_COLUMN || '" \');
+                          end if;
                         else
-                          --UTL_FILE.put_line(fich_salida_pkg, '|| CASE WHEN ' || columna || ' IS NULL THEN RPAD('' '',' || reg_detail.LONGITUD ||', '' '') ELSE TO_CHAR(' || columna || ', ''YYYYMMDDHH24MISS'') END' || '          --' || reg_detail.TABLE_COLUMN);
-                          UTL_FILE.put_line(fich_salida_pkg, 'TO_CHAR(' || columna || ', ''YYYY-MM-DD HH24:MI:SS'')' || ' "' || reg_detail.TABLE_COLUMN || '" \');
+                          if (reg_detail.VALUE <> 'NULL') then
+                            --UTL_FILE.put_line(fich_salida_pkg, '|| CASE WHEN ' || columna || ' IS NULL THEN RPAD('' '',' || reg_detail.LONGITUD ||', '' '') ELSE TO_CHAR(' || columna || ', ''YYYYMMDDHH24MISS'') END' || '          --' || reg_detail.TABLE_COLUMN);
+                            UTL_FILE.put_line(fich_salida_pkg, 'TO_CHAR(' || columna || ', ''YYYY-MM-DD HH24:MI:SS'')' || ' "' || reg_detail.TABLE_COLUMN || '" \');
+                          else
+                            UTL_FILE.put_line(fich_salida_pkg, columna || ' "' || reg_detail.TABLE_COLUMN || '" \');
+                          end if;
                         end if;
                       else
                         UTL_FILE.put_line(fich_salida_pkg, columna || ' "' || reg_detail.TABLE_COLUMN || '" \');
@@ -2957,8 +2972,9 @@ begin
               /*(20160421) Angel Ruiz. Antes de comenzar a generar el FROM comprobamos si existe */
               /* informacion en el campo OVER_PARTITION. Si existe hay que escribirla como ultimo campo */
               if (reg_scenario.OVER_PARTION is not null) then
-                UTL_FILE.put_line(fich_salida_pkg, 'REGISTRY \');
-                UTL_FILE.put_line(fich_salida_pkg, ', ' || reg_scenario.OVER_PARTION);
+                /* (20170614) Angel Ruiz. BUG. NO es necesario el REGISTRY */
+                --UTL_FILE.put_line(fich_salida_pkg, 'REGISTRY \');
+                UTL_FILE.put_line(fich_salida_pkg, ', ' || reg_scenario.OVER_PARTION || ' \');
               end if;
               /****/
               /* INICIO generacion parte  FROM (TABLA1, TABLA2, TABLA3, ...) */
@@ -4277,10 +4293,12 @@ begin
     UTL_FILE.put_line(fich_salida_load, 'ULT_PASO_EJECUTADO=1');
     UTL_FILE.put_line(fich_salida_load, 'BAN_FORZADO=''N''');
     --UTL_FILE.put_line(fich_salida_load, 'SHELL_SCP="${PATH_SHELL}' || REQ_NUMBER || '_EnviaArchivos.sh"');
-    UTL_FILE.put_line(fich_salida_load, 'if [ "`/sbin/ifconfig -a | grep ''10.225.244.'' | awk -F'':'' ''{print substr($2,1,13) }''`" = "10.225.244.21" ]; then');
+    --UTL_FILE.put_line(fich_salida_load, 'if [ "`/sbin/ifconfig -a | grep ''10.225.232.'' | awk -F'':'' ''{print substr($2,1,13) }''`" = "10.225.244.21" ]; then');
+    UTL_FILE.put_line(fich_salida_load, 'if [ "`/sbin/ifconfig -a | grep ''' || substr(v_ip_productivo, 1, 11) || ''' | awk -F'':'' ''{print substr($2,1,14) }''`" = "' || substr(v_ip_productivo, 1, 14) || '" ]; then');
     --UTL_FILE.put_line(fich_salida_load, '  OWNER="ONIX"');
-    UTL_FILE.put_line(fich_salida_load, '  #CUENTAS PARA MANTENIMIENTO');
-    UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL="ulises.rosales.ext@telefonica.com"');
+    UTL_FILE.put_line(fich_salida_load, '  #CUENTAS PARA PRODUCCION');
+    --UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL=`cat ${' || NAME_DM || '_REQ}/shells/Utilerias/Correos_Mtto_ReportesBI.txt`');
+    UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL=`cat ${' || NAME_DM || '_CONFIGURACION}/Correos_Mtto_ReportesBI.txt`');
     UTL_FILE.put_line(fich_salida_load, '  #BASE DONDE SE CARGARA LA INFORMACION');
     --UTL_FILE.put_line(fich_salida_load, '  BD_SID="QSIEMDESA"');
     --UTL_FILE.put_line(fich_salida_load, '  BD_USR="ONIX"');
@@ -4292,10 +4310,9 @@ begin
       --UTL_FILE.put_line(fich_salida_load, '  PATH_DESTINO="/reportes/requerimientos/salidasmanual/' || REQ_NUMBER || '/datos"');
     --end if;
     UTL_FILE.put_line(fich_salida_load, 'else');
-    --UTL_FILE.put_line(fich_salida_load, '  OWNER="ONIX"');
     UTL_FILE.put_line(fich_salida_load, '  #CUENTAS PARA MANTENIMIENTO');
-    --UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL=`cat ${' || NAME_DM || '_REQ}/shells/Utilerias/Correos_Mtto_ReportesBI.txt`');
-    UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL=`cat ${' || NAME_DM || '_CONFIGURACION}/Correos_Mtto_ReportesBI.txt`');
+    UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL="ulises.rosales.ext@telefonica.com"');
+    --UTL_FILE.put_line(fich_salida_load, '  OWNER="ONIX"');
     UTL_FILE.put_line(fich_salida_load, '  #BASE DONDE SE CARGARA LA INFORMACION');
     --UTL_FILE.put_line(fich_salida_load, '  BD_SID="' || BD_SID || '"');
     --UTL_FILE.put_line(fich_salida_load, '  BD_USR="' || BD_USR || '"');
