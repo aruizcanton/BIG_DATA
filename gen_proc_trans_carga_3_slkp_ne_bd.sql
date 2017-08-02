@@ -1599,12 +1599,12 @@ SELECT
           --l_FROM (l_FROM.last) := ', ' || mitabla_look_up;
           l_FROM_solo_tablas (l_FROM_solo_tablas.last) := ', ' || mitabla_look_up;
           /* (20170725) Angel Ruiz. BUG. Cuando no se pone Y en el campo OUTER debe hacerse INNER */
-          l_FROM (l_FROM.last) := 'LEFT OUTER JOIN ' || mitabla_look_up || ' ';
-          --if (reg_detalle_in.OUTER is null) then
-            --l_FROM (l_FROM.last) := 'INNER JOIN ' || mitabla_look_up || ' ';
-          --else
-            --l_FROM (l_FROM.last) := 'LEFT OUTER JOIN ' || mitabla_look_up || ' ';
-          --end if;
+          --l_FROM (l_FROM.last) := 'LEFT OUTER JOIN ' || mitabla_look_up || ' ';
+          if (reg_detalle_in.OUTER is null) then
+            l_FROM (l_FROM.last) := 'INNER JOIN ' || mitabla_look_up || ' ';
+          else
+            l_FROM (l_FROM.last) := 'LEFT OUTER JOIN ' || mitabla_look_up || ' ';
+          end if;
         else  /* La TABLA_LKUP no es una query */
 
           /* (20161111) Angel Ruiz. NF. Puede haber ALIAS EN LA TABLA DE LOOUP */
@@ -1649,12 +1649,12 @@ SELECT
               --l_FROM (l_FROM.last) := ', ' || mitabla_look_up;
               l_FROM_solo_tablas (l_FROM_solo_tablas.last) := ', ' || mitabla_look_up;
               /* (20170725) Angel Ruiz. BUG. Cuando no se pone Y en el campo OUTER debe hacerse INNER */
-              l_FROM (l_FROM.last) := 'LEFT OUTER JOIN ' || mitabla_look_up || ' ';
-              --if (reg_detalle_in.OUTER is null) then
-                --l_FROM (l_FROM.last) := 'INNER JOIN ' || mitabla_look_up || ' ';
-              --else
-                --l_FROM (l_FROM.last) := 'LEFT OUTER JOIN ' || mitabla_look_up || ' ';
-              --end if;
+              --l_FROM (l_FROM.last) := 'LEFT OUTER JOIN ' || mitabla_look_up || ' ';
+              if (reg_detalle_in.OUTER is null) then
+                l_FROM (l_FROM.last) := 'INNER JOIN ' || mitabla_look_up || ' ';
+              else
+                l_FROM (l_FROM.last) := 'LEFT OUTER JOIN ' || mitabla_look_up || ' ';
+              end if;
               
             end if;
             v_alias := v_alias_table_look_up;
@@ -1701,12 +1701,12 @@ SELECT
               --l_FROM (l_FROM.last) := ', ' || procesa_campo_filter(reg_detalle_in.TABLE_LKUP) || ' "' || v_alias || '"' ;
               --l_FROM (l_FROM.last) := ', ' || mitabla_look_up || ' "' || v_alias || '"' ;
               /* (20170725) Angel Ruiz. BUG. Cuando no se pone Y en el campo OUTER debe hacerse INNER */
-              l_FROM (l_FROM.last) := 'LEFT OUTER JOIN ' || mitabla_look_up || ' ' || v_alias || ' ' ;
-              --if (reg_detalle_in.OUTER is null) then
-                --l_FROM (l_FROM.last) := 'INNER JOIN ' || mitabla_look_up || ' ' || v_alias || ' ' ;
-              --else
-                --l_FROM (l_FROM.last) := 'LEFT OUTER JOIN ' || mitabla_look_up || ' ' || v_alias || ' ' ;
-              --end if;
+              --l_FROM (l_FROM.last) := 'LEFT OUTER JOIN ' || mitabla_look_up || ' ' || v_alias || ' ' ;
+              if (reg_detalle_in.OUTER is null) then
+                l_FROM (l_FROM.last) := 'INNER JOIN ' || mitabla_look_up || ' ' || v_alias || ' ' ;
+              else
+                l_FROM (l_FROM.last) := 'LEFT OUTER JOIN ' || mitabla_look_up || ' ' || v_alias || ' ' ;
+              end if;
               
               l_FROM_solo_tablas (l_FROM_solo_tablas.last) := ', ' || mitabla_look_up || ' "' || v_alias || '"' ;
             else
@@ -1715,12 +1715,12 @@ SELECT
               --l_FROM (l_FROM.last) := ', ' || procesa_campo_filter(reg_detalle_in.TABLE_LKUP);
               --l_FROM (l_FROM.last) := ', ' || mitabla_look_up;
               /* (20170725) Angel Ruiz. BUG. Cuando no se pone Y en el campo OUTER debe hacerse INNER */
-              l_FROM (l_FROM.last) := 'LEFT OUTER JOIN ' || mitabla_look_up || ' ';
-              --if (reg_detalle_in.OUTER is null) then
-                --l_FROM (l_FROM.last) := 'INNER JOIN ' || mitabla_look_up || ' ';
-              --else
-                --l_FROM (l_FROM.last) := 'LEFT OUTER JOIN ' || mitabla_look_up || ' ';
-              --end if;
+              --l_FROM (l_FROM.last) := 'LEFT OUTER JOIN ' || mitabla_look_up || ' ';
+              if (reg_detalle_in.OUTER is null) then
+                l_FROM (l_FROM.last) := 'INNER JOIN ' || mitabla_look_up || ' ';
+              else
+                l_FROM (l_FROM.last) := 'LEFT OUTER JOIN ' || mitabla_look_up || ' ';
+              end if;
               
               l_FROM_solo_tablas (l_FROM_solo_tablas.last) := ', ' || mitabla_look_up;
             end if;
