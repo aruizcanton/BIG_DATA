@@ -15,7 +15,12 @@ cursor MTDT_QUALITY_ASSURANCE
     FROM
       MTDT_QUALITY_ASSURANCE
     WHERE
-      (TRIM(STATUS) = 'P' or TRIM(STATUS) = 'D');
+      (TRIM(STATUS) = 'P' or TRIM(STATUS) = 'D')
+      --and TRIM(QUALITY_NAME) in ('NGQ_CHTFTR_DURACION_VINCULACION'
+      --, 'NGQ_CHTFDC_PERIODO_VINCULACION'
+      --, 'NGQ_CHTFTR_SIN_ITEM'
+      --)
+      ;
       
 cursor MTDT_TABLA
   is
@@ -197,7 +202,7 @@ SELECT
   v_hay_regla_seq                   BOOLEAN:=false; /*(20170107) Angel Ruiz. NF: reglas SEQ */
   v_nombre_seq                      VARCHAR2(50); /*(20170107) Angel Ruiz. NF: reglas SEQ */
   v_nombre_campo_seq                VARCHAR2(50); /*(20170107) Angel Ruiz. NF: reglas SEQ */
-
+  v_poner_paren_cierre boolean:=false;
 
 /************/
 /*************/
@@ -3100,6 +3105,7 @@ begin
     /* COMIEZO LA GENERACION DEL PACKAGE DEFINITION */
     /******/
     dbms_output.put_line ('Comienzo la generacion del PACKAGE DEFINITION');
+    v_poner_paren_cierre := false;
 
     UTL_FILE.put_line(fich_salida_pkg, '');
     UTL_FILE.put_line(fich_salida_pkg, '-- ### INICIO DEL SCRIPT');
@@ -3109,10 +3115,14 @@ begin
       UTL_FILE.put_line(fich_salida_pkg, 'SELECT');
       UTL_FILE.put_line(fich_salida_pkg, 'COUNT(1)');
       UTL_FILE.put_line(fich_salida_pkg, 'FROM');
-      UTL_FILE.put_line(fich_salida_pkg, '(');
-      UTL_FILE.put_line(fich_salida_pkg, 'SELECT');
-      UTL_FILE.put_line(fich_salida_pkg, '*');
-      UTL_FILE.put_line(fich_salida_pkg, 'FROM');
+      if (regexp_instr(reg_quality.TABLE_BASE_NAME, '^ *\(') = 0 and regexp_instr(reg_quality.TABLE_BASE_NAME, '[Ss][Ee][Ll][Ee][Cc][Tt]') > 0) then
+        /* Aunque TABLE_BASE_NAME es una SELECT no tiene el ( inicial. Se lo ponemos */
+        UTL_FILE.put_line(fich_salida_pkg, '(');
+        v_poner_paren_cierre := true;
+      end if;
+      --UTL_FILE.put_line(fich_salida_pkg, 'SELECT');
+      --UTL_FILE.put_line(fich_salida_pkg, '*');
+      --UTL_FILE.put_line(fich_salida_pkg, 'FROM');
       UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.TABLE_BASE_NAME));
     elsif (reg_quality.FILE_SPOOL = 'N' and reg_quality.PARTE_SELECT is not null and reg_quality.PARTE_GROUP is null) then
       UTL_FILE.put_line(fich_salida_pkg, 'SELECT');
@@ -3122,7 +3132,14 @@ begin
       UTL_FILE.put_line(fich_salida_pkg, 'SELECT');
       UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.PARTE_SELECT));
       UTL_FILE.put_line(fich_salida_pkg, 'FROM');
-      UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.TABLE_BASE_NAME));
+      if (regexp_instr(reg_quality.TABLE_BASE_NAME, '^ *\(') = 0 and regexp_instr(reg_quality.TABLE_BASE_NAME, '[Ss][Ee][Ll][Ee][Cc][Tt]') > 0) then
+        /* Aunque TABLE_BASE_NAME es una SELECT no tiene el ( inicial. Se lo ponemos */
+        UTL_FILE.put_line(fich_salida_pkg, '(');
+        UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.TABLE_BASE_NAME));
+        UTL_FILE.put_line(fich_salida_pkg, ') ' || reg_quality.QUALITY_NAME || '_IN');
+      else
+        UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.TABLE_BASE_NAME));
+      end if;
     elsif (reg_quality.FILE_SPOOL = 'N' and reg_quality.PARTE_SELECT is null and reg_quality.PARTE_GROUP is not null) then
       UTL_FILE.put_line(fich_salida_pkg, 'SELECT');
       UTL_FILE.put_line(fich_salida_pkg, 'COUNT(1)');
@@ -3132,7 +3149,14 @@ begin
       UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.PARTE_GROUP));
       UTL_FILE.put_line(fich_salida_pkg, ', COUNT(1)');
       UTL_FILE.put_line(fich_salida_pkg, 'FROM');
-      UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.TABLE_BASE_NAME));
+      if (regexp_instr(reg_quality.TABLE_BASE_NAME, '^ *\(') = 0 and regexp_instr(reg_quality.TABLE_BASE_NAME, '[Ss][Ee][Ll][Ee][Cc][Tt]') > 0) then
+        /* Aunque TABLE_BASE_NAME es una SELECT no tiene el ( inicial. Se lo ponemos */
+        UTL_FILE.put_line(fich_salida_pkg, '(');
+        UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.TABLE_BASE_NAME));
+        UTL_FILE.put_line(fich_salida_pkg, ') ' || reg_quality.QUALITY_NAME || '_IN');
+      else
+        UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.TABLE_BASE_NAME));
+      end if;
     elsif (reg_quality.FILE_SPOOL = 'N' and reg_quality.PARTE_SELECT is not null and reg_quality.PARTE_GROUP is not null) then
       UTL_FILE.put_line(fich_salida_pkg, 'SELECT');
       UTL_FILE.put_line(fich_salida_pkg, 'COUNT(1)');
@@ -3142,25 +3166,54 @@ begin
       UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.PARTE_GROUP));
       UTL_FILE.put_line(fich_salida_pkg, ', COUNT(1)');
       UTL_FILE.put_line(fich_salida_pkg, 'FROM');
-      UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.TABLE_BASE_NAME));
+      if (regexp_instr(reg_quality.TABLE_BASE_NAME, '^ *\(') = 0 and regexp_instr(reg_quality.TABLE_BASE_NAME, '[Ss][Ee][Ll][Ee][Cc][Tt]') > 0) then
+        /* Aunque TABLE_BASE_NAME es una SELECT no tiene el ( inicial. Se lo ponemos */
+        UTL_FILE.put_line(fich_salida_pkg, '(');
+        UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.TABLE_BASE_NAME));
+        UTL_FILE.put_line(fich_salida_pkg, ') ' || reg_quality.QUALITY_NAME || '_IN');
+      else
+        UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.TABLE_BASE_NAME));
+      end if;
     elsif (reg_quality.FILE_SPOOL = 'S' and reg_quality.PARTE_SELECT is null and reg_quality.PARTE_GROUP is null) then
       /* Si no hay parte SELECT ni GROUP y ademas se genera fichero, FILE_SPOOL='S' */
       UTL_FILE.put_line(fich_salida_pkg, 'SELECT');
       UTL_FILE.put_line(fich_salida_pkg, '*');
       UTL_FILE.put_line(fich_salida_pkg, 'FROM');
-      UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.TABLE_BASE_NAME));
+      if (regexp_instr(reg_quality.TABLE_BASE_NAME, '^ *\(') = 0 and regexp_instr(reg_quality.TABLE_BASE_NAME, '[Ss][Ee][Ll][Ee][Cc][Tt]') > 0) then
+        /* Aunque TABLE_BASE_NAME es una SELECT no tiene el ( inicial. Se lo ponemos */
+        UTL_FILE.put_line(fich_salida_pkg, '(');
+        UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.TABLE_BASE_NAME));
+        UTL_FILE.put_line(fich_salida_pkg, ') ' || reg_quality.QUALITY_NAME || '_IN');
+      else
+        UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.TABLE_BASE_NAME));
+      end if;
     elsif (reg_quality.FILE_SPOOL = 'S' and reg_quality.PARTE_SELECT is not null and reg_quality.PARTE_GROUP is null) then
       UTL_FILE.put_line(fich_salida_pkg, 'SELECT');
       UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.PARTE_SELECT));
       UTL_FILE.put_line(fich_salida_pkg, 'FROM');
-      UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.TABLE_BASE_NAME));
+      if (regexp_instr(reg_quality.TABLE_BASE_NAME, '^ *\(') = 0 and regexp_instr(reg_quality.TABLE_BASE_NAME, '[Ss][Ee][Ll][Ee][Cc][Tt]') > 0) then
+        /* Aunque TABLE_BASE_NAME es una SELECT no tiene el ( inicial. Se lo ponemos */
+        UTL_FILE.put_line(fich_salida_pkg, '(');
+        UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.TABLE_BASE_NAME));
+        UTL_FILE.put_line(fich_salida_pkg, ') ' || reg_quality.QUALITY_NAME || '_IN');
+      else
+        UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.TABLE_BASE_NAME));
+      end if;
     elsif (reg_quality.FILE_SPOOL = 'S' and reg_quality.PARTE_SELECT is null and reg_quality.PARTE_GROUP is not null) then
       UTL_FILE.put_line(fich_salida_pkg, 'SELECT');
       UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.PARTE_GROUP));
       UTL_FILE.put_line(fich_salida_pkg, ', COUNT(1)');
       UTL_FILE.put_line(fich_salida_pkg, 'FROM');
-      UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.TABLE_BASE_NAME));
+      if (regexp_instr(reg_quality.TABLE_BASE_NAME, '^ *\(') = 0 and regexp_instr(reg_quality.TABLE_BASE_NAME, '[Ss][Ee][Ll][Ee][Cc][Tt]') > 0) then
+        /* Aunque TABLE_BASE_NAME es una SELECT no tiene el ( inicial. Se lo ponemos */
+        UTL_FILE.put_line(fich_salida_pkg, '(');
+        UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.TABLE_BASE_NAME));
+        UTL_FILE.put_line(fich_salida_pkg, ') ' || reg_quality.QUALITY_NAME || '_IN');
+      else
+        UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.TABLE_BASE_NAME));
+      end if;
     end if;
+    /* (20170906) Angel Ruiz. Hay que cerrar en caso*/
     if (reg_quality.FILTER is not null) then
       UTL_FILE.put_line(fich_salida_pkg,'WHERE');
       UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.FILTER));
@@ -3170,9 +3223,23 @@ begin
       UTL_FILE.put_line(fich_salida_pkg,'GROUP BY');
       UTL_FILE.put_line(fich_salida_pkg, procesa_campo_filter(reg_quality.PARTE_GROUP));
     end if;
-    if (reg_quality.FILE_SPOOL = 'N') then       
-      /* En este caso tenemos una subquery por lo que hay que cerrar el parentesis */
-      UTL_FILE.put_line(fich_salida_pkg,') ' || reg_quality.QUALITY_NAME  );
+    if (reg_quality.FILE_SPOOL = 'N' and reg_quality.PARTE_SELECT is null and reg_quality.PARTE_GROUP is null) then
+      /* En este caso tenemos una subquery por lo que hay que cerrar el parentesis si no se cierra*/
+      /* ya en el propio campo TABLE_BASE_NAME*/
+      if v_poner_paren_cierre = true then
+      --if (not REGEXP_LIKE(reg_quality.TABLE_BASE_NAME, '\) *[a-zA-Z_0-9]+$') and regexp_instr(reg_quality.TABLE_BASE_NAME, '[Ss][Ee][Ll][Ee][Cc][Tt]') > 0) then
+        --if (regexp_instr(reg_quality.TABLE_BASE_NAME, '\) *$') = 0) then
+        UTL_FILE.put_line(fich_salida_pkg,') ' || reg_quality.QUALITY_NAME);
+        --else
+          --UTL_FILE.put_line(fich_salida_pkg,' ' || reg_quality.QUALITY_NAME  );
+        --end if;
+      end if;
+    elsif (reg_quality.FILE_SPOOL = 'N' and reg_quality.PARTE_SELECT is not null and reg_quality.PARTE_GROUP is null) then
+      UTL_FILE.put_line(fich_salida_pkg,') ' || reg_quality.QUALITY_NAME);
+    elsif (reg_quality.FILE_SPOOL = 'N' and reg_quality.PARTE_SELECT is null and reg_quality.PARTE_GROUP is not null) then
+      UTL_FILE.put_line(fich_salida_pkg,') ' || reg_quality.QUALITY_NAME);
+    elsif (reg_quality.FILE_SPOOL = 'N' and reg_quality.PARTE_SELECT is not null and reg_quality.PARTE_GROUP is not null) then
+      UTL_FILE.put_line(fich_salida_pkg,') ' || reg_quality.QUALITY_NAME);
     end if;      
     UTL_FILE.put_line(fich_salida_pkg,';');
     UTL_FILE.put_line(fich_salida_pkg,'');
