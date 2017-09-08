@@ -232,6 +232,8 @@ SELECT
   v_multiplicador_proc              varchar2(60);
   v_separator                       varchar2(3);
   v_ip_productivo                   varchar2(20);
+  v_frequency     varchar2(1);
+  
   
 
 
@@ -841,6 +843,10 @@ SELECT
           dbms_output.put_line ('La cola es: ' || cola);
           cadena_resul := cabeza || sustituto || cola;
         end loop;
+        
+        /* Busco #OWNER_IFRS15# */
+        --cadena_resul := regexp_replace(cadena_resul, '#OWNER_IFRS15#', OWNER_DM);
+        
         /* Busco OWNER_SA */
         sustituto := OWNER_SA; 
         pos := 0;
@@ -3349,29 +3355,22 @@ begin
     UTL_FILE.put_line(fich_salida_load, 'ObtieneFecha()');
     UTL_FILE.put_line(fich_salida_load, '{');
     UTL_FILE.put_line(fich_salida_load, '  if [ $# = 0 ] ; then');
-    UTL_FILE.put_line(fich_salida_load, '    # Se obtiene la fecha inicial y final del periodo a calcular a partir de la fecha del sistema.');
-    --UTL_FILE.put_line(fich_salida_load, '    FECHA=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select date_format(current_date, ''yyyyMMdd'') from ${ESQUEMA_MT}.dual;"`');
-    UTL_FILE.put_line(fich_salida_load, '    FECHA_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
-    UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
-    UTL_FILE.put_line(fich_salida_load, 'select date_format(current_date, ''yyyy-MM-dd'') from ${ESQUEMA_MT}.dual;');
-    UTL_FILE.put_line(fich_salida_load, '!quit');
-    UTL_FILE.put_line(fich_salida_load, 'EOF`');
-    UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
-    UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
-    UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-    UTL_FILE.put_line(fich_salida_load, '      echo `date`');
-    UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
-    UTL_FILE.put_line(fich_salida_load, '      exit 1');
-    UTL_FILE.put_line(fich_salida_load, '    fi');
-    UTL_FILE.put_line(fich_salida_load, '    FECHA=`echo ${FECHA_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
-    --UTL_FILE.put_line(fich_salida_load, '    FECHA_FMT_HIVE=`echo ${FECHA} | awk ''{ printf "%s-%s-%s", substr($1,0,4), substr($1,5,2), substr($1,7,2) ; }''`');    
-    UTL_FILE.put_line(fich_salida_load, '    FECHA_FMT_HIVE=${FECHA}');
-    /* (20170619) Angel Ruiz. BUG. Me creo una variable con formato YYYYMMDD para usarla posteriormente*/
-    UTL_FILE.put_line(fich_salida_load, '    FECHA_SIN_FMT=`echo ${FECHA_FMT_HIVE} | awk ''{ printf "%s%s%s", substr($1,0,4), substr($1,6,2), substr($1,9,2) ; }''`');
-    if (v_fecha_ini_param = true and v_fecha_fin_param = true) then
-      /* (20160419) Angel Ruiz. Si tenemos parametros de FCH_INI y FCH_FIN tenmos que generar codigo para recuperar la fecha Inicial */
-      --UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=${FECHA}');
-      UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
+    /* (20170808) Angel Ruiz. Compruebo la frecuencia con que va a ser vargado */
+    /* El interfaz para generar el rango de fechas en funcion de la frecuencia */
+    /* Si es D (diaria) el intervalo sera de un dia */
+    /* Si es M (mensual) el intervalo sera de un mes */
+    v_frequency := 'D'; /* Por defecto la frecuencia es diaria */
+    for v_cursor_frecuencia in (
+      select frequency into v_frequency from mtdt_interface_summary
+      where trim(concept_name) = reg_tabla.TABLE_NAME)
+    loop
+      v_frequency := v_cursor_frecuencia.frequency;
+    end loop;
+    if (v_frequency <> 'M') then
+      /* Si se trata de valores de fecuenciua D (diaria) o E (eventual) */
+      UTL_FILE.put_line(fich_salida_load, '    # Se obtiene la fecha inicial y final del periodo a calcular a partir de la fecha del sistema.');
+      --UTL_FILE.put_line(fich_salida_load, '    FECHA=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select date_format(current_date, ''yyyyMMdd'') from ${ESQUEMA_MT}.dual;"`');
+      UTL_FILE.put_line(fich_salida_load, '    FECHA_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
       UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
       UTL_FILE.put_line(fich_salida_load, 'select date_format(current_date, ''yyyy-MM-dd'') from ${ESQUEMA_MT}.dual;');
       UTL_FILE.put_line(fich_salida_load, '!quit');
@@ -3383,65 +3382,142 @@ begin
       UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
       UTL_FILE.put_line(fich_salida_load, '      exit 1');
       UTL_FILE.put_line(fich_salida_load, '    fi');
-      UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=`echo ${FECHA_FIN_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
-      
-      --UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=`sqlplus -s ${BD_USR}/${BD_PWD}@${BD_SID} <<!eof');
-      --UTL_FILE.put_line(fich_salida_load, '      whenever sqlerror exit 1');
-      --UTL_FILE.put_line(fich_salida_load, '      set pagesize 0');
-      --UTL_FILE.put_line(fich_salida_load, '      set heading off');
-      --UTL_FILE.put_line(fich_salida_load, '      select to_char(SYSDATE,''YYYYMMDD'')');
-      --UTL_FILE.put_line(fich_salida_load, '      from dual;');
-      --UTL_FILE.put_line(fich_salida_load, '    quit');
-      --UTL_FILE.put_line(fich_salida_load, '    !eof`');
-      --UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
-      --UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
-      --UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha fin o el parametro no es un formato de fecha YYYYMMDD." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-      --UTL_FILE.put_line(fich_salida_load, '      echo `date`');
-      --UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
-      --UTL_FILE.put_line(fich_salida_load, '      exit 1');
-      --UTL_FILE.put_line(fich_salida_load, '    fi');
-    end if;
-    
+      UTL_FILE.put_line(fich_salida_load, '    FECHA=`echo ${FECHA_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
+      --UTL_FILE.put_line(fich_salida_load, '    FECHA_FMT_HIVE=`echo ${FECHA} | awk ''{ printf "%s-%s-%s", substr($1,0,4), substr($1,5,2), substr($1,7,2) ; }''`');    
+      UTL_FILE.put_line(fich_salida_load, '    FECHA_FMT_HIVE=${FECHA}');
+      /* (20170619) Angel Ruiz. BUG. Me creo una variable con formato YYYYMMDD para usarla posteriormente*/
+      UTL_FILE.put_line(fich_salida_load, '    FECHA_SIN_FMT=`echo ${FECHA_FMT_HIVE} | awk ''{ printf "%s%s%s", substr($1,0,4), substr($1,6,2), substr($1,9,2) ; }''`');
+      if (v_fecha_ini_param = true and v_fecha_fin_param = true) then
+        /* (20160419) Angel Ruiz. Si tenemos parametros de FCH_INI y FCH_FIN tenmos que generar codigo para recuperar la fecha Inicial */
+        --UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=${FECHA}');
+        UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
+        UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+        UTL_FILE.put_line(fich_salida_load, 'select date_format(current_date, ''yyyy-MM-dd'') from ${ESQUEMA_MT}.dual;');
+        UTL_FILE.put_line(fich_salida_load, '!quit');
+        UTL_FILE.put_line(fich_salida_load, 'EOF`');
+        UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
+        UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
+        UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
+        UTL_FILE.put_line(fich_salida_load, '      echo `date`');
+        UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
+        UTL_FILE.put_line(fich_salida_load, '      exit 1');
+        UTL_FILE.put_line(fich_salida_load, '    fi');
+        UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=`echo ${FECHA_FIN_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
+      end if;
+    else  /* if (v_frecuency = "M") then */
+      /* Se trata de una extraccion mensual */
+      UTL_FILE.put_line(fich_salida_load, '    FECHA_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
+      UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+      UTL_FILE.put_line(fich_salida_load, 'select date_format(current_date, ''yyyy-MM-01'') from ${ESQUEMA_MT}.dual;');
+      UTL_FILE.put_line(fich_salida_load, '!quit');
+      UTL_FILE.put_line(fich_salida_load, 'EOF`');
+      UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
+      UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
+      UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_load, '      echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
+      UTL_FILE.put_line(fich_salida_load, '      exit 1');
+      UTL_FILE.put_line(fich_salida_load, '    fi');
+      UTL_FILE.put_line(fich_salida_load, '    FECHA=`echo ${FECHA_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
+      UTL_FILE.put_line(fich_salida_load, '    FECHA_FMT_HIVE=${FECHA}');
+      UTL_FILE.put_line(fich_salida_load, '    FECHA_SIN_FMT=`echo ${FECHA_FMT_HIVE} | awk ''{ printf "%s%s%s", substr($1,0,4), substr($1,6,2), substr($1,9,2) ; }''`');
+      if (v_fecha_ini_param = true and v_fecha_fin_param = true) then
+        /* (20160419) Angel Ruiz. Si tenemos parametros de FCH_INI y FCH_FIN tenmos que generar codigo para recuperar la fecha Inicial */
+        --UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=${FECHA}');
+        UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
+        UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+        UTL_FILE.put_line(fich_salida_load, 'select date_format(LAST_DAY(current_date),''yyyy-MM-dd'') from ${ESQUEMA_MT}.dual;');
+        UTL_FILE.put_line(fich_salida_load, '!quit');
+        UTL_FILE.put_line(fich_salida_load, 'EOF`');
+        UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
+        UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha fin."');
+        UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+        UTL_FILE.put_line(fich_salida_load, '      echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+        UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
+        UTL_FILE.put_line(fich_salida_load, '      exit 1');
+        UTL_FILE.put_line(fich_salida_load, '    fi');
+        UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=`echo ${FECHA_FIN_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
+      end if;
+    end if;  /* if (v_frecuency <> "M") then */
     UTL_FILE.put_line(fich_salida_load, '  else');
-    UTL_FILE.put_line(fich_salida_load, '    # Se obtiene la fecha inicial y final del periodo a calcular a partir de la fecha proporcionada como parametro.');
-    UTL_FILE.put_line(fich_salida_load, '    FECHA_FMT_HIVE=`echo $1 | awk ''{ printf "%s-%s-%s", substr($1,0,4), substr($1,5,2), substr($1,7,2) ; }''`');
-    --UTL_FILE.put_line(fich_salida_load, '    FECHA=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select date_format(''${FECHA_FMT_HIVE}'', ''yyyyMMdd'') from ${ESQUEMA_MT}.dual;"`');
-    UTL_FILE.put_line(fich_salida_load, '    FECHA_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
-    UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
-    UTL_FILE.put_line(fich_salida_load, 'select date_format(cast(''${FECHA_FMT_HIVE}'' as date), ''yyyy-MM-dd'') from ${ESQUEMA_MT}.dual;');
-    UTL_FILE.put_line(fich_salida_load, '!quit');
-    UTL_FILE.put_line(fich_salida_load, 'EOF`');
-    UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
-    UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
-    UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-    UTL_FILE.put_line(fich_salida_load, '      echo `date`');
-    UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
-    UTL_FILE.put_line(fich_salida_load, '      exit 1');
-    UTL_FILE.put_line(fich_salida_load, '    fi');
-    /* (20170619) Angel Ruiz. BUG. Corrijo el formato de FECHA para que siempre tenga formato YYYYMMDD*/
-    UTL_FILE.put_line(fich_salida_load, '    FECHA=`echo ${FECHA_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
-    /* (20170619) Angel Ruiz. BUG. Me creo una variable para usarla despues con formato YYYYMMDD*/
-    UTL_FILE.put_line(fich_salida_load, '    FECHA_SIN_FMT=${1}');
-    
-    if (v_fecha_ini_param = true and v_fecha_fin_param = true) then
-      /* (20160419) Angel Ruiz. Si tenemos parametros de FCH_INI y FCH_FIN tenmos que generar codigo para recuperar la fecha Inicial */
-      UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=${FECHA}');
-      --UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=`sqlplus -s ${BD_USR}/${BD_PWD}@${BD_SID} <<!eof');
-      --UTL_FILE.put_line(fich_salida_load, '      whenever sqlerror exit 1');
-      --UTL_FILE.put_line(fich_salida_load, '      set pagesize 0');
-      --UTL_FILE.put_line(fich_salida_load, '      set heading off');
-      --UTL_FILE.put_line(fich_salida_load, '      select to_char(to_date( ''$1'',''YYYYMMDD''), ''YYYYMMDD'')');
-      --UTL_FILE.put_line(fich_salida_load, '      from dual;');
-      --UTL_FILE.put_line(fich_salida_load, '    quit');
-      --UTL_FILE.put_line(fich_salida_load, '    !eof`');
-      --UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
-      --UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
-      --UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha final o el parametro no es un formato de fecha YYYYMMDD." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-      --UTL_FILE.put_line(fich_salida_load, '      echo `date`');
-      --UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
-      --UTL_FILE.put_line(fich_salida_load, '      exit 1');
-      --UTL_FILE.put_line(fich_salida_load, '    fi');
-    end if;
+    if (v_frequency <> 'M') then
+      /* Si se trata de valores de fecuenciua D (diaria) o E (eventual) */
+      UTL_FILE.put_line(fich_salida_load, '    # Se obtiene la fecha inicial y final del periodo a calcular a partir de la fecha proporcionada como parametro.');
+      UTL_FILE.put_line(fich_salida_load, '    FECHA_FMT_HIVE=`echo $1 | awk ''{ printf "%s-%s-%s", substr($1,0,4), substr($1,5,2), substr($1,7,2) ; }''`');
+      --UTL_FILE.put_line(fich_salida_load, '    FECHA=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select date_format(''${FECHA_FMT_HIVE}'', ''yyyyMMdd'') from ${ESQUEMA_MT}.dual;"`');
+      UTL_FILE.put_line(fich_salida_load, '    FECHA_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
+      UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+      UTL_FILE.put_line(fich_salida_load, 'select date_format(cast(''${FECHA_FMT_HIVE}'' as date), ''yyyy-MM-dd'') from ${ESQUEMA_MT}.dual;');
+      UTL_FILE.put_line(fich_salida_load, '!quit');
+      UTL_FILE.put_line(fich_salida_load, 'EOF`');
+      UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
+      UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
+      UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
+      UTL_FILE.put_line(fich_salida_load, '      echo `date`');
+      UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
+      UTL_FILE.put_line(fich_salida_load, '      exit 1');
+      UTL_FILE.put_line(fich_salida_load, '    fi');
+      /* (20170619) Angel Ruiz. BUG. Corrijo el formato de FECHA para que siempre tenga formato YYYYMMDD*/
+      UTL_FILE.put_line(fich_salida_load, '    FECHA=`echo ${FECHA_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
+      /* (20170619) Angel Ruiz. BUG. Me creo una variable para usarla despues con formato YYYYMMDD*/
+      UTL_FILE.put_line(fich_salida_load, '    FECHA_SIN_FMT=${1}');
+      
+      if (v_fecha_ini_param = true and v_fecha_fin_param = true) then
+        /* (20160419) Angel Ruiz. Si tenemos parametros de FCH_INI y FCH_FIN tenmos que generar codigo para recuperar la fecha Inicial */
+        UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=${FECHA}');
+        --UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=`sqlplus -s ${BD_USR}/${BD_PWD}@${BD_SID} <<!eof');
+        --UTL_FILE.put_line(fich_salida_load, '      whenever sqlerror exit 1');
+        --UTL_FILE.put_line(fich_salida_load, '      set pagesize 0');
+        --UTL_FILE.put_line(fich_salida_load, '      set heading off');
+        --UTL_FILE.put_line(fich_salida_load, '      select to_char(to_date( ''$1'',''YYYYMMDD''), ''YYYYMMDD'')');
+        --UTL_FILE.put_line(fich_salida_load, '      from dual;');
+        --UTL_FILE.put_line(fich_salida_load, '    quit');
+        --UTL_FILE.put_line(fich_salida_load, '    !eof`');
+        --UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
+        --UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
+        --UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha final o el parametro no es un formato de fecha YYYYMMDD." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
+        --UTL_FILE.put_line(fich_salida_load, '      echo `date`');
+        --UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
+        --UTL_FILE.put_line(fich_salida_load, '      exit 1');
+        --UTL_FILE.put_line(fich_salida_load, '    fi');
+      end if;
+    else /* if (v_frecuency <> "M") then */
+      /* Se trata de una frecuencia MENSUAL */
+      UTL_FILE.put_line(fich_salida_load, '    # Se obtiene la fecha inicial y final del periodo a calcular a partir de la fecha proporcionada como parametro.');
+      UTL_FILE.put_line(fich_salida_load, '    FECHA_FMT_HIVE=`echo $1 | awk ''{ printf "%s-%s-%s", substr($1,0,4), substr($1,5,2), substr($1,7,2) ; }''`');
+      --UTL_FILE.put_line(fich_salida_load, '    FECHA=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select date_format(''${FECHA_FMT_HIVE}'', ''yyyyMMdd'') from ${ESQUEMA_MT}.dual;"`');
+      UTL_FILE.put_line(fich_salida_load, '    FECHA_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
+      UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+      UTL_FILE.put_line(fich_salida_load, 'select date_format(cast(''${FECHA_FMT_HIVE}'' as date), ''yyyy-MM-01'') from ${ESQUEMA_MT}.dual;');
+      UTL_FILE.put_line(fich_salida_load, '!quit');
+      UTL_FILE.put_line(fich_salida_load, 'EOF`');
+      UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
+      UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
+      UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_load, '      echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
+      UTL_FILE.put_line(fich_salida_load, '      exit 1');
+      UTL_FILE.put_line(fich_salida_load, '    fi');
+      UTL_FILE.put_line(fich_salida_load, '    FECHA=`echo ${FECHA_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
+      UTL_FILE.put_line(fich_salida_load, '    FECHA_SIN_FMT=${1}');
+      if (v_fecha_ini_param = true and v_fecha_fin_param = true) then
+        /* (20160419) Angel Ruiz. Si tenemos parametros de FCH_INI y FCH_FIN tenmos que generar codigo para recuperar la fecha Inicial */
+        --UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=${FECHA}');
+        UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
+        UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+        UTL_FILE.put_line(fich_salida_load, 'select date_format(LAST_DAY(cast(''${FECHA_FMT_HIVE}'' as date)), ''yyyy-MM-dd'') from ${ESQUEMA_MT}.dual;');
+        UTL_FILE.put_line(fich_salida_load, '!quit');
+        UTL_FILE.put_line(fich_salida_load, 'EOF`');
+        UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
+        UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha fin."');
+        UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+        UTL_FILE.put_line(fich_salida_load, '      echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+        UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
+        UTL_FILE.put_line(fich_salida_load, '      exit 1');
+        UTL_FILE.put_line(fich_salida_load, '    fi');
+        UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=`echo ${FECHA_FIN_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
+      end if;
+    end if; /* if (v_frecuency <> "M") then */
     UTL_FILE.put_line(fich_salida_load, '  fi');
     UTL_FILE.put_line(fich_salida_load, '  echo "Fecha a considerar ${FECHA}"');
     if (v_tabla_dinamica = true or pos_ini_mes > 0) then
@@ -3801,12 +3877,40 @@ begin
     --UTL_FILE.put_line(fich_salida_load, '  grep -G -v -e ''^.$'' -e ''^[ ]*.$'' -e ''^$'' ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} > ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}_tmp');
     UTL_FILE.put_line(fich_salida_load, '  grep -G -v -e ''^.$'' -e ''^[ ]*.$'' -e ''^$'' -e ''^ *...$'' -e ''^ *[^A-Za-z0-9]M *'' ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} > ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}_tmp');
     UTL_FILE.put_line(fich_salida_load, '  rm -f ${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}');
+    /* (20170808) Angel Ruiz. BUG. No se puede cargar a la tabla el fichero ta y como lo genero */ 
     UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}_tmp ${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}');
+    --UTL_FILE.put_line(fich_salida_load, '  cp ${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}_tmp ${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}');
     if (v_type_validation <> 'I') then
       /* (20160607) Angel Ruiz. Si se trata de validacion I desde la extraccion */
       /* va a las tablas de Stagin sin pasar por ficehro plano */
       /* (20161114) Angel Ruiz. NF. Como sqoop deja el fichero en la ruta especificada ${PATH_SALIDA}/ */
-      UTL_FILE.put_line(fich_salida_load, '  # Procesamos el fichero obtenido');
+      UTL_FILE.put_line(fich_salida_load, '  # Llevamos el fichero obtenido al directorio Hadoop DESTINO');
+      UTL_FILE.put_line(fich_salida_load, '  hadoop fs -test -d ' || '${' || NAME_DM || '_DESTINO}/${INTERFAZ}');      
+      UTL_FILE.put_line(fich_salida_load, '  if [ $? -ne 0 ]; then');
+      UTL_FILE.put_line(fich_salida_load, '    # El directorio al que se van a copiar los ficheros no existe. Se crea.');
+      UTL_FILE.put_line(fich_salida_load, '    hadoop fs -mkdir ${' || NAME_DM || '_DESTINO}/${INTERFAZ}');
+      UTL_FILE.put_line(fich_salida_load, '  fi');
+      UTL_FILE.put_line(fich_salida_load, '  hadoop fs -test -d ' || '${' || NAME_DM || '_DESTINO}/${INTERFAZ}/${FECHA_SIN_FMT}');
+      UTL_FILE.put_line(fich_salida_load, '  if [ $? -ne 0 ]; then');
+      UTL_FILE.put_line(fich_salida_load, '    # El directorio al que se van a copiar el fichero no existe. Se crea.');
+      /* (20170619) Angel Ruiz. BUG: El directorio en el que se deja el fichero siempre tiene la forma YYYYMMDD */      
+      --UTL_FILE.put_line(fich_salida_load, '    hadoop fs -mkdir ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}');
+      UTL_FILE.put_line(fich_salida_load, '    hadoop fs -mkdir ${' || NAME_DM || '_DESTINO}/${INTERFAZ}/${FECHA_SIN_FMT}');
+      UTL_FILE.put_line(fich_salida_load, '  fi');
+      UTL_FILE.put_line(fich_salida_load, '  hadoop fs -rm -f ' || '${' || NAME_DM || '_DESTINO}/${INTERFAZ}/${FECHA_SIN_FMT}/*');
+      UTL_FILE.put_line(fich_salida_load, '  # Generamos el fichero extraido en el destino');
+      UTL_FILE.put_line(fich_salida_load, '  NUM_FILES=`ls -1 ${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} | wc -l`');
+      UTL_FILE.put_line(fich_salida_load, '  if [ ${NUM_FILES} -eq 1 ]; then');
+      UTL_FILE.put_line(fich_salida_load, '    hadoop fs -put ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} ${' || NAME_DM || '_DESTINO}/${INTERFAZ}/${FECHA_SIN_FMT}');
+      UTL_FILE.put_line(fich_salida_load, '  fi');
+      
+      UTL_FILE.put_line(fich_salida_load, '  # Procesamos el fichero obtenido para que pueda ser cargado en HIVE');
+      UTL_FILE.put_line(fich_salida_load, '  # para lo que hay que suprimir la cabecera');
+      UTL_FILE.put_line(fich_salida_load, '  tail -n +2 ${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} > ${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}_tmp');
+      UTL_FILE.put_line(fich_salida_load, '  # Convierto los nulos a formato Hive');
+      --UTL_FILE.put_line(fich_salida_load, '  rm -f ${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}_tmp');
+      UTL_FILE.put_line(fich_salida_load, '  sed -e ''s/||/|\\N|/g'' -e ''s/^|/\\N|/g'' -e ''s/|$/|\\N/g'' -e ''s/||/|\\N|/g'' ${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}_tmp > ${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}');
+      UTL_FILE.put_line(fich_salida_load, '  # Llevamos el fichero ya sin cabecera y con los nulos \N al directorio Haddop para que despues sea la particion de la tabla de Stagin');
       UTL_FILE.put_line(fich_salida_load, '  hadoop fs -test -d ' || '${' || NAME_DM || '_SALIDA}/${INTERFAZ}');      
       UTL_FILE.put_line(fich_salida_load, '  if [ $? -ne 0 ]; then');
       UTL_FILE.put_line(fich_salida_load, '    # El directorio al que se van a copiar los ficheros no existe. Se crea.');
@@ -3839,6 +3943,7 @@ begin
       /* (20170619) Angel Ruiz. BUG: El directorio en el que se deja el fichero siempre tiene la forma YYYYMMDD */      
       --UTL_FILE.put_line(fich_salida_load, '    hadoop fs -put ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}');
       UTL_FILE.put_line(fich_salida_load, '    hadoop fs -put ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA_SIN_FMT}');
+      UTL_FILE.put_line(fich_salida_load, '    rm -f ${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}');
       /* (20170112) Angel Ruiz. FIN NF: Nueva estructura de la parte de STAGING */
       --UTL_FILE.put_line(fich_salida_load, '    if [ $? -eq 0 ]; then');
       --UTL_FILE.put_line(fich_salida_load, '      hadoop fs -rm -r ' || '${' || NAME_DM || '_TMP}/${INTERFAZ}');
