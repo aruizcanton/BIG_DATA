@@ -18,12 +18,13 @@ SELECT
     trim(MTDT_TC_SCENARIO.TABLE_NAME) in 
     (
     'NGA_PARQUE_ABO_MES', 'NGA_PARQUE_SVA_MES', 'NGA_PARQUE_BENEF_MES', 
-    'NGG_TRANSACCIONES_DETAIL', 'NGA_COMIS_POS_ABO_MES', 'NGA_AJUSTE_ABO_MES', 'NGA_NOSTNDR_CONTRATOS_MES', 
-    'NGA_ALTAS_CANAL_MES', 'NGF_PERIMETRO', 'NGA_NOSTNDR_PLANTA_MES', 'NGA_PARQUE_ABO_DESA_MES',
+    'NGG_TRANSACCIONES_DETAIL', 'NGA_COMIS_POS_CALC_MES', 'NGA_AJUSTE_ABO_MES', 
+    'NGA_ALTAS_CANAL_MES', 'NGF_PERIMETRO', 'NGA_PARQUE_ABO_DESA_MES',
     'NGA_DESC_ADQR_ABO_MES', 'NGA_DESC_EJEC_ABO_MES', 'NGA_PRECIO_UNITARIO_SIM', 'NGA_VIDA_MEDIA_ABO_PRE', 'NGA_MATERIALIDAD_SIM',
-    'NGG_TRANSACCIONES_DESC', 'NGA_PARQUE_DESC_MES', 'NGA_COMBINACION_ABO_MES'
+    'NGG_TRANSACCIONES_DESC', 'NGA_PARQUE_DESC_MES', 'NGA_COMBINACION_ABO_MES', 'NGA_CONTRATOS_ONE_FIJA_MES', 
+    'NGA_PEDIDOS_ONE_FIJA_MES', 'NGA_FACTURA_EQUIPO_MES'
     );
-    --('NGA_COMBINACION_ABO_MES');
+    --('NGA_PARQUE_ABO_MES');
     
   cursor MTDT_SCENARIO (table_name_in IN VARCHAR2)
   is
@@ -1251,6 +1252,7 @@ SELECT
           --cadena_resul := cabeza || sustituto || cola;
         --end loop;
         cadena_resul := regexp_replace(cadena_resul, '#VAR_MARGEN_COMISION#', ' 0.3 ');
+        cadena_resul := regexp_replace(cadena_resul, '#VAR_FIN_DEFAULT#', ' ''9999-12-31'' ');
 
       end if;
       return cadena_resul;
@@ -1284,7 +1286,7 @@ SELECT
     ie_column_lkup    list_strings := list_strings();
     tipo_columna  VARCHAR2(30);
     mitabla_look_up VARCHAR2(4000);
-    v_tabla_base_name VARCHAR2(800);
+    v_tabla_base_name VARCHAR2(2000);
     mi_tabla_base_name VARCHAR2(50);
     mi_tabla_base_name_alias VARCHAR2(50);
     l_registro          ALL_TAB_COLUMNS%rowtype;
@@ -1831,6 +1833,10 @@ SELECT
               end if;
             end if;
           END LOOP;
+          /* (20170709) Angel Ruiz. UNa excepcion para el campo ID_TRAZABILIDAD DE NGA_PARQUE_ABO_MES */
+          if (reg_detalle_in.TABLE_COLUMN = 'ID_TRAZABILIDAD' or reg_detalle_in.TABLE_COLUMN = 'ID_TRAZABILIDAD_ANT') then
+            v_no_se_generara_case:=true;
+          end if;
         else
           v_existe_valor:=false;
           for registro in (SELECT * FROM v_MTDT_CAMPOS_DETAIL
@@ -1840,6 +1846,10 @@ SELECT
             v_existe_valor:=true;
           end loop;
           if (v_existe_valor=false) then
+            v_no_se_generara_case:=true;
+          end if;
+          /* (20170709) Angel Ruiz. UNa excepcion para el campo ID_TRAZABILIDAD DE NGA_PARQUE_ABO_MES */
+          if (reg_detalle_in.TABLE_COLUMN = 'ID_TRAZABILIDAD' or reg_detalle_in.TABLE_COLUMN = 'ID_TRAZABILIDAD_ANT') then
             v_no_se_generara_case:=true;
           end if;
         end if;
@@ -3474,7 +3484,7 @@ begin
               primera_col := 0;
             else
               UTL_FILE.put_line(fich_salida_pkg,',' || columna || ' ' || reg_detail.TABLE_COLUMN);
-            end if;        
+            end if;
           end loop;
           close MTDT_TC_DETAIL;
           /****/
@@ -3937,10 +3947,28 @@ begin
     UTL_FILE.put_line(fich_salida_load, 'EOF`');
     --UTL_FILE.put_line(fich_salida_load, 'INICIO_PASO_TMR=`echo ${INICIO_PASO_TMR_PREV} | sed -e ''s/ //g'' -e ''s/\n//g'' -e ''s/\r//g''`');    
     UTL_FILE.put_line(fich_salida_load, 'INICIO_PASO_TMR=`echo ${INICIO_PASO_TMR_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');    
+    /* (20170817) Angel Ruiz. Meto una excepcion porque me ha dicho Stephnay que para PARQUE_ABO_DESA_MES */
+    /* es necesario que en lugar de insertarse en la particion del mes de carga se ha de tomar el mes anterior */
+    if (reg_tabla.TABLE_NAME = 'NGA_PARQUE_ABO_DESA_MES') then
+      UTL_FILE.put_line(fich_salida_load, 'FCH_DATOS_MES_ANT_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
+      UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+      UTL_FILE.put_line(fich_salida_load, 'select DATE_FORMAT(ADD_MONTHS(''${FCH_CARGA_FMT_HIVE}'',-1),''YYYYMM'') from ${ESQUEMA_MT}.dual;');
+      UTL_FILE.put_line(fich_salida_load, '!quit');
+      UTL_FILE.put_line(fich_salida_load, 'EOF`');
+      --UTL_FILE.put_line(fich_salida_load, 'INICIO_PASO_TMR=`echo ${INICIO_PASO_TMR_PREV} | sed -e ''s/ //g'' -e ''s/\n//g'' -e ''s/\r//g''`');    
+      UTL_FILE.put_line(fich_salida_load, 'FCH_DATOS_MES_ANT=`echo ${FCH_DATOS_MES_ANT_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');    
+    end if;
+    /* (20170817) Angel Ruiz.Fin */
     UTL_FILE.put_line(fich_salida_load, 'echo "Inicio de la carga de ' || reg_tabla.TABLE_NAME || '"' || ' >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
     UTL_FILE.put_line(fich_salida_load, '');
-    UTL_FILE.put_line(fich_salida_load, 'sed -e "s/#VAR_FCH_REGISTRO#/${INICIO_PASO_TMR}/g" -e "s/#VAR_FCH_CARGA#/${FCH_CARGA_FMT_HIVE}/g" -e "s/#VAR_FCH_DATOS#/${FCH_DATOS_FMT_HIVE}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" -e "s/#VAR_CVE_MES#/${FCH_CARGA_MES}/g" -e "s/#VAR_CVE_DIA#/${VAR_FCH_CARGA}/g" ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '.sql > ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
-
+    /* (20170817) Angel Ruiz. Meto una excepcion porque me ha dicho Stephnay que para PARQUE_ABO_DESA_MES */
+    /* es necesario que en lugar de insertarse en la particion del mes de carga se ha de tomar el mes anterior */
+    if (reg_tabla.TABLE_NAME = 'NGA_PARQUE_ABO_DESA_MES') then
+      UTL_FILE.put_line(fich_salida_load, 'sed -e "s/#VAR_FCH_REGISTRO#/${INICIO_PASO_TMR}/g" -e "s/#VAR_FCH_CARGA#/${FCH_CARGA_FMT_HIVE}/g" -e "s/#VAR_FCH_DATOS#/${FCH_DATOS_FMT_HIVE}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" -e "s/#VAR_CVE_MES#/${FCH_DATOS_MES_ANT}/g" -e "s/#VAR_CVE_DIA#/${VAR_FCH_CARGA}/g" ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '.sql > ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
+    else
+      UTL_FILE.put_line(fich_salida_load, 'sed -e "s/#VAR_FCH_REGISTRO#/${INICIO_PASO_TMR}/g" -e "s/#VAR_FCH_CARGA#/${FCH_CARGA_FMT_HIVE}/g" -e "s/#VAR_FCH_DATOS#/${FCH_DATOS_FMT_HIVE}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" -e "s/#VAR_CVE_MES#/${FCH_CARGA_MES}/g" -e "s/#VAR_CVE_DIA#/${VAR_FCH_CARGA}/g" ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '.sql > ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
+    end if;
+    /* (20170817) Angel Ruiz.Fin */
     /***********************************************************************************/
     --UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -f ' || '${NGRD_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
     UTL_FILE.put_line(fich_salida_load, 'beeline << EOF >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
@@ -3950,10 +3978,10 @@ begin
     reg_tabla.TABLE_NAME = 'NGA_PARQUE_SVA_MES' or
     reg_tabla.TABLE_NAME = 'NGG_TRANSACCIONES_DETAIL'
     ) then
-      UTL_FILE.put_line(fich_salida_load, '!set hive.execution.engine=tez;');
-      UTL_FILE.put_line(fich_salida_load, '!set hive.enforce.bucketing=true;');
-      UTL_FILE.put_line(fich_salida_load, '!set hive.tez.container.size=6144;');
-      UTL_FILE.put_line(fich_salida_load, '!set hive.tez.java.opts=-server -Djava.net.preferIPv4Stack=true -Xmx4096m -Xms4096m -X-XX:NewRatio=8 -XX:+UseNUMA -XX:+UseG1GC -XX:+ResizeTLAB -XX:+PrintGCDetails -verbose:gc -XX:+PrintGCTimeStamps;');
+      UTL_FILE.put_line(fich_salida_load, 'set hive.execution.engine=tez;');
+      UTL_FILE.put_line(fich_salida_load, 'set hive.enforce.bucketing=true;');
+      UTL_FILE.put_line(fich_salida_load, 'set hive.tez.container.size=6144;');
+      --UTL_FILE.put_line(fich_salida_load, 'set hive.tez.java.opts=-server -Djava.net.preferIPv4Stack=true -Xmx4096m -Xms4096m -X-XX:NewRatio=8 -XX:+UseNUMA -XX:+UseG1GC -XX:+ResizeTLAB -XX:+PrintGCDetails -verbose:gc -XX:+PrintGCTimeStamps;');
     end if;
     UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
     UTL_FILE.put_line(fich_salida_load, '!quit');
