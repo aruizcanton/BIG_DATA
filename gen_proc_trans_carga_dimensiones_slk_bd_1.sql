@@ -25,7 +25,7 @@ cursor MTDT_TABLA
     'NGD_SUPPLEMENTARY_OFFER', 'NGD_BONUS', 'NGD_HANDSET_PRICE', 'NGD_PROYECTO_COMERCIAL', 'NGD_USO',
     'NGD_NOSTNDR_SERVS_PRECIOS', 'NGG_OFERTA_ESTANDAR', 'NGD_DESCUENTO', 'NGD_OFFER_RENT', 'SA_OFFER_RENT1',
     'SA_OFFER_ITEM1', 'NGD_ABONADO_NOESTANDAR', 'NGG_OFERTA_DESCUENTO', 'SA_COMBINACION_ABO_MES',
-    'NGD_COMBINACION_OFERTA', 'SA_HANDSET_PRICE1', 'NGD_TRAZABILIDAD'
+    'NGD_COMBINACION_OFERTA', 'SA_HANDSET_PRICE1', 'NGD_TRAZABILIDAD', 'NGG_OFERTA_EQUIPO'
     )
     --('NGD_PRIMARY_OFFER')
     order by
@@ -1031,6 +1031,7 @@ cursor MTDT_TABLA
           --cadena_resul := cabeza || sustituto || cola;
         --end loop;
         cadena_resul := regexp_replace(cadena_resul, '#VAR_MARGEN_COMISION#', ' 0.3 ');
+        cadena_resul := regexp_replace(cadena_resul, '#VAR_FIN_DEFAULT#', ' ''9999-12-31'' ');
 
       end if;
       return cadena_resul;
@@ -1486,7 +1487,13 @@ cursor MTDT_TABLA
           end if;
           --l_FROM (l_FROM.last) := ', ' || mitabla_look_up;
           l_FROM_solo_tablas (l_FROM_solo_tablas.last) := ', ' || mitabla_look_up;
-          l_FROM (l_FROM.last) := ' LEFT OUTER JOIN ' || mitabla_look_up || ' ';
+          /* (20170725) Angel Ruiz. BUG. Cuando no se pone Y en el campo OUTER debe hacerse INNER */
+          --l_FROM (l_FROM.last) := ' LEFT OUTER JOIN ' || mitabla_look_up || ' ';
+          if (reg_detalle_in.OUTER is null) then
+            l_FROM (l_FROM.last) := 'INNER JOIN ' || mitabla_look_up || ' ';
+          else
+            l_FROM (l_FROM.last) := 'LEFT OUTER JOIN ' || mitabla_look_up || ' ';
+          end if;
         else
           /* (20161111) Angel Ruiz. NF. Puede haber ALIAS EN LA TABLA DE LOOUP */
           dbms_output.put_line('Dentro del ELSE del SELECT');
@@ -1525,7 +1532,14 @@ cursor MTDT_TABLA
               /* Solo la introduzco si la tabla no estaba ya */
               --l_FROM (l_FROM.last) := ', ' || procesa_campo_filter(reg_detalle_in.TABLE_LKUP);
               l_FROM_solo_tablas (l_FROM_solo_tablas.last) := ', ' || procesa_campo_filter(reg_detalle_in.TABLE_LKUP);
-              l_FROM (l_FROM.last) := ' LEFT OUTER JOIN ' || procesa_campo_filter(reg_detalle_in.TABLE_LKUP) || ' ';
+              /* (20170725) Angel Ruiz. BUG. Cuando no se pone Y en el campo OUTER debe hacerse INNER */
+              --l_FROM (l_FROM.last) := ' LEFT OUTER JOIN ' || procesa_campo_filter(reg_detalle_in.TABLE_LKUP) || ' ';
+              if (reg_detalle_in.OUTER is null) then
+                l_FROM (l_FROM.last) := ' INNER JOIN ' || procesa_campo_filter(reg_detalle_in.TABLE_LKUP) || ' ';
+              else
+                l_FROM (l_FROM.last) := ' LEFT OUTER JOIN ' || procesa_campo_filter(reg_detalle_in.TABLE_LKUP) || ' ';
+              end if;
+
             end if;
             v_alias := v_alias_table_look_up;
           else    /* La tabla de LKUP no posee Alias */
@@ -1568,14 +1582,26 @@ cursor MTDT_TABLA
               v_alias := reg_detalle_in.TABLE_LKUP || '_' || l_FROM.count;
               --l_FROM (l_FROM.last) := ', ' || procesa_campo_filter(reg_detalle_in.TABLE_LKUP) || ' "' || v_alias || '"' ;
               --l_FROM (l_FROM.last) := ', ' || mitabla_look_up || ' "' || v_alias || '"' ;
-              l_FROM (l_FROM.last) := ' LEFT OUTER JOIN ' || mitabla_look_up || ' ' || v_alias || ' ' ;
+              /* (20170725) Angel Ruiz. BUG. Cuando no se pone Y en el campo OUTER debe hacerse INNER */
+              --l_FROM (l_FROM.last) := ' LEFT OUTER JOIN ' || mitabla_look_up || ' ' || v_alias || ' ' ;
+              if (reg_detalle_in.OUTER is null) then
+                l_FROM (l_FROM.last) := ' INNER JOIN ' || mitabla_look_up || ' ' || v_alias || ' ' ;
+              else
+                l_FROM (l_FROM.last) := ' LEFT OUTER JOIN ' || mitabla_look_up || ' ' || v_alias || ' ' ;
+              end if;
               l_FROM_solo_tablas (l_FROM_solo_tablas.last) := ', ' || mitabla_look_up || ' "' || v_alias || '"' ;
             else
               --v_alias := reg_detalle_in.TABLE_LKUP;
               v_alias := v_alias_table_look_up;
               --l_FROM (l_FROM.last) := ', ' || procesa_campo_filter(reg_detalle_in.TABLE_LKUP);
               --l_FROM (l_FROM.last) := ', ' || mitabla_look_up;
-              l_FROM (l_FROM.last) := ' LEFT OUTER JOIN ' || mitabla_look_up || ' ';
+              /* (20170725) Angel Ruiz. BUG. Cuando no se pone Y en el campo OUTER debe hacerse INNER */
+              --l_FROM (l_FROM.last) := ' LEFT OUTER JOIN ' || mitabla_look_up || ' ';
+              if (reg_detalle_in.OUTER is null) then
+                l_FROM (l_FROM.last) := ' INNER JOIN ' || mitabla_look_up || ' ';
+              else
+                l_FROM (l_FROM.last) := ' LEFT OUTER JOIN ' || mitabla_look_up || ' ';
+              end if;
               l_FROM_solo_tablas (l_FROM_solo_tablas.last) := ', ' || mitabla_look_up;
             end if;
           end if;
@@ -1686,6 +1712,10 @@ cursor MTDT_TABLA
               end if;
             end if;
           END LOOP;
+          /* (20170709) Angel Ruiz. UNa excepcion para el campo ID_TRAZABILIDAD DE NGA_PARQUE_ABO_MES */
+          if (reg_detalle_in.TABLE_COLUMN = 'ID_TRAZABILIDAD' or reg_detalle_in.TABLE_COLUMN = 'ID_TRAZABILIDAD_ANT') then
+            v_no_se_generara_case:=true;
+          end if;
         else
           v_existe_valor:=false;
           for registro in (SELECT * FROM v_MTDT_CAMPOS_DETAIL
@@ -1695,6 +1725,10 @@ cursor MTDT_TABLA
             v_existe_valor:=true;
           end loop;
           if (v_existe_valor=false) then
+            v_no_se_generara_case:=true;
+          end if;
+          /* (20170709) Angel Ruiz. UNa excepcion para el campo ID_TRAZABILIDAD DE NGA_PARQUE_ABO_MES */
+          if (reg_detalle_in.TABLE_COLUMN = 'ID_TRAZABILIDAD' or reg_detalle_in.TABLE_COLUMN = 'ID_TRAZABILIDAD_ANT') then
             v_no_se_generara_case:=true;
           end if;
         end if;
@@ -4204,7 +4238,21 @@ begin
       UTL_FILE.put_line(fich_salida_load, 'sed -e "s/#VAR_FCH_REGISTRO#/${INICIO_PASO_TMR}/g" -e "s/#VAR_FCH_CARGA#/${FCH_CARGA_FMT_HIVE}/g" -e "s/#VAR_FCH_DATOS#/${FCH_DATOS_FMT_HIVE}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '.sql > ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
       --UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -f ' || '${NGRD_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
       UTL_FILE.put_line(fich_salida_load, 'beeline << EOF >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
-      UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+      if (reg_tabla.TABLE_NAME = 'NGD_HANDSET_PRICE') then
+        UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_ML};ssl=true;sslTrustStore=/grid/00/certificadoKnox/knoxgateway.jks;trustStorePassword=bigdatatemmcsr;transportMode=http;httpPath=gateway/ClusterBigData/hive ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+      else
+        UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+      end if;
+      /* (20170725) Angel Ruiz. BUG. Correccion de error */
+      if (reg_tabla.TABLE_NAME = 'NGG_OFERTA_DESCUENTO') then
+        UTL_FILE.put_line(fich_salida_load, 'set hive.execution.engine=tez;');
+        UTL_FILE.put_line(fich_salida_load, 'set hive.enforce.bucketing=true;');
+        UTL_FILE.put_line(fich_salida_load, 'set hive.tez.container.size=6144;');
+        --UTL_FILE.put_line(fich_salida_load, 'set hive.tez.java.opts=-server -Djava.net.preferIPv4Stack=true -Xmx4096m -Xms4096m -X-XX:NewRatio=8 -XX:+UseNUMA -XX:+UseG1GC -XX:+ResizeTLAB -XX:+PrintGCDetails -verbose:gc -XX:+PrintGCTimeStamps;');
+      end if;
+      if (reg_tabla.TABLE_NAME = 'NGD_HANDSET_PRICE') then
+        UTL_FILE.put_line(fich_salida_load, 'set hive.execution.engine=mr;');
+      end if;
       UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
       UTL_FILE.put_line(fich_salida_load, '!quit');
       UTL_FILE.put_line(fich_salida_load, 'EOF');
@@ -4587,13 +4635,6 @@ begin
         --UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -f ' || '${NGRD_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
         UTL_FILE.put_line(fich_salida_load, 'beeline << EOF >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || nombre_tabla_reducido || '_${FECHA_HORA}.log ' || '2>> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || nombre_tabla_reducido || '_${FECHA_HORA}.log');
         UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
-        /* (20170725) Angel Ruiz. BUG. Correccion de error */
-        if (reg_tabla.TABLE_NAME = 'NGG_OFERTA_DESCUENTO') then
-          UTL_FILE.put_line(fich_salida_load, '!set hive.execution.engine=tez;');
-          UTL_FILE.put_line(fich_salida_load, '!set hive.enforce.bucketing=true;');
-          UTL_FILE.put_line(fich_salida_load, '!set hive.tez.container.size=6144;');
-          UTL_FILE.put_line(fich_salida_load, '!set hive.tez.java.opts=-server -Djava.net.preferIPv4Stack=true -Xmx4096m -Xms4096m -X-XX:NewRatio=8 -XX:+UseNUMA -XX:+UseG1GC -XX:+ResizeTLAB -XX:+PrintGCDetails -verbose:gc -XX:+PrintGCTimeStamps;');
-        end if;
         UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
         UTL_FILE.put_line(fich_salida_load, '!quit');
         UTL_FILE.put_line(fich_salida_load, 'EOF');
