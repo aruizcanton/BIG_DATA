@@ -15,7 +15,7 @@ SELECT
       --, 'PARQUE_ABO_MES', 'SUPPLEMENTARY_OFFER', 'BONUS', 'HANDSET_PRICE', 'PARQUE_SVA_MES', 'PARQUE_BENEF_MES', 'PSD_RESIDENCIAL'
       --, 'OFFER_ITEM', 'MOVIMIENTOS_ABO_MES', 'MOVIMIENTO_ABO', 'COMIS_POS_ABO_MES', 'AJUSTE_ABO_MES'
       --'OFERTA', 'TRANSACCIONES' , 'PRECIOS', 'MOVIMIENTOS_PLANTA', 'CONFIGURACION_CONTRATO');
-      'TRANSACCIONES', 'CONFIGURACION_CONTRATO');
+      'TRANSACCIONES', 'CONFIGURACION_CONTRATO', 'OFERTA', 'PRECIOS', 'MOVIMIENTOS_PLANTA');
     
     --and trim(MTDT_EXT_SCENARIO.TABLE_NAME) in ('PARQUE_PROMO_CAMPANA', 'MOV_PROMO_CAMPANA'
     --  );
@@ -233,6 +233,7 @@ SELECT
   v_multiplicador_proc              varchar2(60);
   v_separator                       varchar2(3);
   v_ip_productivo                   varchar2(20);
+  v_frequency     varchar2(1);
   
 
 
@@ -842,6 +843,10 @@ SELECT
           dbms_output.put_line ('La cola es: ' || cola);
           cadena_resul := cabeza || sustituto || cola;
         end loop;
+        
+        /* Busco #OWNER_IFRS15# */
+        --cadena_resul := regexp_replace(cadena_resul, '#OWNER_IFRS15#', OWNER_DM);
+        
         /* Busco OWNER_SA */
         sustituto := OWNER_SA; 
         pos := 0;
@@ -937,7 +942,7 @@ SELECT
           cola := substr(cadena_resul, pos + length ('#OWNER_3#'));
           dbms_output.put_line ('La cola es: ' || cola);
           cadena_resul := cabeza || sustituto || cola;
-        end loop;        
+        end loop;
         /* Busco OWNER_4 */
         sustituto := OWNER_4; 
         pos := 0;
@@ -963,6 +968,7 @@ SELECT
           v_usuario_owner:= regexp_substr(cadena_resul, '#OWNER_[A-Za-z_0-9]+#');
         end if;
         /*************************/
+        
         
         /* Busco [YYYYMM] */
         if (v_type_validation = 'I') then
@@ -1499,7 +1505,10 @@ SELECT
               /*(20170119) Angel Ruiz. BUG. Si la taba no esta calificada */
               /* la califico con el usuario extractor para este escenario */
               --v_table_look_up := OWNER_EX || '.' || v_table_look_up;
-              v_table_look_up := '#OWNER_' || reg_scenario.SOURCE || '#' || '.' || v_table_look_up;
+              --v_table_look_up := '#OWNER_' || reg_scenario.SOURCE || '#' || '.' || v_table_look_up;
+              /* (20170829) Angel Ruiz. BUG Corregido. Si la TABLA_LKUP no esta calificada */
+              v_table_look_up := '#OWNER_DM' || '#' || '.' || v_table_look_up;
+              v_table_look_up := procesa_campo_filter(v_table_look_up);
             end if;
             mitabla_look_up := v_table_look_up || ' ' || v_alias_table_look_up;
             /* Busco si estaba ya en el FROM. Como es una tabla con ALIAS */
@@ -1548,7 +1557,10 @@ SELECT
               /*(20170119) Angel Ruiz. BUG. Si la taba no esta calificada */
               /* la califico con el usuario extractor para este escenario */
               --v_table_look_up := OWNER_EX || '.' || v_table_look_up;
-              v_table_look_up := '#OWNER_' || reg_scenario.SOURCE || '#' || '.' || v_table_look_up;
+              /* (20170829) Angel Ruiz. BUG cuando la tabla de LookUp no esta calificada */
+              --v_table_look_up := '#OWNER_' || reg_scenario.SOURCE || '#' || '.' || v_table_look_up;
+              v_table_look_up := '#OWNER_DM' || '#' || '.' || v_table_look_up;
+              v_table_look_up:= procesa_campo_filter(v_table_look_up);
             end if;
             dbms_output.put_line('El alias es: ' || v_alias_table_look_up);
             dbms_output.put_line('La tabla de LKUP es: ' || v_table_look_up);
@@ -1850,11 +1862,44 @@ SELECT
       when 'BASE' then
         /* Se toma el valor del campo de la tabla de staging */
         /* (20170228) Angel Ruiz. Detecto si el campo tiene propietario. Si no es así lo anyado */
-        if (instr(reg_detalle_in.VALUE, '.') > 0) then
-          valor_retorno := reg_detalle_in.VALUE;
+        --if (instr(reg_detalle_in.VALUE, '.') > 0) then
+          --valor_retorno := reg_detalle_in.VALUE;
+        --else
+          --valor_retorno := reg_detalle_in.TABLE_BASE_NAME || '.' || reg_detalle_in.VALUE;
+        --end if;
+        /* (20170906) Angel Ruiz. BUG. Calificamos los campos BASE con la table base name*/
+        if (instr(reg_detalle_in.VALUE, '.') = 0) then
+          /* Solo si el campo ya no esta calificado lo calificamos */
+          if (REGEXP_LIKE(trim(reg_detalle_in.TABLE_BASE_NAME), '^[a-zA-Z_0-9#]+\.[a-zA-Z_0-9]+') = true) then
+            /* La tabla esta calificada */
+            v_temporal := procesa_campo_filter(trim(reg_detalle_in.TABLE_BASE_NAME));
+            if (REGEXP_LIKE(trim(v_temporal), '^[a-zA-Z_0-9#]+\.[a-zA-Z_0-9]+ +[a-zA-Z0-9_]+$') = true) then
+              /* (20160329) Angel Ruiz. Detectamos si TABLE_BASE_NAME posee ALIAS */
+              v_alias_table_base_name := trim(REGEXP_SUBSTR(TRIM(v_temporal), ' +[a-zA-Z_0-9]+$'));
+              v_table_base_name := substr(trim(REGEXP_SUBSTR(TRIM(v_temporal), '\.[a-zA-Z_0-9]+ ')),2);
+            else
+              v_alias_table_base_name := substr(trim(REGEXP_SUBSTR(TRIM(v_temporal), '\.[a-zA-Z_0-9]+')),2);
+              v_table_base_name := substr(trim(REGEXP_SUBSTR(TRIM(v_temporal), '\.[a-zA-Z_0-9]+')),2);
+            end if;
+          else
+            /* La tabla no esta calificada */
+            --if (REGEXP_LIKE(trim(reg_detalle_in.TABLE_BASE_NAME), '^[a-zA-Z_0-9]+ +[a-zA-Z_0-9]+$') = true) then
+            if (REGEXP_LIKE(trim(reg_detalle_in.TABLE_BASE_NAME), '^[a-zA-Z_0-9]+\[*[a-zA-Z_0-9]+\]* +[a-zA-Z_0-9]+$') = true) then
+              /* (20160329) Angel Ruiz. Detectamos si TABLE_BASE_NAME posee ALIAS */
+              v_alias_table_base_name := trim(REGEXP_SUBSTR(TRIM(reg_detalle_in.TABLE_BASE_NAME), ' +[a-zA-Z_0-9]+$'));
+              v_table_base_name := trim(REGEXP_SUBSTR(TRIM(reg_detalle_in.TABLE_BASE_NAME), '^+[a-zA-Z_0-9]+ '));
+            else
+              v_alias_table_base_name := reg_detalle_in.TABLE_BASE_NAME;
+              v_table_base_name := reg_detalle_in.TABLE_BASE_NAME;
+            end if;
+          end if;
+          --valor_retorno := reg_detalle_in.VALUE;
+          valor_retorno := v_alias_table_base_name || '.' || reg_detalle_in.VALUE;
         else
-          valor_retorno := reg_detalle_in.TABLE_BASE_NAME || '.' || reg_detalle_in.VALUE;
+          valor_retorno := reg_detalle_in.VALUE;
         end if;
+        /* (20170906) Angel Ruiz. BUG. Calificamos los campos BASE con la table base name*/
+        
       when 'VAR_FCH_INICIO' then
         --valor_retorno :=  '    ' || ''' || var_fch_inicio || ''';
         --valor_retorno :=  'TO_CHAR(SYSDATE, ''YYYY-MM-DD'')';
@@ -2449,6 +2494,12 @@ begin
     end if;
     /* (20170519) Angel Ruiz. fin */    
 
+    /* (20170828). Angel Ruiz. UNa excepcion por razones de ejecucion */
+    if (reg_scenario.TABLE_NAME = 'TRANSACCIONES' and lista_scenarios_presentes.COUNT > 0) then
+      --UTL_FILE.put_line(fich_salida_pkg,'set hive.tez.container.size=4096;');
+      --UTL_FILE.put_line(fich_salida_pkg,'set hive.auto.convert.join.noconditionaltask.size=1397760;');
+      UTL_FILE.put_line(fich_salida_pkg,'set hive.execution.engine=mr;');
+    end if;
 
     
     v_num_scenarios := 0;
@@ -3355,29 +3406,23 @@ begin
     UTL_FILE.put_line(fich_salida_load, 'ObtieneFecha()');
     UTL_FILE.put_line(fich_salida_load, '{');
     UTL_FILE.put_line(fich_salida_load, '  if [ $# = 0 ] ; then');
-    UTL_FILE.put_line(fich_salida_load, '    # Se obtiene la fecha inicial y final del periodo a calcular a partir de la fecha del sistema.');
-    --UTL_FILE.put_line(fich_salida_load, '    FECHA=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select date_format(current_date, ''yyyyMMdd'') from ${ESQUEMA_MT}.dual;"`');
-    UTL_FILE.put_line(fich_salida_load, '    FECHA_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
-    UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
-    UTL_FILE.put_line(fich_salida_load, 'select date_format(current_date, ''yyyy-MM-dd'') from ${ESQUEMA_MT}.dual;');
-    UTL_FILE.put_line(fich_salida_load, '!quit');
-    UTL_FILE.put_line(fich_salida_load, 'EOF`');
-    UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
-    UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
-    UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-    UTL_FILE.put_line(fich_salida_load, '      echo `date`');
-    UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
-    UTL_FILE.put_line(fich_salida_load, '      exit 1');
-    UTL_FILE.put_line(fich_salida_load, '    fi');
-    UTL_FILE.put_line(fich_salida_load, '    FECHA=`echo ${FECHA_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
-    --UTL_FILE.put_line(fich_salida_load, '    FECHA_FMT_HIVE=`echo ${FECHA} | awk ''{ printf "%s-%s-%s", substr($1,0,4), substr($1,5,2), substr($1,7,2) ; }''`');    
-    UTL_FILE.put_line(fich_salida_load, '    FECHA_FMT_HIVE=${FECHA}');
-    /* (20170619) Angel Ruiz. BUG. Me creo una variable con formato YYYYMMDD para usarla posteriormente*/
-    UTL_FILE.put_line(fich_salida_load, '    FECHA_SIN_FMT=`echo ${FECHA_FMT_HIVE} | awk ''{ printf "%s%s%s", substr($1,0,4), substr($1,6,2), substr($1,9,2) ; }''`');
-    if (v_fecha_ini_param = true and v_fecha_fin_param = true) then
-      /* (20160419) Angel Ruiz. Si tenemos parametros de FCH_INI y FCH_FIN tenmos que generar codigo para recuperar la fecha Inicial */
-      --UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=${FECHA}');
-      UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
+    /* (20170808) Angel Ruiz. Compruebo la frecuencia con que va a ser vargado */
+    /* El interfaz para generar el rango de fechas en funcion de la frecuencia */
+    /* Si es D (diaria) el intervalo sera de un dia */
+    /* Si es M (mensual) el intervalo sera de un mes */
+    v_frequency := 'D'; /* Por defecto la frecuencia es diaria */
+    for v_cursor_frecuencia in (
+      select frequency into v_frequency from mtdt_interface_summary
+      where trim(concept_name) = reg_tabla.TABLE_NAME)
+    loop
+      v_frequency := v_cursor_frecuencia.frequency;
+    end loop;
+    if (v_frequency <> 'M') then
+      /* Si se trata de valores de fecuenciua D (diaria) o E (eventual) */
+    
+      UTL_FILE.put_line(fich_salida_load, '    # Se obtiene la fecha inicial y final del periodo a calcular a partir de la fecha del sistema.');
+      --UTL_FILE.put_line(fich_salida_load, '    FECHA=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select date_format(current_date, ''yyyyMMdd'') from ${ESQUEMA_MT}.dual;"`');
+      UTL_FILE.put_line(fich_salida_load, '    FECHA_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
       UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
       UTL_FILE.put_line(fich_salida_load, 'select date_format(current_date, ''yyyy-MM-dd'') from ${ESQUEMA_MT}.dual;');
       UTL_FILE.put_line(fich_salida_load, '!quit');
@@ -3389,65 +3434,157 @@ begin
       UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
       UTL_FILE.put_line(fich_salida_load, '      exit 1');
       UTL_FILE.put_line(fich_salida_load, '    fi');
-      UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=`echo ${FECHA_FIN_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
-      
-      --UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=`sqlplus -s ${BD_USR}/${BD_PWD}@${BD_SID} <<!eof');
-      --UTL_FILE.put_line(fich_salida_load, '      whenever sqlerror exit 1');
-      --UTL_FILE.put_line(fich_salida_load, '      set pagesize 0');
-      --UTL_FILE.put_line(fich_salida_load, '      set heading off');
-      --UTL_FILE.put_line(fich_salida_load, '      select to_char(SYSDATE,''YYYYMMDD'')');
-      --UTL_FILE.put_line(fich_salida_load, '      from dual;');
-      --UTL_FILE.put_line(fich_salida_load, '    quit');
-      --UTL_FILE.put_line(fich_salida_load, '    !eof`');
-      --UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
-      --UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
-      --UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha fin o el parametro no es un formato de fecha YYYYMMDD." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-      --UTL_FILE.put_line(fich_salida_load, '      echo `date`');
-      --UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
-      --UTL_FILE.put_line(fich_salida_load, '      exit 1');
-      --UTL_FILE.put_line(fich_salida_load, '    fi');
-    end if;
-    
+      UTL_FILE.put_line(fich_salida_load, '    FECHA=`echo ${FECHA_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
+      --UTL_FILE.put_line(fich_salida_load, '    FECHA_FMT_HIVE=`echo ${FECHA} | awk ''{ printf "%s-%s-%s", substr($1,0,4), substr($1,5,2), substr($1,7,2) ; }''`');    
+      UTL_FILE.put_line(fich_salida_load, '    FECHA_FMT_HIVE=${FECHA}');
+      /* (20170619) Angel Ruiz. BUG. Me creo una variable con formato YYYYMMDD para usarla posteriormente*/
+      UTL_FILE.put_line(fich_salida_load, '    FECHA_SIN_FMT=`echo ${FECHA_FMT_HIVE} | awk ''{ printf "%s%s%s", substr($1,0,4), substr($1,6,2), substr($1,9,2) ; }''`');
+      if (v_fecha_ini_param = true and v_fecha_fin_param = true) then
+        /* (20160419) Angel Ruiz. Si tenemos parametros de FCH_INI y FCH_FIN tenmos que generar codigo para recuperar la fecha Inicial */
+        --UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=${FECHA}');
+        UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
+        UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+        UTL_FILE.put_line(fich_salida_load, 'select date_format(current_date, ''yyyy-MM-dd'') from ${ESQUEMA_MT}.dual;');
+        UTL_FILE.put_line(fich_salida_load, '!quit');
+        UTL_FILE.put_line(fich_salida_load, 'EOF`');
+        UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
+        UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
+        UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
+        UTL_FILE.put_line(fich_salida_load, '      echo `date`');
+        UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
+        UTL_FILE.put_line(fich_salida_load, '      exit 1');
+        UTL_FILE.put_line(fich_salida_load, '    fi');
+        UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=`echo ${FECHA_FIN_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
+        
+        --UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=`sqlplus -s ${BD_USR}/${BD_PWD}@${BD_SID} <<!eof');
+        --UTL_FILE.put_line(fich_salida_load, '      whenever sqlerror exit 1');
+        --UTL_FILE.put_line(fich_salida_load, '      set pagesize 0');
+        --UTL_FILE.put_line(fich_salida_load, '      set heading off');
+        --UTL_FILE.put_line(fich_salida_load, '      select to_char(SYSDATE,''YYYYMMDD'')');
+        --UTL_FILE.put_line(fich_salida_load, '      from dual;');
+        --UTL_FILE.put_line(fich_salida_load, '    quit');
+        --UTL_FILE.put_line(fich_salida_load, '    !eof`');
+        --UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
+        --UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
+        --UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha fin o el parametro no es un formato de fecha YYYYMMDD." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
+        --UTL_FILE.put_line(fich_salida_load, '      echo `date`');
+        --UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
+        --UTL_FILE.put_line(fich_salida_load, '      exit 1');
+        --UTL_FILE.put_line(fich_salida_load, '    fi');
+      end if;
+    else  /* if (v_frecuency = "M") then */
+      UTL_FILE.put_line(fich_salida_load, '    FECHA_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
+      UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+      UTL_FILE.put_line(fich_salida_load, 'select date_format(current_date, ''yyyy-MM-01'') from ${ESQUEMA_MT}.dual;');
+      UTL_FILE.put_line(fich_salida_load, '!quit');
+      UTL_FILE.put_line(fich_salida_load, 'EOF`');
+      UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
+      UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
+      UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_load, '      echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
+      UTL_FILE.put_line(fich_salida_load, '      exit 1');
+      UTL_FILE.put_line(fich_salida_load, '    fi');
+      UTL_FILE.put_line(fich_salida_load, '    FECHA=`echo ${FECHA_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
+      UTL_FILE.put_line(fich_salida_load, '    FECHA_FMT_HIVE=${FECHA}');
+      UTL_FILE.put_line(fich_salida_load, '    FECHA_SIN_FMT=`echo ${FECHA_FMT_HIVE} | awk ''{ printf "%s%s%s", substr($1,0,4), substr($1,6,2), substr($1,9,2) ; }''`');
+      if (v_fecha_ini_param = true and v_fecha_fin_param = true) then
+        /* (20160419) Angel Ruiz. Si tenemos parametros de FCH_INI y FCH_FIN tenmos que generar codigo para recuperar la fecha Inicial */
+        --UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=${FECHA}');
+        UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
+        UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+        UTL_FILE.put_line(fich_salida_load, 'select date_format(LAST_DAY(current_date),''yyyy-MM-dd'') from ${ESQUEMA_MT}.dual;');
+        UTL_FILE.put_line(fich_salida_load, '!quit');
+        UTL_FILE.put_line(fich_salida_load, 'EOF`');
+        UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
+        UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha fin."');
+        UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+        UTL_FILE.put_line(fich_salida_load, '      echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+        UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
+        UTL_FILE.put_line(fich_salida_load, '      exit 1');
+        UTL_FILE.put_line(fich_salida_load, '    fi');
+        UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=`echo ${FECHA_FIN_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
+      end if;
+    end if;  /* if (v_frecuency <> "M") then */
     UTL_FILE.put_line(fich_salida_load, '  else');
-    UTL_FILE.put_line(fich_salida_load, '    # Se obtiene la fecha inicial y final del periodo a calcular a partir de la fecha proporcionada como parametro.');
-    UTL_FILE.put_line(fich_salida_load, '    FECHA_FMT_HIVE=`echo $1 | awk ''{ printf "%s-%s-%s", substr($1,0,4), substr($1,5,2), substr($1,7,2) ; }''`');
-    --UTL_FILE.put_line(fich_salida_load, '    FECHA=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select date_format(''${FECHA_FMT_HIVE}'', ''yyyyMMdd'') from ${ESQUEMA_MT}.dual;"`');
-    UTL_FILE.put_line(fich_salida_load, '    FECHA_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
-    UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
-    UTL_FILE.put_line(fich_salida_load, 'select date_format(cast(''${FECHA_FMT_HIVE}'' as date), ''yyyy-MM-dd'') from ${ESQUEMA_MT}.dual;');
-    UTL_FILE.put_line(fich_salida_load, '!quit');
-    UTL_FILE.put_line(fich_salida_load, 'EOF`');
-    UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
-    UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
-    UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-    UTL_FILE.put_line(fich_salida_load, '      echo `date`');
-    UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
-    UTL_FILE.put_line(fich_salida_load, '      exit 1');
-    UTL_FILE.put_line(fich_salida_load, '    fi');
-    /* (20170619) Angel Ruiz. BUG. Corrijo el formato de FECHA para que siempre tenga formato YYYYMMDD*/
-    UTL_FILE.put_line(fich_salida_load, '    FECHA=`echo ${FECHA_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
-    /* (20170619) Angel Ruiz. BUG. Me creo una variable para usarla despues con formato YYYYMMDD*/
-    UTL_FILE.put_line(fich_salida_load, '    FECHA_SIN_FMT=${1}');
-    
-    if (v_fecha_ini_param = true and v_fecha_fin_param = true) then
-      /* (20160419) Angel Ruiz. Si tenemos parametros de FCH_INI y FCH_FIN tenmos que generar codigo para recuperar la fecha Inicial */
-      UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=${FECHA}');
-      --UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=`sqlplus -s ${BD_USR}/${BD_PWD}@${BD_SID} <<!eof');
-      --UTL_FILE.put_line(fich_salida_load, '      whenever sqlerror exit 1');
-      --UTL_FILE.put_line(fich_salida_load, '      set pagesize 0');
-      --UTL_FILE.put_line(fich_salida_load, '      set heading off');
-      --UTL_FILE.put_line(fich_salida_load, '      select to_char(to_date( ''$1'',''YYYYMMDD''), ''YYYYMMDD'')');
-      --UTL_FILE.put_line(fich_salida_load, '      from dual;');
-      --UTL_FILE.put_line(fich_salida_load, '    quit');
-      --UTL_FILE.put_line(fich_salida_load, '    !eof`');
-      --UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
-      --UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
-      --UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha final o el parametro no es un formato de fecha YYYYMMDD." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-      --UTL_FILE.put_line(fich_salida_load, '      echo `date`');
-      --UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
-      --UTL_FILE.put_line(fich_salida_load, '      exit 1');
-      --UTL_FILE.put_line(fich_salida_load, '    fi');
-    end if;
+    if (v_frequency <> 'M') then
+      UTL_FILE.put_line(fich_salida_load, '    # Se obtiene la fecha inicial y final del periodo a calcular a partir de la fecha proporcionada como parametro.');
+      UTL_FILE.put_line(fich_salida_load, '    FECHA_FMT_HIVE=`echo $1 | awk ''{ printf "%s-%s-%s", substr($1,0,4), substr($1,5,2), substr($1,7,2) ; }''`');
+      --UTL_FILE.put_line(fich_salida_load, '    FECHA=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select date_format(''${FECHA_FMT_HIVE}'', ''yyyyMMdd'') from ${ESQUEMA_MT}.dual;"`');
+      UTL_FILE.put_line(fich_salida_load, '    FECHA_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
+      UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+      UTL_FILE.put_line(fich_salida_load, 'select date_format(cast(''${FECHA_FMT_HIVE}'' as date), ''yyyy-MM-dd'') from ${ESQUEMA_MT}.dual;');
+      UTL_FILE.put_line(fich_salida_load, '!quit');
+      UTL_FILE.put_line(fich_salida_load, 'EOF`');
+      UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
+      UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
+      UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
+      UTL_FILE.put_line(fich_salida_load, '      echo `date`');
+      UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
+      UTL_FILE.put_line(fich_salida_load, '      exit 1');
+      UTL_FILE.put_line(fich_salida_load, '    fi');
+      /* (20170619) Angel Ruiz. BUG. Corrijo el formato de FECHA para que siempre tenga formato YYYYMMDD*/
+      UTL_FILE.put_line(fich_salida_load, '    FECHA=`echo ${FECHA_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
+      /* (20170619) Angel Ruiz. BUG. Me creo una variable para usarla despues con formato YYYYMMDD*/
+      UTL_FILE.put_line(fich_salida_load, '    FECHA_SIN_FMT=${1}');
+      
+      
+      if (v_fecha_ini_param = true and v_fecha_fin_param = true) then
+        /* (20160419) Angel Ruiz. Si tenemos parametros de FCH_INI y FCH_FIN tenmos que generar codigo para recuperar la fecha Inicial */
+        UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=${FECHA}');
+        --UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=`sqlplus -s ${BD_USR}/${BD_PWD}@${BD_SID} <<!eof');
+        --UTL_FILE.put_line(fich_salida_load, '      whenever sqlerror exit 1');
+        --UTL_FILE.put_line(fich_salida_load, '      set pagesize 0');
+        --UTL_FILE.put_line(fich_salida_load, '      set heading off');
+        --UTL_FILE.put_line(fich_salida_load, '      select to_char(to_date( ''$1'',''YYYYMMDD''), ''YYYYMMDD'')');
+        --UTL_FILE.put_line(fich_salida_load, '      from dual;');
+        --UTL_FILE.put_line(fich_salida_load, '    quit');
+        --UTL_FILE.put_line(fich_salida_load, '    !eof`');
+        --UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
+        --UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
+        --UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha final o el parametro no es un formato de fecha YYYYMMDD." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
+        --UTL_FILE.put_line(fich_salida_load, '      echo `date`');
+        --UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
+        --UTL_FILE.put_line(fich_salida_load, '      exit 1');
+        --UTL_FILE.put_line(fich_salida_load, '    fi');
+      end if;
+    else /* v_frequency = 'M'*/
+      /* Se trata de una frecuencia MENSUAL */
+      UTL_FILE.put_line(fich_salida_load, '    # Se obtiene la fecha inicial y final del periodo a calcular a partir de la fecha proporcionada como parametro.');
+      UTL_FILE.put_line(fich_salida_load, '    FECHA_FMT_HIVE=`echo $1 | awk ''{ printf "%s-%s-%s", substr($1,0,4), substr($1,5,2), substr($1,7,2) ; }''`');
+      --UTL_FILE.put_line(fich_salida_load, '    FECHA=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select date_format(''${FECHA_FMT_HIVE}'', ''yyyyMMdd'') from ${ESQUEMA_MT}.dual;"`');
+      UTL_FILE.put_line(fich_salida_load, '    FECHA_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
+      UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+      UTL_FILE.put_line(fich_salida_load, 'select date_format(cast(''${FECHA_FMT_HIVE}'' as date), ''yyyy-MM-01'') from ${ESQUEMA_MT}.dual;');
+      UTL_FILE.put_line(fich_salida_load, '!quit');
+      UTL_FILE.put_line(fich_salida_load, 'EOF`');
+      UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
+      UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
+      UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_load, '      echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
+      UTL_FILE.put_line(fich_salida_load, '      exit 1');
+      UTL_FILE.put_line(fich_salida_load, '    fi');
+      UTL_FILE.put_line(fich_salida_load, '    FECHA=`echo ${FECHA_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
+      UTL_FILE.put_line(fich_salida_load, '    FECHA_SIN_FMT=${1}');
+      if (v_fecha_ini_param = true and v_fecha_fin_param = true) then
+        /* (20160419) Angel Ruiz. Si tenemos parametros de FCH_INI y FCH_FIN tenmos que generar codigo para recuperar la fecha Inicial */
+        --UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=${FECHA}');
+        UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
+        UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+        UTL_FILE.put_line(fich_salida_load, 'select date_format(LAST_DAY(cast(''${FECHA_FMT_HIVE}'' as date)), ''yyyy-MM-dd'') from ${ESQUEMA_MT}.dual;');
+        UTL_FILE.put_line(fich_salida_load, '!quit');
+        UTL_FILE.put_line(fich_salida_load, 'EOF`');
+        UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
+        UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha fin."');
+        UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la fecha del sistema o el parametro no es un formato de fecha YYYYMMDD." >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+        UTL_FILE.put_line(fich_salida_load, '      echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+        UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
+        UTL_FILE.put_line(fich_salida_load, '      exit 1');
+        UTL_FILE.put_line(fich_salida_load, '    fi');
+        UTL_FILE.put_line(fich_salida_load, '    FECHA_FIN=`echo ${FECHA_FIN_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
+      end if;
+    end if; /* if (v_frecuency <> "M") then */
     UTL_FILE.put_line(fich_salida_load, '  fi');
     UTL_FILE.put_line(fich_salida_load, '  echo "Fecha a considerar ${FECHA}"');
     if (v_tabla_dinamica = true or pos_ini_mes > 0) then
@@ -3522,6 +3659,11 @@ begin
     UTL_FILE.put_line(fich_salida_load, '  # El directorio al que se van a copiar los ficheros no existe. Se crea.');
     UTL_FILE.put_line(fich_salida_load, '  hadoop fs -mkdir ${' || NAME_DM || '_SALIDA}/${INTERFAZ}');
     UTL_FILE.put_line(fich_salida_load, 'fi');
+    /* (20170828). Angel Ruiz. UNa excepcion por razones de ejecucion */
+    if (reg_scenario.TABLE_NAME = 'TRANSACCIONES') then
+      UTL_FILE.put_line(fich_salida_load, '# Para este script usamos otros parametros de conexion diferentes a los parametros del fichero de configuracion');
+      UTL_FILE.put_line(fich_salida_load, 'PARAM_CONEX=";ssl=true;sslTrustStore=/grid/00/certificadoKnox/knoxgateway.jks;trustStorePassword=bigdatatemmcsr;transportMode=http;httpPath=gateway/ClusterBigData/hive"');
+    end if;
     UTL_FILE.put_line(fich_salida_load, 'CAD_TMP=`echo "${NGRD_SALIDA}/${INTERFAZ}" | sed -e ''s/\//\\\\\//g''`');
     
     --UTL_FILE.put_line(fich_salida_load, '  ARCHIVO_SQL="ONIX_' || reg_tabla.TABLE_NAME || '.sql"');
@@ -3829,7 +3971,7 @@ begin
       /* (20170721) Angel Ruiz. BUG Para extraer usando INSERT OVERWRITE */
       UTL_FILE.put_line(fich_salida_load, '  # Borramos el fichero si existe');
       UTL_FILE.put_line(fich_salida_load, '  rm -f ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}');
-      UTL_FILE.put_line(fich_salida_load, '  # Creamos el fichero acio');
+      UTL_FILE.put_line(fich_salida_load, '  # Creamos el fichero vacio');
       UTL_FILE.put_line(fich_salida_load, '  touch ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}');
       FOR ind_scenario IN v_lista_elementos_scenario.FIRST .. v_lista_elementos_scenario.LAST
       LOOP
@@ -3860,7 +4002,62 @@ begin
       END LOOP;      
       /* (20170721) Angel Ruiz. FIN BUG */
       
-      UTL_FILE.put_line(fich_salida_load, '  # Procesamos el fichero obtenido');
+      UTL_FILE.put_line(fich_salida_load, '  # LLevamos el fichero obtenido al directorio de Hadoop DESTINO');
+      UTL_FILE.put_line(fich_salida_load, '  hadoop fs -test -d ' || '${' || NAME_DM || '_DESTINO}/${INTERFAZ}');      
+      UTL_FILE.put_line(fich_salida_load, '  if [ $? -ne 0 ]; then');
+      UTL_FILE.put_line(fich_salida_load, '    # El directorio al que se van a copiar los ficheros no existe. Se crea.');
+      UTL_FILE.put_line(fich_salida_load, '    hadoop fs -mkdir ${' || NAME_DM || '_DESTINO}/${INTERFAZ}');
+      UTL_FILE.put_line(fich_salida_load, '  fi');
+      /* (20170112) Angel Ruiz. NF: Nueva estructura de la parte de STAGING */
+      /* (20170619) Angel Ruiz. BUG: El directorio en el que se deja el fichero siempre tiene la forma YYYYMMDD */
+      --UTL_FILE.put_line(fich_salida_load, '  hadoop fs -test -d ' || '${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}');      
+      UTL_FILE.put_line(fich_salida_load, '  hadoop fs -test -d ' || '${' || NAME_DM || '_DESTINO}/${INTERFAZ}/${FECHA_SIN_FMT}');
+      UTL_FILE.put_line(fich_salida_load, '  if [ $? -ne 0 ]; then');
+      UTL_FILE.put_line(fich_salida_load, '    # El directorio al que se van a copiar los ficheros no existe. Se crea.');
+      /* (20170619) Angel Ruiz. BUG: El directorio en el que se deja el fichero siempre tiene la forma YYYYMMDD */      
+      --UTL_FILE.put_line(fich_salida_load, '    hadoop fs -mkdir ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}');
+      UTL_FILE.put_line(fich_salida_load, '    hadoop fs -mkdir ${' || NAME_DM || '_DESTINO}/${INTERFAZ}/${FECHA_SIN_FMT}');
+      UTL_FILE.put_line(fich_salida_load, '  fi');
+      /* (20170112) Angel Ruiz. FIN NF: Nueva estructura de la parte de STAGING */
+      UTL_FILE.put_line(fich_salida_load, '  # Borramos el fichero en el destino si existe. Opcion -f');
+      /* (20170619) Angel Ruiz. BUG: El directorio en el que se deja el fichero siempre tiene la forma YYYYMMDD */      
+      --UTL_FILE.put_line(fich_salida_load, '  hadoop fs -rm -f ' || '${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}/${ARCHIVO_SALIDA}');
+      /* (20170619) Angel Ruiz. BUG. Debemos borrar cualquier fichero que exista */
+      --UTL_FILE.put_line(fich_salida_load, '  hadoop fs -rm -f ' || '${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA_SIN_FMT}/${ARCHIVO_SALIDA}');
+      UTL_FILE.put_line(fich_salida_load, '  hadoop fs -rm -f ' || '${' || NAME_DM || '_DESTINO}/${INTERFAZ}/${FECHA_SIN_FMT}/*');
+      UTL_FILE.put_line(fich_salida_load, '  # Generamos el fichero extraido en el destino');
+      
+      --UTL_FILE.put_line(fich_salida_load, '  NUM_FILES=`hadoop fs -ls ${' || NAME_DM || '_TMP}/${INTERFAZ}/part-m-* | wc -l`');
+      UTL_FILE.put_line(fich_salida_load, '  NUM_FILES=`ls -1 ${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} | wc -l`');
+      UTL_FILE.put_line(fich_salida_load, '  if [ ${NUM_FILES} -eq 1 ]; then');
+      /* (20170112) Angel Ruiz. NF: Nueva estructura de la parte de STAGING */
+      --UTL_FILE.put_line(fich_salida_load, '    hadoop fs -mv ' || '${' || NAME_DM || '_TMP}/${INTERFAZ}/part-m-00000 ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${ARCHIVO_SALIDA}');
+      /* (20170619) Angel Ruiz. BUG: El directorio en el que se deja el fichero siempre tiene la forma YYYYMMDD */      
+      --UTL_FILE.put_line(fich_salida_load, '    hadoop fs -put ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}');
+      UTL_FILE.put_line(fich_salida_load, '    hadoop fs -put ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} ${' || NAME_DM || '_DESTINO}/${INTERFAZ}/${FECHA_SIN_FMT}');
+      /* (20170112) Angel Ruiz. FIN NF: Nueva estructura de la parte de STAGING */
+      --UTL_FILE.put_line(fich_salida_load, '    if [ $? -eq 0 ]; then');
+      --UTL_FILE.put_line(fich_salida_load, '      hadoop fs -rm -r ' || '${' || NAME_DM || '_TMP}/${INTERFAZ}');
+      --UTL_FILE.put_line(fich_salida_load, '    fi');
+      --UTL_FILE.put_line(fich_salida_load, '  else');
+      /* (20170112) Angel Ruiz. FIN NF: Nueva estructura de la parte de STAGING */
+      --UTL_FILE.put_line(fich_salida_load, '    hadoop fs -cat ' || '${' || NAME_DM || '_TMP}/${INTERFAZ}/part-m-* > ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${ARCHIVO_SALIDA}');
+      --UTL_FILE.put_line(fich_salida_load, '    hadoop fs -cat ' || '${' || NAME_DM || '_TMP}/${INTERFAZ}/part-m-* > ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}/${ARCHIVO_SALIDA}');
+      /* (20170112) Angel Ruiz. FIN NF: Nueva estructura de la parte de STAGING */
+      --UTL_FILE.put_line(fich_salida_load, '    if [ $? -eq 0 ]; then');
+      --UTL_FILE.put_line(fich_salida_load, '      hadoop fs -rm -r ' || '${' || NAME_DM || '_TMP}/${INTERFAZ}');
+      --UTL_FILE.put_line(fich_salida_load, '    fi');
+      UTL_FILE.put_line(fich_salida_load, '  fi');
+      
+  
+  
+      /*************/
+      UTL_FILE.put_line(fich_salida_load, '  # Procesamos el fichero obtenido para quitarle la cabecera y cargarlo en la tabla de STAGING SAH_');
+      UTL_FILE.put_line(fich_salida_load, '  tail -n +2 ${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} > ${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}_tmp');
+      UTL_FILE.put_line(fich_salida_load, '  # Procesamos el fichero obtenido para transformar los nulos en \N q son los nulos que entiende HIVE por defecto');
+      UTL_FILE.put_line(fich_salida_load, '  sed -e ''s/||/|\\N|/g'' -e ''s/^|/\\N|/g'' -e ''s/|$/|\\N/g'' -e ''s/||/|\\N|/g'' ${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}_tmp > ${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}');
+      
+      UTL_FILE.put_line(fich_salida_load, '  # Procesamos el fichero obtenido para cargarlo en la tabla de STAGING SAH_');
       UTL_FILE.put_line(fich_salida_load, '  hadoop fs -test -d ' || '${' || NAME_DM || '_SALIDA}/${INTERFAZ}');      
       UTL_FILE.put_line(fich_salida_load, '  if [ $? -ne 0 ]; then');
       UTL_FILE.put_line(fich_salida_load, '    # El directorio al que se van a copiar los ficheros no existe. Se crea.');
@@ -3883,7 +4080,7 @@ begin
       /* (20170619) Angel Ruiz. BUG. Debemos borrar cualquier fichero que exista */
       --UTL_FILE.put_line(fich_salida_load, '  hadoop fs -rm -f ' || '${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA_SIN_FMT}/${ARCHIVO_SALIDA}');
       UTL_FILE.put_line(fich_salida_load, '  hadoop fs -rm -f ' || '${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA_SIN_FMT}/*');
-      UTL_FILE.put_line(fich_salida_load, '  # Generamos el fichero extraido en el destino');
+      UTL_FILE.put_line(fich_salida_load, '  # Generamos el fichero extraido en el destino para que sea una particion de la tabla de Staging');
       
       --UTL_FILE.put_line(fich_salida_load, '  NUM_FILES=`hadoop fs -ls ${' || NAME_DM || '_TMP}/${INTERFAZ}/part-m-* | wc -l`');
       UTL_FILE.put_line(fich_salida_load, '  NUM_FILES=`ls -1 ${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} | wc -l`');
@@ -3893,6 +4090,7 @@ begin
       /* (20170619) Angel Ruiz. BUG: El directorio en el que se deja el fichero siempre tiene la forma YYYYMMDD */      
       --UTL_FILE.put_line(fich_salida_load, '    hadoop fs -put ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}');
       UTL_FILE.put_line(fich_salida_load, '    hadoop fs -put ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA_SIN_FMT}');
+      UTL_FILE.put_line(fich_salida_load, '    rm -f ${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA}');
       /* (20170112) Angel Ruiz. FIN NF: Nueva estructura de la parte de STAGING */
       --UTL_FILE.put_line(fich_salida_load, '    if [ $? -eq 0 ]; then');
       --UTL_FILE.put_line(fich_salida_load, '      hadoop fs -rm -r ' || '${' || NAME_DM || '_TMP}/${INTERFAZ}');
@@ -3906,6 +4104,12 @@ begin
       --UTL_FILE.put_line(fich_salida_load, '      hadoop fs -rm -r ' || '${' || NAME_DM || '_TMP}/${INTERFAZ}');
       --UTL_FILE.put_line(fich_salida_load, '    fi');
       UTL_FILE.put_line(fich_salida_load, '  fi');
+
+      /*************/
+
+
+
+
       UTL_FILE.put_line(fich_salida_load, '  # Borramos el fichero temporal');
       UTL_FILE.put_line(fich_salida_load, '  rm ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.*');
       UTL_FILE.put_line(fich_salida_load, '');
