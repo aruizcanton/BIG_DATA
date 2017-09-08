@@ -3424,7 +3424,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '# Borro el fichero temporal .sql generado en vuelo');
         UTL_FILE.put_line(fich_salida_load, 'rm -f ${NGRD_SQL}/' || substr(nombre_fich_pkg, 1, length(nombre_fich_pkg) - 4) || '_tmp.sql');
         UTL_FILE.put_line(fich_salida_load, '# Surpimimos las lineas en blanco del fichero obtenido');
-        UTL_FILE.put_line(fich_salida_load, 'grep -G -v -e ''^.$'' -e ''^[ ]*.$'' -e ''^$'' ' || '${' || NAME_DM || '_TMP_LOCAL}/' || substr(nombre_fich_pkg, 1, length(nombre_fich_pkg) - 4) || '.dat > ' || '${' || NAME_DM || '_TMP_LOCAL}/' || substr(nombre_fich_pkg, 1, length(nombre_fich_pkg) - 4) || '_tmp.dat');
+        UTL_FILE.put_line(fich_salida_load, 'grep -G -v -e ''^.$'' -e ''^[ ]*.$'' -e ''^$'' -e ''^ *...$'' -e ''^ *[^A-Za-z0-9]M *'' ' || '${' || NAME_DM || '_TMP_LOCAL}/' || substr(nombre_fich_pkg, 1, length(nombre_fich_pkg) - 4) || '.dat > ' || '${' || NAME_DM || '_TMP_LOCAL}/' || substr(nombre_fich_pkg, 1, length(nombre_fich_pkg) - 4) || '_tmp.dat');
         UTL_FILE.put_line(fich_salida_load, 'mv ${' || NAME_DM || '_TMP_LOCAL}/' || substr(nombre_fich_pkg, 1, length(nombre_fich_pkg) - 4) || '_tmp.dat ${' || NAME_DM || '_TMP_LOCAL}/' || substr(nombre_fich_pkg, 1, length(nombre_fich_pkg) - 4) || '.dat');
         UTL_FILE.put_line(fich_salida_load, 'if [ $? -ne 0 ]');
         UTL_FILE.put_line(fich_salida_load, 'then');
@@ -3795,7 +3795,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '# Borro el fichero temporal .sql generado en vuelo');
         UTL_FILE.put_line(fich_salida_load, 'rm -f ${NGRD_SQL}/' || substr(nombre_fich_pkg, 1, length(nombre_fich_pkg) - 4) || '_tmp.sql');
         UTL_FILE.put_line(fich_salida_load, '# Surpimimos las lineas en blanco del fichero obtenido');
-        UTL_FILE.put_line(fich_salida_load, 'grep -G -v -e ''^.$'' -e ''^[ ]*.$'' -e ''^$'' ' || '${' || NAME_DM || '_TMP_LOCAL}/' || substr(nombre_fich_pkg, 1, length(nombre_fich_pkg) - 4) || '.dat > ' || '${' || NAME_DM || '_TMP_LOCAL}/' || substr(nombre_fich_pkg, 1, length(nombre_fich_pkg) - 4) || '_tmp.dat');
+        UTL_FILE.put_line(fich_salida_load, 'grep -G -v -e ''^.$'' -e ''^[ ]*.$'' -e ''^$'' -e ''^ *...$'' -e ''^ *[^A-Za-z0-9]M *'' ' || '${' || NAME_DM || '_TMP_LOCAL}/' || substr(nombre_fich_pkg, 1, length(nombre_fich_pkg) - 4) || '.dat > ' || '${' || NAME_DM || '_TMP_LOCAL}/' || substr(nombre_fich_pkg, 1, length(nombre_fich_pkg) - 4) || '_tmp.dat');
         UTL_FILE.put_line(fich_salida_load, 'mv ${' || NAME_DM || '_TMP_LOCAL}/' || substr(nombre_fich_pkg, 1, length(nombre_fich_pkg) - 4) || '_tmp.dat ${' || NAME_DM || '_TMP_LOCAL}/' || substr(nombre_fich_pkg, 1, length(nombre_fich_pkg) - 4) || '.dat');
         UTL_FILE.put_line(fich_salida_load, 'if [ $? -ne 0 ]');
         UTL_FILE.put_line(fich_salida_load, 'then');
