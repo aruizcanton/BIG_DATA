@@ -17,9 +17,19 @@ DECLARE
     (SELECT DISTINCT TRIM(TABLE_NAME) "TABLE_NAME", TRIM(TABLE_TYPE) "TABLE_TYPE" FROM MTDT_TC_SCENARIO) MTDT_SCENARIO
     WHERE 
     TRIM(MTDT_MODELO_SUMMARY.TABLE_NAME) = MTDT_SCENARIO.TABLE_NAME and
-    TRIM(MTDT_MODELO_SUMMARY.CI) <> 'P'    /* Las que poseen un valor "P" en esta columna son las tablas de PERMITED_VALUES, por lo que no hya que generar su modelo */
+    TRIM(MTDT_MODELO_SUMMARY.CI) <> 'P' AND TRIM(MTDT_MODELO_SUMMARY.CI) <> 'I'   /* Las que poseen un valor "P" en esta columna son las tablas de PERMITED_VALUES, por lo que no hya que generar su modelo */
+    UNION     /* (20170807) ANGEL RUIZ. BUG. No estaba generando tablas de tipo I*/
+    SELECT 
+      TRIM(MTDT_MODELO_SUMMARY.TABLE_NAME) "TABLE_NAME",
+      TRIM(MTDT_MODELO_SUMMARY.TABLESPACE) "TABLESPACE",
+      TRIM(MTDT_MODELO_SUMMARY.CI) "CI",
+      TRIM(MTDT_MODELO_SUMMARY.PARTICIONADO) "PARTICIONADO",
+      'D' "TABLE_TYPE"
+    FROM 
+    MTDT_MODELO_SUMMARY
+    WHERE
+    TRIM(MTDT_MODELO_SUMMARY.CI) = 'I'
     order by TABLE_NAME;
-    
   CURSOR c_mtdt_modelo_logico_COLUMNA (table_name_in IN VARCHAR2)
   IS
     SELECT 
