@@ -483,7 +483,7 @@ BEGIN
     /* (20160816) Angel Ruiz. FIN. Comento lo relacionado con la escritura en el metadato */
     UTL_FILE.put_line(fich_salida_sh, 'echo "Inicio de la carga de la tabla de staging ' || 'SA' || '_' || reg_summary.CONCEPT_NAME || '"' || ' >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log');
     UTL_FILE.put_line(fich_salida_sh, '');
-    if (UPPER(reg_summary.SOURCE) = 'STABI') then
+    if (UPPER(reg_summary.SOURCE) = 'STABI' OR UPPER(reg_summary.SOURCE) = 'BIEN') then
       /* (20170130) Angel Ruiz. Nueva Funcionalidad (NF). Se anyada la parte relativa al directorio STABI */
       UTL_FILE.put_line(fich_salida_sh, 'NOMBRE_FICH_STABI=`ls -1 ${' || NAME_DM || '_STABI}/' || nombre_interface_a_cargar || '`');
       UTL_FILE.put_line(fich_salida_sh, 'if [ "${NOMBRE_FICH_STABI:-SIN_VALOR}" = "SIN_VALOR" ] ; then');
@@ -615,7 +615,7 @@ BEGIN
     --UTL_FILE.put_line(fich_salida_sh, 'OVERWRITE INTO TABLE ${BD_SID}.SA_' || reg_summary.CONCEPT_NAME || ' \');
     --UTL_FILE.put_line(fich_salida_sh, 'PARTITION (FCH_CARGA=''${FCH_CARGA}'')" >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
     UTL_FILE.put_line(fich_salida_sh, '');
-    UTL_FILE.put_line(fich_salida_sh, 'ERROR=`grep -ic -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_SA_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log`');
+    UTL_FILE.put_line(fich_salida_sh, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_SA_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log`');
     --UTL_FILE.put_line(fich_salida_sh, 'err_salida=$?');
     UTL_FILE.put_line(fich_salida_sh, 'if [ ${ERROR} -ne 0 ] ; then');
     --UTL_FILE.put_line(fich_salida_sh, 'if [ ${err_salida} -ne 0 ]; then');
@@ -675,7 +675,7 @@ BEGIN
     UTL_FILE.put_line(fich_salida_sh, 'FROM ${ESQUEMA_SA}.SAH_' || reg_summary.CONCEPT_NAME || ' WHERE FCH_CARGA = ''${FCH_CARGA_FMT_HIVE}' || ''';');
     UTL_FILE.put_line(fich_salida_sh, '!quit');
     UTL_FILE.put_line(fich_salida_sh, 'EOF');
-    UTL_FILE.put_line(fich_salida_sh, 'ERROR=`grep -ic -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_SA_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log`');
+    UTL_FILE.put_line(fich_salida_sh, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_SA_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log`');
     --UTL_FILE.put_line(fich_salida_sh, 'err_salida=$?');
     UTL_FILE.put_line(fich_salida_sh, 'if [ ${ERROR} -ne 0 ] ; then');
     --UTL_FILE.put_line(fich_salida_sh, 'if [ $? -ne 0 ]');

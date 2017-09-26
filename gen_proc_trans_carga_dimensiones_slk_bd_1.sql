@@ -24,8 +24,9 @@ cursor MTDT_TABLA
     'NGD_EQUIPO', 'NGD_REGION_COMERCIAL_NIVEL3', 'NGD_REGION_COMERCIAL_NIVEL2', 'NGD_REGION_COMERCIAL_NIVEL1', 'NGD_PRIMARY_OFFER', 
     'NGD_SUPPLEMENTARY_OFFER', 'NGD_BONUS', 'NGD_HANDSET_PRICE', 'NGD_PROYECTO_COMERCIAL', 'NGD_USO',
     'NGD_NOSTNDR_SERVS_PRECIOS', 'NGG_OFERTA_ESTANDAR', 'NGD_DESCUENTO', 'NGD_OFFER_RENT', 'SA_OFFER_RENT1',
-    'SA_OFFER_ITEM1', 'NGD_ABONADO_NOESTANDAR', 'NGG_OFERTA_DESCUENTO', 'SA_COMBINACION_ABO_MES',
-    'NGD_COMBINACION_OFERTA', 'SA_HANDSET_PRICE1', 'NGD_TRAZABILIDAD', 'NGG_OFERTA_EQUIPO'
+    'SA_OFFER_ITEM1', 'SA_PARQUE_SVA_MES1', 'NGD_ABONADO_NOESTANDAR', 'NGG_OFERTA_DESCUENTO', 'SA_COMBINACION_ABO_MES',
+    'NGD_COMBINACION_OFERTA', 'SA_HANDSET_PRICE1', 'NGD_TRAZABILIDAD', 'NGG_OFERTA_EQUIPO', 'NGD_MATRIZ_ESQUEMA_COMIS',
+    'NGD_NUM_SERIE', 'NGD_MODALIDAD_VENTA'
     )
     --('NGD_PRIMARY_OFFER')
     order by
@@ -4256,7 +4257,7 @@ begin
       UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
       UTL_FILE.put_line(fich_salida_load, '!quit');
       UTL_FILE.put_line(fich_salida_load, 'EOF');
-      UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log`');
+      UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log`');
       UTL_FILE.put_line(fich_salida_load, '');
       --UTL_FILE.put_line(fich_salida_load, 'err_salida=$?');
       UTL_FILE.put_line(fich_salida_load, 'if [ ${ERROR} -ne 0 ] ; then');
@@ -4638,7 +4639,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
         UTL_FILE.put_line(fich_salida_load, '!quit');
         UTL_FILE.put_line(fich_salida_load, 'EOF');
-        UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || nombre_tabla_reducido || '_${FECHA_HORA}.log`');
+        UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || nombre_tabla_reducido || '_${FECHA_HORA}.log`');
         UTL_FILE.put_line(fich_salida_load, '');
         UTL_FILE.put_line(fich_salida_load, 'if [ ${ERROR} -ne 0 ] ; then');
         --UTL_FILE.put_line(fich_salida_load, 'if [ ${err_salida} -ne 0 ]; then');

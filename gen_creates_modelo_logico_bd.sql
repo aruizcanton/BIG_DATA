@@ -71,6 +71,7 @@ DECLARE
   subset                                         VARCHAR(1);
   no_encontrado                          VARCHAR(1);
   longitud_tipo                           varchar2(10);
+  v_num_campos PLS_integer;
   
 
   
@@ -109,9 +110,44 @@ BEGIN
       DBMS_OUTPUT.put_line('CREATE TABLE IF NOT EXISTS ' || OWNER_DM || '.' || r_mtdt_modelo_logico_TABLA.TABLE_NAME);
       DBMS_OUTPUT.put_line('(');
       concept_name := substr(r_mtdt_modelo_logico_TABLA.TABLE_NAME, 5);
+      /* (20170921) Angel Ruiz. BUG. Puede ocurrir que una misma tabla posea campos CVE_DIA y CVE_MES */
+      --DBMS_OUTPUT.put_line('La tabla es: #' || r_mtdt_modelo_logico_TABLA.TABLE_NAME || '#');
+      select count(1) into v_num_campos 
+      from MTDT_MODELO_DETAIL 
+      where trim(TABLE_NAME) = r_mtdt_modelo_logico_TABLA.TABLE_NAME 
+      and trim(COLUMN_NAME) = 'CVE_MES' 
+      --and (regexp_count(substr(r_mtdt_modelo_logico_TABLA.TABLE_NAME, 1, 4), '??A_',1,'i') > 0
+      --or regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??F_',1,'i') > 0 or
+      --regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??G_',1,'i') > 0)
+      and (regexp_count(trim(TABLE_NAME), '^??A_') > 0
+      or regexp_count(trim(TABLE_NAME), '^??F_') > 0 or
+      regexp_count(trim(TABLE_NAME), '^??G_') > 0)
+      ;
+      --DBMS_OUTPUT.put_line('El numero de campos es: ' || to_char(v_num_campos));
+      if (v_num_campos = 1) then 
+        v_tipo_particionado := 'M';
+        --DBMS_OUTPUT.put_line('Entro en M');
+      else
+        select count(1) into v_num_campos 
+        from MTDT_MODELO_DETAIL 
+        where TRIM(TABLE_NAME) = r_mtdt_modelo_logico_TABLA.TABLE_NAME 
+        and trim(COLUMN_NAME) = 'CVE_DIA'
+        and (regexp_count(substr(TRIM(TABLE_NAME), 1, 4), '??A_',1,'i') > 0
+        or regexp_count(substr(TRIM(TABLE_NAME), 1, 4), '??F_',1,'i') > 0
+        or regexp_count(substr(TRIM(TABLE_NAME), 1, 4), '??G_',1,'i') > 0);
+        if (v_num_campos = 1) then 
+          v_tipo_particionado := 'D';
+          --DBMS_OUTPUT.put_line('Entro en D');
+        else
+          v_tipo_particionado := 'S';
+          --DBMS_OUTPUT.put_line('Entro en S');
+        end if;
+      end if;
+      --DBMS_OUTPUT.put_line('El tipo de particionado es: ' || v_tipo_particionado);
+      /* (20170921) Angel Ruiz. FIN BUG.*/
       OPEN c_mtdt_modelo_logico_COLUMNA (r_mtdt_modelo_logico_TABLA.TABLE_NAME);
       primera_col := 1;
-      v_tipo_particionado := 'S';  /* (20150821) Angel Ruiz. Por defecto la tabla no estara particionada */
+      --v_tipo_particionado := 'S';  /* (20150821) Angel Ruiz. Por defecto la tabla no estara particionada */
       LOOP
         FETCH c_mtdt_modelo_logico_COLUMNA
         INTO r_mtdt_modelo_logico_COLUMNA;
@@ -121,9 +157,17 @@ BEGIN
         /* esta columna no puede formar aprte del create de los campos */
         if ((upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) <> 'CVE_DIA' and
         upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) <> 'CVE_MES') or
-        (regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??F_',1,'i') =0 and
-        regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??A_',1,'i') =0) and
-        regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??G_',1,'i') =0) then
+        --(regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??F_',1,'i') =0 and
+        --regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??A_',1,'i') =0) and
+        --regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??G_',1,'i') =0
+        
+        --(v_tipo_particionado = 'M' and upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) <> 'CVE_MES') or
+        --(v_tipo_particionado = 'D' and upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) <> 'CVE_DIA')) or
+        ((v_tipo_particionado = 'S' and (upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) = 'CVE_MES' or
+        upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) ='CVE_DIA') or (v_tipo_particionado = 'M' and
+        upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) ='CVE_DIA'))
+        )
+        ) then
           IF primera_col = 1 THEN /* Si es primera columna */
             CASE
               WHEN (INSTR(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE, 'NUMBER') > 0) THEN
@@ -155,49 +199,52 @@ BEGIN
         end if;
         /* (20160916) FIN */
         /* (20150821) ANGEL RUIZ. FUNCIONALIDAD PARA PARTICIONADO */
-        if (regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??F_',1,'i') >0 AND
-        upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) = 'CVE_DIA') then 
+        if ((regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??F_',1,'i') >0 or
+        regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??A_',1,'i') >0 or
+        regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??G_',1,'i') >0)
+        AND upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) = 'CVE_DIA' and v_tipo_particionado = 'D') then
           /* SE TRATA DE UNA TABLA DE HECHOS CON COLUMNA CVE_DIA ==> PARTICIONADO DIARIO */
-          v_tipo_particionado := 'D';   /* Particionado Diario */
+          --v_tipo_particionado := 'D';   /* Particionado Diario */
           /* (20160324) Angel Ruiz. NF: Indices en las tablas del modelo*/
           lista_par.extend;
           lista_par(lista_par.last) := r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME;
           /* (20160324) Angel Ruiz. Fin NF: Indices en las tablas del modelo*/
         end if;
         /* Gestionamos el posible particionado de la tabla */
-        if (regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4) ,'??F_',1,'i') >0 AND
-        upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) = 'CVE_MES') then 
-          /* SE TRATA DE UNA TABLA DE HECHOS CON COLUMNA CVE_DIA ==> PARTICIONADO MENSUAL */
-          if (r_mtdt_modelo_logico_TABLA.PARTICIONADO = 'M24') then
+        --if (regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4) ,'??F_',1,'i') >0 AND
+        --upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) = 'CVE_MES' AND v_tipo_particionado = 'M') then 
+          --/* SE TRATA DE UNA TABLA DE HECHOS CON COLUMNA CVE_DIA ==> PARTICIONADO MENSUAL */
+          --if (r_mtdt_modelo_logico_TABLA.PARTICIONADO = 'M24') then
             /* (20150918) Angel Ruiz. NF: Se trata del particionado para BSC. Mensual pero 24 Particiones fijas.*/
             /* La filosofia cambia */
-              v_tipo_particionado := 'M24';   /* Particionado Mensual */
-          else
-            v_tipo_particionado := 'M';   /* Particionado Mensual, aunque para una tabla de Agregados*/
-          end if;
+              --v_tipo_particionado := 'M24';   /* Particionado Mensual */
+          --else
+            --v_tipo_particionado := 'M';   /* Particionado Mensual, aunque para una tabla de Agregados*/
+          --end if;
           /* (20160324) Angel Ruiz. NF: Indices en las tablas del modelo*/
-          lista_par.extend;
-          lista_par(lista_par.last) := r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME;
+          --lista_par.extend;
+          --lista_par(lista_par.last) := r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME;
           /* (20160324) Angel Ruiz. Fin NF: Indices en las tablas del modelo*/
-        end if;
+        --end if;
         if ((regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??A_',1,'i') >0 or 
-        regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??G_',1,'i') >0 ) AND
-        (upper(trim(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME)) = 'CVE_MES')) then
+        regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??G_',1,'i') >0 or
+        regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??F_',1,'i') >0) AND
+        (upper(trim(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME)) = 'CVE_MES') AND v_tipo_particionado = 'M') then
           /* SE TRATA DE UNA TABLA DE AGREGADOS CON PARTICIONAMIENTO POR MES */
-          v_tipo_particionado := 'M';   /* Particionado Mensual, aunque para una tabla de Agregados*/
+          --v_tipo_particionado := 'M';   /* Particionado Mensual, aunque para una tabla de Agregados*/
           /* (20160324) Angel Ruiz. NF: Indices en las tablas del modelo*/
           lista_par.extend;
           lista_par(lista_par.last) := trim(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME);
           /* (20160324) Angel Ruiz. Fin NF: Indices en las tablas del modelo*/
         end if;
-        if ((regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??A_',1,'i') >0 or 
-        regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??G_',1,'i') >0 ) AND
-        (upper(trim(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME)) = 'CVE_DIA' AND v_tipo_particionado = 'M')) then
+        --if ((regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??A_',1,'i') >0 or 
+        --regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??G_',1,'i') >0 ) AND
+        --(upper(trim(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME)) = 'CVE_DIA' AND v_tipo_particionado = 'M')) then
           /* SE TRATA DE UNA TABLA DE AGREGADOS QUE TIENE PARTICIONAMIENTO MENSUAL Y DIARIO */
-          v_tipo_particionado := 'MyD';   /* Indicamos que el particionado es MENSUAL y DIARIO */
-          lista_par.extend;
-          lista_par(lista_par.last) := trim(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME);
-        end if;
+          --v_tipo_particionado := 'MyD';   /* Indicamos que el particionado es MENSUAL y DIARIO */
+          --lista_par.extend;
+          --lista_par(lista_par.last) := trim(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME);
+        --end if;
         /* (20150821) ANGEL RUIZ. FIN FUNCIONALIDAD PARA PARTICIONADO */
       END LOOP; 
       CLOSE c_mtdt_modelo_logico_COLUMNA;
@@ -225,11 +272,11 @@ BEGIN
           /* Hay que particonarla */
           DBMS_OUTPUT.put_line('PARTITIONED BY (CVE_MES INT)');
         end if;
-        if (v_tipo_particionado = 'MyD') then
+        --if (v_tipo_particionado = 'MyD') then
           /* Hay que particionarla por MES y DIA */
           --DBMS_OUTPUT.put_line('PARTITIONED BY (CVE_MES INT, CVE_DIA INT)');
-          DBMS_OUTPUT.put_line('PARTITIONED BY (CVE_DIA INT)');
-        end if;
+          --DBMS_OUTPUT.put_line('PARTITIONED BY (CVE_DIA INT)');
+        --end if;
       end if;
       IF lista_pk.COUNT > 0 THEN
         DBMS_OUTPUT.put_line('CLUSTERED BY (');

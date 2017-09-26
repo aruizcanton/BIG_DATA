@@ -3408,7 +3408,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/' || substr(nombre_fich_pkg, 1, length(nombre_fich_pkg) - 4) || '_tmp.sql');
         UTL_FILE.put_line(fich_salida_load, '!quit');
         UTL_FILE.put_line(fich_salida_load, 'EOF');
-        UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: Error while compiling statement: FAILED:'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || substr(nombre_fich_carga, 1, length(nombre_fich_carga) - 3) || '_${FECHA_HORA}.log`');
+        UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || substr(nombre_fich_carga, 1, length(nombre_fich_carga) - 3) || '_${FECHA_HORA}.log`');
         --UTL_FILE.put_line(fich_salida_load, 'err_salida=$?');
         UTL_FILE.put_line(fich_salida_load, '');
         --UTL_FILE.put_line(fich_salida_load, 'if [ ${err_salida} -ne 0 ]; then');
@@ -3779,7 +3779,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/' || substr(nombre_fich_pkg, 1, length(nombre_fich_pkg) - 4) || '_tmp.sql');
         UTL_FILE.put_line(fich_salida_load, '!quit');
         UTL_FILE.put_line(fich_salida_load, 'EOF');
-        UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: Error while compiling statement: FAILED:'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || substr(nombre_fich_carga, 1, length(nombre_fich_carga) - 3) || '_${FECHA_HORA}.log`');
+        UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || substr(nombre_fich_carga, 1, length(nombre_fich_carga) - 3) || '_${FECHA_HORA}.log`');
         --UTL_FILE.put_line(fich_salida_load, 'err_salida=$?');
         UTL_FILE.put_line(fich_salida_load, '');
         --UTL_FILE.put_line(fich_salida_load, 'if [ ${err_salida} -ne 0 ]; then');
@@ -4155,7 +4155,7 @@ begin
           UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/' || substr(nombre_fich_pkg, 1, length(nombre_fich_pkg) - 4) || '_tmp.sql');
           UTL_FILE.put_line(fich_salida_load, '!quit');
           UTL_FILE.put_line(fich_salida_load, 'EOF');
-          UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: Error while compiling statement: FAILED:'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || substr(nombre_fich_carga, 1, length(nombre_fich_carga) - 3) || '_${FECHA_HORA}.log`');
+          UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || substr(nombre_fich_carga, 1, length(nombre_fich_carga) - 3) || '_${FECHA_HORA}.log`');
           --UTL_FILE.put_line(fich_salida_load, 'err_salida=$?');
           UTL_FILE.put_line(fich_salida_load, '');
           --UTL_FILE.put_line(fich_salida_load, 'if [ ${err_salida} -ne 0 ]; then');

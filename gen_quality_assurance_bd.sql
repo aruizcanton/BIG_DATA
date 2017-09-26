@@ -3327,7 +3327,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, 'MTDT_PROCESO.NOMBRE_PROCESO = ''' || reg_quality.QUALITY_NAME || '.sh'';');
     UTL_FILE.put_line(fich_salida_load, '!quit');
     UTL_FILE.put_line(fich_salida_load, 'EOF');
-    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}.log`');    
+    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}.log`');    
     UTL_FILE.put_line(fich_salida_load, 'if [ ${ERROR} -ne 0 ] ; then');
     UTL_FILE.put_line(fich_salida_load, '  SUBJECT="${INTERFAZ}: ERROR: Al insertar en el metadato Fin Fallido."');
     UTL_FILE.put_line(fich_salida_load, '  echo "Surgio un error al insertar en el metadato que le proceso no ha terminado OK." >> ${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}.log');
@@ -3368,7 +3368,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, 'EOF');
     --UTL_FILE.put_line(fich_salida_load, '  MTDT_PROCESO.NOMBRE_PROCESO = ''' || 'ONIX' || '_' || reg_tabla.TABLE_NAME || '.sh'';');
     /* (20160817) Angel Ruiz FIN Cambio temporal para adecuarse a la entrega de produccion*/
-    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}.log`');    
+    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}.log`');    
     UTL_FILE.put_line(fich_salida_load, 'if [ ${ERROR} -ne 0 ] ; then');
     UTL_FILE.put_line(fich_salida_load, '    SUBJECT="${INTERFAZ}: ERROR: Al insertar en el metadato Fin OK."');
     UTL_FILE.put_line(fich_salida_load, '    echo "Surgio un error al insertar en el metadato que le proceso ha terminado OK." >> ${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}.log 2>&' || '1');
@@ -3514,7 +3514,7 @@ begin
       UTL_FILE.put_line(fich_salida_load, '!quit');
       UTL_FILE.put_line(fich_salida_load, 'EOF`');
     end if;
-    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}.log`');
+    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || reg_quality.QUALITY_NAME || '_${FECHA_HORA}.log`');
     UTL_FILE.put_line(fich_salida_load, '');
     UTL_FILE.put_line(fich_salida_load, 'if [ ${ERROR} != 0 ] ; then');
     UTL_FILE.put_line(fich_salida_load, '  SUBJECT="${INTERFAZ}: Surgio un error en el proceso de calidad ' || reg_quality.QUALITY_NAME || '. Error:  ${err_salida}."');

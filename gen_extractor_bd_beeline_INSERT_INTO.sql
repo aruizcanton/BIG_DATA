@@ -15,7 +15,7 @@ SELECT
       --, 'PARQUE_ABO_MES', 'SUPPLEMENTARY_OFFER', 'BONUS', 'HANDSET_PRICE', 'PARQUE_SVA_MES', 'PARQUE_BENEF_MES', 'PSD_RESIDENCIAL'
       --, 'OFFER_ITEM', 'MOVIMIENTOS_ABO_MES', 'MOVIMIENTO_ABO', 'COMIS_POS_ABO_MES', 'AJUSTE_ABO_MES'
       --'OFERTA', 'TRANSACCIONES' , 'PRECIOS', 'MOVIMIENTOS_PLANTA', 'CONFIGURACION_CONTRATO');
-      'TRANSACCIONES', 'CONFIGURACION_CONTRATO', 'OFERTA', 'PRECIOS', 'MOVIMIENTOS_PLANTA');
+      'TRANSACCIONES', 'CONFIGURACION_CONTRATO', 'OFERTA', 'PRECIOS', 'MOVIMIENTOS_PLANTA', 'COSTES_CAPITALIZABLES');
     
     --and trim(MTDT_EXT_SCENARIO.TABLE_NAME) in ('PARQUE_PROMO_CAMPANA', 'MOV_PROMO_CAMPANA'
     --  );
@@ -3953,7 +3953,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, 'EOF');
       end if;
     end if;
-    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log`');    
+    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log`');    
     UTL_FILE.put_line(fich_salida_load, '  if [ ${ERROR} -ne 0 ] ; then');
     UTL_FILE.put_line(fich_salida_load, '    SUBJECT="${REQ_NUM}:  ERROR: Al generar la interfaz ${ARCHIVO_SQL} (ERROR al ejecutar hive)."');
     --UTL_FILE.put_line(fich_salida_load, '    echo "Surgio un error al generar la interfaz ${ARCHIVO_SALIDA} (El error surgio al ejecutar hive)." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');

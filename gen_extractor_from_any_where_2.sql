@@ -10,14 +10,14 @@ SELECT
     --WHERE MTDT_EXT_SCFORMA_PAGOENARIO.TABLE_TYPE = 'F' and
     WHERE
       (trim(MTDT_EXT_SCENARIO_1.STATUS) = 'P' or trim(MTDT_EXT_SCENARIO_1.STATUS) = 'D')
-    --and trim(MTDT_EXT_SCENARIO_1.TABLE_NAME) in ('OFFER_RENT');
+    --and trim(MTDT_EXT_SCENARIO_1.TABLE_NAME) in ('FACT_EQUIPO_HIST', 'COMIS_CALCULADAS');
     --and trim(MTDT_EXT_SCENARIO_1.TABLE_NAME) in ('OFFER_RENT', 'OFFER_ITEM', 'HANDSET_PRICE', 'DESCUENTO', 'DESC_ADQR_ABO_MES', 'CUOTAS');
     and trim(MTDT_EXT_SCENARIO_1.TABLE_NAME) in (
       'EQUIPO', 'REGION_COMERCIAL_NIVEL3', 'REGION_COMERCIAL_NIVEL2', 'REGION_COMERCIAL_NIVEL1', 'PRIMARY_OFFER'
-      , 'PARQUE_ABO_MES', 'PARQUE_ABO_PRE_MES', 'SUPPLEMENTARY_OFFER', 'BONUS', 'PARQUE_SVA_MES', 'PARQUE_BENEF_MES', 'PSD_RESIDENCIAL'
-      , 'MOVIMIENTOS_ABO_MES', 'MOVIMIENTO_ABO', 'COMIS_POS_ABO_MES', 'AJUSTE_ABO_MES', 'MODALIDAD_VENTA'
+      , 'PARQUE_ABO_MES', 'PARQUE_ABO_PRE_MES', 'SUPPLEMENTARY_OFFER', 'PARQUE_SVA_MES', 'PARQUE_BENEF_MES', 'PSD_RESIDENCIAL'
+      , 'MOVIMIENTOS_ABO_MES', 'MOVIMIENTO_ABO', 'AJUSTE_ABO_MES', 'MODALIDAD_VENTA'
       , 'DESC_EJEC_ABO_MES'
-      , 'COMIS_PAGADAS', 'COMIS_CALCULADAS', 'NUM_SERIE');
+      , 'COMIS_PAGADAS', 'COMIS_CALCULADAS', 'NUM_SERIE', 'MATRIZ_ESQUEMA_COMIS', 'FACT_EQUIPO_HIST');
 
   /********************************/
   /* (20170413) Angel Ruiz. NF: Extraccion de interfaces desde diferentes */
@@ -27,6 +27,7 @@ SELECT
     SELECT DISTINCT TRIM(SOURCE) "SOURCE"
     FROM MTDT_EXT_SCENARIO_1
     where MTDT_EXT_SCENARIO_1.TABLE_NAME = table_name_in 
+    and (trim(MTDT_EXT_SCENARIO_1.STATUS) = 'P' or trim(MTDT_EXT_SCENARIO_1.STATUS) = 'D')
     and MTDT_EXT_SCENARIO_1.SOURCE IS NOT NULL;
   /* (20170413) Angel Ruiz. NF: FIN */
   
@@ -844,9 +845,9 @@ SELECT
   function procesa_campo_filter (cadena_in in varchar2) return varchar2
   is
     lon_cadena integer;
-    cabeza                varchar2 (2000);
+    cabeza                varchar2 (4000);
     sustituto              varchar2(100);
-    cola                      varchar2(2000);    
+    cola                      varchar2(4000);    
     pos                   PLS_integer;
     pos_ant           PLS_integer;
     posicion_ant           PLS_integer;
@@ -1605,6 +1606,7 @@ SELECT
               /* la califico con el usuario extractor para este escenario */
               --v_table_look_up := OWNER_EX || '.' || v_table_look_up;
               v_table_look_up := '#OWNER_' || reg_scenario.SOURCE || '#' || '.' || v_table_look_up;
+              v_hay_usu_owner:=true;  /* (20170921) Angel Ruiz. BUG. No se genera el sed para poner el propietario */
             end if;
             dbms_output.put_line('El alias es: ' || v_alias_table_look_up);
             dbms_output.put_line('La tabla de LKUP es: ' || v_table_look_up);
@@ -3045,6 +3047,7 @@ begin
                     /* L atabla base no esta calificada, por defecto la calificamos con OWNER_EX */
                     /*(20170120) Angel Ruiz. BUG. Calificamos la tabla usando el SOURCE del escenario */
                     UTL_FILE.put_line (fich_salida_pkg, '    '  || '#OWNER_' || reg_scenario.SOURCE || '#.' || procesa_campo_filter(reg_scenario.TABLE_BASE_NAME) || ' \');
+                    v_hay_usu_owner := true; /* (20170921) Angel Ruiz. BUG corregido. NO se generaban los sed para sustituir el propietario */
                   end if;
                 end if;
                 /* (20150109) Angel Ruiz. Anyadimos las tablas necesarias para hacer los LOOK_UP */
@@ -3305,7 +3308,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, 'MTDT_PROCESO.NOMBRE_PROCESO = ''' || REQ_NUMBER || '_'|| reg_tabla.TABLE_NAME || '.sh'';');
     UTL_FILE.put_line(fich_salida_load, '!quit');
     UTL_FILE.put_line(fich_salida_load, 'EOF');
-    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log`');    
+    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log`');    
     UTL_FILE.put_line(fich_salida_load, 'if [ ${ERROR} -ne 0 ] ; then');
     UTL_FILE.put_line(fich_salida_load, '  SUBJECT="${REQ_NUM}: ERROR: Al insertar en el metadato Fin Fallido."');
     UTL_FILE.put_line(fich_salida_load, '  echo "Surgio un error al insertar en el metadato que le proceso no ha terminado OK." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
@@ -3346,7 +3349,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, 'MTDT_PROCESO.NOMBRE_PROCESO = ''' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '.sh'';');
     UTL_FILE.put_line(fich_salida_load, '!quit');
     UTL_FILE.put_line(fich_salida_load, 'EOF');
-    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log`');    
+    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log`');    
     UTL_FILE.put_line(fich_salida_load, 'if [ ${ERROR} -ne 0 ] ; then');
     UTL_FILE.put_line(fich_salida_load, '  SUBJECT="${REQ_NUM}: ERROR: Al insertar en el metadato Fin OK."');
     UTL_FILE.put_line(fich_salida_load, '  echo "Surgio un error al insertar en el metadato que le proceso ha terminado OK." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
@@ -3635,6 +3638,63 @@ begin
     UTL_FILE.put_line(fich_salida_load, '################################################################################');
     UTL_FILE.put_line(fich_salida_load, '# SE OBTIENE LA FECHA Y HORA EN LA QUE SE INICIA EL PROCESO                    #');
     UTL_FILE.put_line(fich_salida_load, '################################################################################');
+    
+    /* (20170925) Angel Ruiz. Introduzco una excepcion para el INTERFAZ PARQUE_SVA_MES ya que hay que hacer una extraccion */
+    /* HISTORICA al inicio del sistema */
+    
+    if (reg_tabla.TABLE_NAME = 'PARQUE_SVA_MES') then
+      UTL_FILE.put_line(fich_salida_load, 'ObtieneBanHistorico()');
+      UTL_FILE.put_line(fich_salida_load, '{');
+      UTL_FILE.put_line(fich_salida_load, '  if [ $# = 0 ] ; then');
+      /* (20170331) Angel Ruiz. Compruebo la frecuencia con que va a ser vargado */
+      /* El interfaz para generar el rango de fechas en funcion de la frecuencia */
+      /* Si es D (diaria) el intervalo sera de un dia */
+      /* Si es M (mensual) el intervalo sera de un mes */
+      /* Si se trata de valores de fecuenciua D (diaria) o E (eventual) */
+      UTL_FILE.put_line(fich_salida_load, '    # Se obtiene la fecha inicial y final del periodo a calcular a partir de la fecha del sistema.');
+      --UTL_FILE.put_line(fich_salida_load, '    FECHA=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select date_format(current_date, ''yyyyMMdd'') from ${ESQUEMA_MT}.dual;"`');
+      UTL_FILE.put_line(fich_salida_load, '    BAN_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
+      UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+      UTL_FILE.put_line(fich_salida_load, 'select case when CAST (date_format(current_date, ''yyyyMMdd'') as DATE) <= CAST ( ''2016-01-31'' as DATE) then ''S'' else ''N'' end ban_hist  from ${ESQUEMA_MT}.dual;');
+      UTL_FILE.put_line(fich_salida_load, '!quit');
+      UTL_FILE.put_line(fich_salida_load, 'EOF`');
+      UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
+      UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
+      UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener el ban_hist o el parametro no es un formato de fecha YYYYMMDD." >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_load, '      echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
+      UTL_FILE.put_line(fich_salida_load, '      exit 1');
+      UTL_FILE.put_line(fich_salida_load, '    fi');
+      UTL_FILE.put_line(fich_salida_load, '    BAN_HIST=`echo ${BAN_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
+      UTL_FILE.put_line(fich_salida_load, '    echo ${BAN_HIST}');
+  
+      UTL_FILE.put_line(fich_salida_load, '  else');
+      /* Si se trata de valores de fecuenciua D (diaria) o E (eventual) */
+      UTL_FILE.put_line(fich_salida_load, '    # Se obtiene la fecha inicial y final del periodo a calcular a partir de la fecha proporcionada como parametro.');
+      UTL_FILE.put_line(fich_salida_load, '    FECHA_FMT_HIVE=`echo $1 | awk ''{ printf "%s-%s-%s", substr($1,0,4), substr($1,5,2), substr($1,7,2) ; }''`');
+      --UTL_FILE.put_line(fich_salida_load, '    FECHA=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select date_format(''${FECHA_FMT_HIVE}'', ''yyyyMMdd'') from ${ESQUEMA_MT}.dual;"`');
+      UTL_FILE.put_line(fich_salida_load, '    BAN_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
+      UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+      UTL_FILE.put_line(fich_salida_load, 'select case when cast(''${FECHA_FMT_HIVE}'' as date)  <= CAST ( ''2016-01-31'' as DATE) then ''S'' else ''N'' end ban_hist from ${ESQUEMA_MT}.dual;');
+      UTL_FILE.put_line(fich_salida_load, '!quit');
+      UTL_FILE.put_line(fich_salida_load, 'EOF`');
+      UTL_FILE.put_line(fich_salida_load, '    if [ $? -ne 0 ]; then');
+      UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha."');
+      UTL_FILE.put_line(fich_salida_load, '      echo "Surgio un error al obtener la bandera de historico o el parametro no es un formato de fecha YYYYMMDD." >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_load, '      echo `date` >> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
+      UTL_FILE.put_line(fich_salida_load, '      exit 1');
+      UTL_FILE.put_line(fich_salida_load, '    fi');
+      UTL_FILE.put_line(fich_salida_load, '    BAN_HIST=`echo ${BAN_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
+      UTL_FILE.put_line(fich_salida_load, '    echo ${BAN_HIST}');
+      UTL_FILE.put_line(fich_salida_load, '  fi');
+      UTL_FILE.put_line(fich_salida_load, '  echo "BAN_HIST es igual a ${BAN_HIST}"');
+      UTL_FILE.put_line(fich_salida_load, '  return 0');
+      UTL_FILE.put_line(fich_salida_load, '}');
+    end if; /* if (reg_tabla.TABLE_NAME = 'PARQUE_SVA_MES') then */
+    
+    
+    /* (20170925) Angel Ruiz. FIN. */
     UTL_FILE.put_line(fich_salida_load, 'ObtieneFechaHora()');
     UTL_FILE.put_line(fich_salida_load, '{');
     --UTL_FILE.put_line(fich_salida_load, '  INICIO_PASO_TMR=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select current_timestamp from ${ESQUEMA_MT}.dual;"`');
@@ -3679,6 +3739,8 @@ begin
       /* a las tablas de STAGING. No es necesario declarar el fichero de salida cuando estamos llevando los datos directamente a las tablas de Staging */
       UTL_FILE.put_line(fich_salida_load, '  ARCHIVO_SALIDA="' || nombre_interface_a_cargar || '"');
     end if;
+    
+    
     /********************/
     /* (20170418) Angel Ruiz. NF: DISTINTOS ORIGENES PARA UN MISMO INTERFAZ */
     /********************/
@@ -3687,13 +3749,35 @@ begin
       fetch MTDT_FUENTES
       into reg_fuente;
       exit when MTDT_FUENTES%NOTFOUND;
-      UTL_FILE.put_line(fich_salida_load, '  ObtenContrasena ${SIST_ORIGEN' || '_' || reg_fuente.SOURCE || '}');
+
+      /* (20170925) Angel Ruiz. Introduzco una excepcion para el INTERFAZ PARQUE_SVA_MES ya que hay que hacer una extraccion */
+      /* HISTORICA al inicio del sistema */
+      if (reg_tabla.TABLE_NAME <> 'PARQUE_SVA_MES') then
+        UTL_FILE.put_line(fich_salida_load, '  ObtenContrasena ${SIST_ORIGEN' || '_' || reg_fuente.SOURCE || '}');
+      end if;
+      /* (20170925) Angel Ruiz. Fin */
+
       /* (20160817) Angel Ruiz. Cambio temporal para adecuarse a la entrega de produccion*/
       /* (20170428) Angel Ruiz. NF: Interfaz de fuentes diferentes */
       if (v_numero_fuentes > 1) then
         UTL_FILE.put_line(fich_salida_load, '  ARCHIVO_SQL="${REQ_NUM}_' || reg_tabla.TABLE_NAME || '_' || reg_fuente.SOURCE || '.sql"');
       else
-        UTL_FILE.put_line(fich_salida_load, '  ARCHIVO_SQL="${REQ_NUM}_' || reg_tabla.TABLE_NAME || '.sql"');
+        /* (20170925) Angel Ruiz. Introduzco una excepcion para el INTERFAZ PARQUE_SVA_MES ya que hay que hacer una extraccion */
+        /* HISTORICA al inicio del sistema */
+    
+        if (reg_tabla.TABLE_NAME = 'PARQUE_SVA_MES') then
+          UTL_FILE.put_line(fich_salida_load, '#VARIABLES DE EJECUCION');
+          UTL_FILE.put_line(fich_salida_load, 'if [ ${BAN_HIST} = "S" ] ; then');
+          UTL_FILE.put_line(fich_salida_load, '  SIST_ORIGEN_SIEM="HSIEM"');
+          UTL_FILE.put_line(fich_salida_load, '  ARCHIVO_SQL="${REQ_NUM}_PARQUE_SVA_MES_HIST.sql"');
+          UTL_FILE.put_line(fich_salida_load, 'else');
+          UTL_FILE.put_line(fich_salida_load, '  ARCHIVO_SQL="${REQ_NUM}_' || reg_tabla.TABLE_NAME || '.sql"');
+          UTL_FILE.put_line(fich_salida_load, 'fi');
+          UTL_FILE.put_line(fich_salida_load, 'ObtenContrasena ${SIST_ORIGEN_SIEM}');
+        else
+          UTL_FILE.put_line(fich_salida_load, '  ARCHIVO_SQL="${REQ_NUM}_' || reg_tabla.TABLE_NAME || '.sql"');
+        end if;
+        /* (20170925) Angel Ruiz. FIN. */
       end if;
       --UTL_FILE.put_line(fich_salida_load, '  ARCHIVO_SQL="ONIX_' || reg_tabla.TABLE_NAME || '.sql"');
       /* (20160817) Angel Ruiz FIN Cambio temporal para adecuarse a la entrega de produccion*/
@@ -4517,6 +4601,16 @@ begin
     UTL_FILE.put_line(fich_salida_load, 'ObtieneFecha $1');
     UTL_FILE.put_line(fich_salida_load, '#OBTIENE LA FECHA Y HORA DEL SISTEMA');
     UTL_FILE.put_line(fich_salida_load, 'ObtieneFechaHora');
+    /* (20170925) Angel Ruiz. Introduzco una excepcion para el INTERFAZ PARQUE_SVA_MES ya que hay que hacer una extraccion */
+    /* HISTORICA al inicio del sistema */
+    
+    if (reg_tabla.TABLE_NAME = 'PARQUE_SVA_MES') then
+      UTL_FILE.put_line(fich_salida_load, '#VARIABLES DE EJECUCION');
+      UTL_FILE.put_line(fich_salida_load, 'ObtieneBanHistorico $1');
+    end if; /* if (reg_tabla.TABLE_NAME = 'PARQUE_SVA_MES') then */
+    
+    /* (20170925) Angel Ruiz. FIN. */
+    
     if (v_type_validation = 'I') then
       /* (20160620) Angel Ruiz. NF: Implemento la Validacion tipo I donde los datos extraidos van directamente */
       /* a las tablas de STAGING. Por claridad cuando esto sucede le cambio el nombre al procedure que lo hace */

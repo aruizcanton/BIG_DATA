@@ -22,7 +22,8 @@ SELECT
     'NGA_ALTAS_CANAL_MES', 'NGF_PERIMETRO', 'NGA_PARQUE_ABO_DESA_MES',
     'NGA_DESC_ADQR_ABO_MES', 'NGA_DESC_EJEC_ABO_MES', 'NGA_PRECIO_UNITARIO_SIM', 'NGA_VIDA_MEDIA_ABO_PRE', 'NGA_MATERIALIDAD_SIM',
     'NGG_TRANSACCIONES_DESC', 'NGA_PARQUE_DESC_MES', 'NGA_COMBINACION_ABO_MES', 'NGA_CONTRATOS_ONE_FIJA_MES', 
-    'NGA_PEDIDOS_ONE_FIJA_MES', 'NGA_FACTURA_EQUIPO_MES'
+    'NGA_PEDIDOS_ONE_FIJA_MES', 'NGA_FACTURA_EQUIPO_MES', 'NGG_RETROACTIVO_ESTIMADO', 'NGA_MATERIALIDAD_SIM',
+    'NGG_CONTRATO_ONE_FIJA'
     );
     --('NGA_PARQUE_ABO_MES');
     
@@ -180,6 +181,7 @@ SELECT
   v_hay_regla_seq                   BOOLEAN:=false; /*(20170107) Angel Ruiz. NF: reglas SEQ */
   v_nombre_seq                      VARCHAR2(50); /*(20170107) Angel Ruiz. NF: reglas SEQ */
   v_nombre_campo_seq                VARCHAR2(50); /*(20170107) Angel Ruiz. NF: reglas SEQ */
+  v_VAR_PCT_COMISIONES BOOLEAN:=false;  /* (Angel Ruiz) NF. Variable #VAR_PCT_COMISIONES#*/
 
 
 /************/
@@ -1253,6 +1255,10 @@ SELECT
         --end loop;
         cadena_resul := regexp_replace(cadena_resul, '#VAR_MARGEN_COMISION#', ' 0.3 ');
         cadena_resul := regexp_replace(cadena_resul, '#VAR_FIN_DEFAULT#', ' ''9999-12-31'' ');
+        /* (20170925) Angel Ruiz. NF. Aparece la varieble #VAR_PCT_COMISIONES#*/
+        if (INSTR(cadena_resul, '#VAR_PCT_COMISIONES#') > 0) then 
+          v_VAR_PCT_COMISIONES := true;
+        end if;
 
       end if;
       return cadena_resul;
@@ -3138,6 +3144,7 @@ begin
     fetch MTDT_TABLA
     into reg_tabla;
     exit when MTDT_TABLA%NOTFOUND;
+    v_VAR_PCT_COMISIONES:=false; /* (Angel Ruiz) NF. Variable #VAR_PCT_COMISIONES#*/
     dbms_output.put_line ('Estoy en el primero LOOP. La tabla que tengo es: ' || reg_tabla.TABLE_NAME);
     nombre_fich_carga := 'load_he_' || reg_tabla.TABLE_NAME || '.sh';
     --nombre_fich_exchange := 'load_ex_' || reg_tabla.TABLE_NAME || '.sh';
@@ -3642,7 +3649,7 @@ begin
       elsif (v_tipo_particionado = 'MyD') then
         --UTL_FILE.put_line(fich_salida_pkg,'PARTITION (CVE_MES=#VAR_CVE_MES#, CVE_DIA=#VAR_CVE_DIA#)');
         UTL_FILE.put_line(fich_salida_pkg,'ALTER TABLE ' || OWNER_DM || '.' || reg_tabla.TABLE_NAME);
-        UTL_FILE.put_line(fich_salida_pkg,'DROP IF EXISTS PARTITION (CVE_DIA=#VAR_CVE_DIA#);');
+        UTL_FILE.put_line(fich_salida_pkg,'DROP IF EXISTS PARTITION (CVE_MES=#VAR_CVE_MES#);');
         UTL_FILE.put_line(fich_salida_pkg,'');
       end if;
     end if;
@@ -3672,7 +3679,7 @@ begin
         UTL_FILE.put_line(fich_salida_pkg,'PARTITION (CVE_MES=#VAR_CVE_MES#)');
       elsif (v_tipo_particionado = 'MyD') then
         --UTL_FILE.put_line(fich_salida_pkg,'PARTITION (CVE_MES=#VAR_CVE_MES#, CVE_DIA=#VAR_CVE_DIA#)');
-        UTL_FILE.put_line(fich_salida_pkg,'PARTITION (CVE_DIA=#VAR_CVE_DIA#)');
+        UTL_FILE.put_line(fich_salida_pkg,'PARTITION (CVE_MES=#VAR_CVE_MES#)');
       end if;
     end if;
     dbms_output.put_line('######El particionado es: ' || v_tipo_particionado);
@@ -3684,11 +3691,17 @@ begin
       FETCH c_mtdt_modelo_logico_COLUMNA
       INTO reg_modelo_logico_col;
       EXIT WHEN c_mtdt_modelo_logico_COLUMNA%NOTFOUND;
-      if ((upper(reg_modelo_logico_col.COLUMN_NAME) <> 'CVE_DIA' and
+      if (
+      (upper(reg_modelo_logico_col.COLUMN_NAME) <> 'CVE_DIA' and
       upper(reg_modelo_logico_col.COLUMN_NAME) <> 'CVE_MES') or
-      (regexp_count(substr(reg_modelo_logico_col.TABLE_NAME, 1, 4), '??F_',1,'i') =0 and
-      regexp_count(substr(reg_modelo_logico_col.TABLE_NAME, 1, 4), '??A_',1,'i') =0) and
-      regexp_count(substr(reg_modelo_logico_col.TABLE_NAME, 1, 4), '??G_',1,'i') =0) then
+      --(regexp_count(substr(reg_modelo_logico_col.TABLE_NAME, 1, 4), '??F_',1,'i') =0 and
+      --regexp_count(substr(reg_modelo_logico_col.TABLE_NAME, 1, 4), '??A_',1,'i') =0) and
+      --regexp_count(substr(reg_modelo_logico_col.TABLE_NAME, 1, 4), '??G_',1,'i') =0
+      ((v_tipo_particionado = 'S' and (upper(reg_modelo_logico_col.COLUMN_NAME) = 'CVE_MES' or
+      upper(reg_modelo_logico_col.COLUMN_NAME) ='CVE_DIA') or (v_tipo_particionado = 'MyD' and
+      upper(reg_modelo_logico_col.COLUMN_NAME) ='CVE_DIA')))
+      
+      ) then
         if (primera_col = 1) then /* Si es primera columna */
           UTL_FILE.put_line(fich_salida_pkg, '    ' || reg_modelo_logico_col.COLUMN_NAME);
           primera_col:=0;
@@ -3965,6 +3978,8 @@ begin
     /* es necesario que en lugar de insertarse en la particion del mes de carga se ha de tomar el mes anterior */
     if (reg_tabla.TABLE_NAME = 'NGA_PARQUE_ABO_DESA_MES') then
       UTL_FILE.put_line(fich_salida_load, 'sed -e "s/#VAR_FCH_REGISTRO#/${INICIO_PASO_TMR}/g" -e "s/#VAR_FCH_CARGA#/${FCH_CARGA_FMT_HIVE}/g" -e "s/#VAR_FCH_DATOS#/${FCH_DATOS_FMT_HIVE}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" -e "s/#VAR_CVE_MES#/${FCH_DATOS_MES_ANT}/g" -e "s/#VAR_CVE_DIA#/${VAR_FCH_CARGA}/g" ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '.sql > ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
+    elsif (v_VAR_PCT_COMISIONES = true) then
+      UTL_FILE.put_line(fich_salida_load, 'sed -e "s/#VAR_FCH_REGISTRO#/${INICIO_PASO_TMR}/g" -e "s/#VAR_FCH_CARGA#/${FCH_CARGA_FMT_HIVE}/g" -e "s/#VAR_FCH_DATOS#/${FCH_DATOS_FMT_HIVE}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" -e "s/#VAR_CVE_MES#/${FCH_CARGA_MES}/g" -e "s/#VAR_CVE_DIA#/${VAR_FCH_CARGA}/g" -e "s/#VAR_PCT_COMISIONES#/${VAR_PCT_COMISIONES}/g" ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '.sql > ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
     else
       UTL_FILE.put_line(fich_salida_load, 'sed -e "s/#VAR_FCH_REGISTRO#/${INICIO_PASO_TMR}/g" -e "s/#VAR_FCH_CARGA#/${FCH_CARGA_FMT_HIVE}/g" -e "s/#VAR_FCH_DATOS#/${FCH_DATOS_FMT_HIVE}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" -e "s/#VAR_CVE_MES#/${FCH_CARGA_MES}/g" -e "s/#VAR_CVE_DIA#/${VAR_FCH_CARGA}/g" ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '.sql > ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
     end if;
@@ -3986,7 +4001,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
     UTL_FILE.put_line(fich_salida_load, '!quit');
     UTL_FILE.put_line(fich_salida_load, 'EOF');
-    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log`');
+    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log`');
     --UTL_FILE.put_line(fich_salida_load, 'err_salida=$?');
     UTL_FILE.put_line(fich_salida_load, '');
     --UTL_FILE.put_line(fich_salida_load, 'if [ ${err_salida} -ne 0 ]; then');

@@ -161,7 +161,15 @@ BEGIN
               tipo_col := 'DATE';
             end if;
           WHEN reg_datail.TYPE = 'IM' THEN
-            tipo_col := 'DECIMAL (' || reg_datail.LENGTH || ')';
+            /* (20170908) Angel Ruiz. Me to una excepcion para poder generar las tablas de SATAGING */
+            /* de HIVE que usamos como tablas de validacion de los ficheros enviados a Madrid*/
+            if (reg_datail.CONCEPT_NAME = 'OFERTA' or reg_datail.CONCEPT_NAME = 'TRANSACCIONES'
+            or reg_datail.CONCEPT_NAME = 'PRECIOS' or reg_datail.CONCEPT_NAME = 'CONFIGURACION_CONTRATO'
+            or reg_datail.CONCEPT_NAME = 'MOVIMIENTOS_PLANTA' or reg_datail.CONCEPT_NAME = 'COSTES_CAPITALIZABLES') then
+              tipo_col := 'STRING';
+            else
+              tipo_col := 'DECIMAL (' || reg_datail.LENGTH || ')';
+            end if;
             --tipo_col := 'NUMBER (15, 3)';
           WHEN reg_datail.TYPE = 'TI' THEN
             --tipo_col := 'VARCHAR (8)';
@@ -202,7 +210,15 @@ BEGIN
               tipo_col := 'DATE';
             end if;
           WHEN reg_datail.TYPE = 'IM' THEN
-            tipo_col := 'DECIMAL (' || reg_datail.LENGTH || ')';
+            /* (20170908) Angel Ruiz. Me to una excepcion para poder generar las tablas de SATAGING */
+            /* de HIVE que usamos como tablas de validacion de los ficheros enviados a Madrid*/
+            if (reg_datail.CONCEPT_NAME = 'OFERTA' or reg_datail.CONCEPT_NAME = 'TRANSACCIONES'
+            or reg_datail.CONCEPT_NAME = 'PRECIOS' or reg_datail.CONCEPT_NAME = 'CONFIGURACION_CONTRATO'
+            or reg_datail.CONCEPT_NAME = 'MOVIMIENTOS_PLANTA' or reg_datail.CONCEPT_NAME = 'COSTES_CAPITALIZABLES') then
+              tipo_col := 'STRING';
+            else
+              tipo_col := 'DECIMAL (' || reg_datail.LENGTH || ')';
+            end if;
             --tipo_col := 'NUMBER (15, 3)';
           WHEN reg_datail.TYPE = 'TI' THEN
             --tipo_col := 'VARCHAR2 (8)';

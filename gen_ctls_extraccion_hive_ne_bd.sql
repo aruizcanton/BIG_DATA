@@ -612,7 +612,7 @@ BEGIN
     --UTL_FILE.put_line(fich_salida_sh, 'OVERWRITE INTO TABLE ${BD_SID}.SA_' || reg_summary.CONCEPT_NAME || ' \');
     --UTL_FILE.put_line(fich_salida_sh, 'PARTITION (FCH_CARGA=''${FCH_CARGA}'')" >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
     UTL_FILE.put_line(fich_salida_sh, '');
-    UTL_FILE.put_line(fich_salida_sh, 'ERROR=`grep -ic -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_SA_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log`');
+    UTL_FILE.put_line(fich_salida_sh, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_SA_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log`');
     --UTL_FILE.put_line(fich_salida_sh, 'err_salida=$?');
     UTL_FILE.put_line(fich_salida_sh, 'if [ ${ERROR} -ne 0 ] ; then');
     --UTL_FILE.put_line(fich_salida_sh, 'if [ ${err_salida} -ne 0 ]; then');
@@ -638,8 +638,18 @@ BEGIN
       INTO reg_datail;
       EXIT WHEN dtd_interfaz_detail%NOTFOUND;
       if primera_col = 1 then /* Si es primera columna */
+        /* (20170907) Angel Ruiz. BUG. Los campos IMPORTE no se cargan ya que vienen con , en lugar de .*/
         if (trim(reg_datail.COLUMNA) <> 'FILE_NAME') then
-          UTL_FILE.put_line(fich_salida_sh, '  ' || reg_datail.COLUMNA);
+          if reg_datail.TYPE = 'IM' then
+            UTL_FILE.put_line(fich_salida_sh, '  ' || 'cast(regexp_replace(cast(' || reg_datail.COLUMNA || ' as string), '','', ''\\.'') as decimal(' || reg_datail.LENGTH || ')) AS ' || reg_datail.COLUMNA);
+          else
+            UTL_FILE.put_line(fich_salida_sh, '  ' || reg_datail.COLUMNA);
+          end if;
+          --if (reg_datail.TYPE = 'AN') then
+            --UTL_FILE.put_line(fich_salida_sh, '  CASE WHEN ' || reg_datail.COLUMNA || ' = '''' THEN NULL ELSE ' || reg_datail.COLUMNA || 'END AS ' || reg_datail.COLUMNA);
+          --else
+            --UTL_FILE.put_line(fich_salida_sh, '  CASE WHEN CAST(' || reg_datail.COLUMNA || ' AS STRING) = '''' THEN NULL ELSE ' || reg_datail.COLUMNA || 'END AS ' || reg_datail.COLUMNA);
+          --end if;
         else
           if (v_existe_file_name > 0) then
             /* El nombre del fichero plano viene desde la extraccion, por lo que lo cargamos */
@@ -654,7 +664,17 @@ BEGIN
         primera_col := 0;
       else
         if (trim(reg_datail.COLUMNA) <> 'FILE_NAME') then
-          UTL_FILE.put_line(fich_salida_sh, '  ,' || reg_datail.COLUMNA);
+          /* (20170907) Angel Ruiz. BUG. Los campos IMPORTE no se cargan ya que vienen con , en lugar de .*/
+          if reg_datail.TYPE = 'IM' then
+            UTL_FILE.put_line(fich_salida_sh, '  ,' || 'cast(regexp_replace(cast(' || reg_datail.COLUMNA || ' as string), '','', ''\\.'') as decimal(' || reg_datail.LENGTH || ')) AS ' || reg_datail.COLUMNA);
+          else
+            UTL_FILE.put_line(fich_salida_sh, '  ,' || reg_datail.COLUMNA);
+          end if;
+          --if (reg_datail.TYPE = 'AN') then
+            --UTL_FILE.put_line(fich_salida_sh, '  , CASE WHEN ' || reg_datail.COLUMNA || ' = '''' THEN NULL ELSE ' || reg_datail.COLUMNA || 'END AS ' || reg_datail.COLUMNA);
+          --else
+            --UTL_FILE.put_line(fich_salida_sh, '  , CASE WHEN CAST(' || reg_datail.COLUMNA || ' AS STRING) = '''' THEN NULL ELSE ' || reg_datail.COLUMNA || 'END AS ' || reg_datail.COLUMNA);
+          --end if;
         else
           if (v_existe_file_name > 0) then
             /* El nombre del fichero plano viene desde la extraccion, por lo que lo cargamos */
@@ -672,7 +692,7 @@ BEGIN
     UTL_FILE.put_line(fich_salida_sh, 'FROM ${ESQUEMA_SA}.SAH_' || reg_summary.CONCEPT_NAME || ' WHERE FCH_CARGA = ''${FCH_CARGA_FMT_HIVE}' || ''';');
     UTL_FILE.put_line(fich_salida_sh, '!quit');
     UTL_FILE.put_line(fich_salida_sh, 'EOF');
-    UTL_FILE.put_line(fich_salida_sh, 'ERROR=`grep -ic -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_SA_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log`');
+    UTL_FILE.put_line(fich_salida_sh, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_SA_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log`');
     --UTL_FILE.put_line(fich_salida_sh, 'err_salida=$?');
     UTL_FILE.put_line(fich_salida_sh, 'if [ ${ERROR} -ne 0 ] ; then');
     --UTL_FILE.put_line(fich_salida_sh, 'if [ $? -ne 0 ]');
