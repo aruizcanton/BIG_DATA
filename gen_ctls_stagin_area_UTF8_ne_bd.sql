@@ -77,6 +77,9 @@ DECLARE
       OWNER_DM                            VARCHAR2(60);
       OWNER_MTDT                       VARCHAR2(60);
       NAME_DM                                VARCHAR(60);
+      MASCARA_IP_PRODUCTIVO                 VARCHAR2(60);
+      IP_PRODUCTIVO                         VARCHAR2(60);
+      
       v_MULTIPLICADOR_PROC                   VARCHAR2(60);
       nombre_proceso                      VARCHAR(30);
       parte_entera                              VARCHAR2(60);
@@ -87,6 +90,8 @@ DECLARE
       nombre_fich_cargado               VARCHAR2(1) := 'N';
       v_ulti_pos                        PLS_integer;
       v_existe_file_name                PLS_integer;
+      v_ext_interface_a_cargar            VARCHAR2(60);
+      v_anyo_mes_en_nombre_interfaz       boolean := false;
       
 
   function procesa_campo_formateo (cadena_in in varchar2, nombre_campo_in in varchar2) return varchar2
@@ -139,6 +144,9 @@ BEGIN
   SELECT VALOR INTO NAME_DM FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'NAME_DM';
   SELECT VALOR INTO v_REQ_NUMER FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'REQ_NUMBER';
   SELECT VALOR INTO v_MULTIPLICADOR_PROC FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'MULTIPLICADOR_PROC';
+  SELECT VALOR INTO MASCARA_IP_PRODUCTIVO FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'MASCARA_IP_PRODUCTIVO';
+  SELECT VALOR INTO IP_PRODUCTIVO FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'IP_PRODUCTIVO';
+  
   /* (20141219) FIN*/
 
   OPEN dtd_interfaz_summary;
@@ -167,15 +175,23 @@ BEGIN
       pos_fin_pais := pos_ini_pais + length ('_XXX_');
       nombre_interface_a_cargar := substr(nombre_interface_a_cargar, 1, pos_ini_pais -1) || '_' || reg_summary.COUNTRY || '_' || substr(nombre_interface_a_cargar, pos_fin_pais);
     end if;
+    if (regexp_instr(nombre_interface_a_cargar, '_YYYYMMDD\.') > 0) then
+      nombre_interface_a_cargar := regexp_replace (nombre_interface_a_cargar, '_YYYYMMDD', '_${FCH_DATOS}');
+    end if;
+    
     /* (20170621) Angel Ruiz. BUG. */
-    if (instr(nombre_interface_a_cargar, '_YYYYMM_') > 0) then
+    if (regexp_instr(nombre_interface_a_cargar, '_YYYYMM_') > 0) then
       nombre_interface_a_cargar := regexp_replace(nombre_interface_a_cargar, '_YYYYMM_', '_??????_');
+    end if;
+    v_anyo_mes_en_nombre_interfaz:=false;
+    if (regexp_instr(nombre_interface_a_cargar, '_YYYYMM\.') > 0) then
+      /* (20181012). Angel Ruiz. BUG. Si existen varios ficheros en el mismo directorio se cargan todos. Eso es un error*/
+      --nombre_interface_a_cargar := regexp_replace(nombre_interface_a_cargar, '_YYYYMM', '_??????');
+      nombre_interface_a_cargar := regexp_replace(nombre_interface_a_cargar, '_YYYYMM', '_${FCH_MES}');
+      v_anyo_mes_en_nombre_interfaz := true;
     end if;
     if (instr(nombre_interface_a_cargar, '_YYYYMMDDHH24MISS') > 0) then
       nombre_interface_a_cargar := regexp_replace(nombre_interface_a_cargar, '_YYYYMMDDHH24MISS', '_*');
-    end if;
-    if (instr(nombre_interface_a_cargar, '_YYYYMMDD') > 0) then
-      nombre_interface_a_cargar := regexp_replace (nombre_interface_a_cargar, '_YYYYMMDD', '_${FCH_DATOS}');
     end if;
     --pos_ini_fecha := instr(nombre_interface_a_cargar, '_YYYYMMDD');
     --if (pos_ini_fecha > 0) then
@@ -186,6 +202,14 @@ BEGIN
     if (instr(nombre_interface_a_cargar, 'HH24MISS') > 0) then
       nombre_interface_a_cargar := regexp_replace (nombre_interface_a_cargar, 'HH24MISS', '*');
     end if;
+    /* (20181010) Angel Ruiz. BUG. Hay casos en los que el interfaz a cargar no tiene extension .dat */
+    v_ext_interface_a_cargar := regexp_substr(nombre_interface_a_cargar, '\.[A-Za-z]+$');
+    if (regexp_instr(v_ext_interface_a_cargar, '\.[Cc][Ss][Vv]') > 0) then
+      v_ext_interface_a_cargar := '[Cc][Ss][Vv]';
+    elsif (regexp_instr(v_ext_interface_a_cargar, '\.[Dd][Aa][Tt]') > 0) then
+      v_ext_interface_a_cargar := '[Dd][Aa][Tt]';
+    end if;
+    /* (20181010) Angel Ruiz. BUG. FIN */
     --pos_ini_hora := instr(nombre_interface_a_cargar, 'HH24MISS');
     --if (pos_ini_hora > 0) then
       --pos_fin_hora := pos_ini_hora + length ('HH24MISS');
@@ -346,6 +370,11 @@ BEGIN
     --UTL_FILE.put_line(fich_salida_sh, 'FCH_CARGA=`echo ${1} | awk ''{ printf "%s-%s-%s", substr($1,0,4), substr($1,5,2), substr($1,7,2) ; }''`');
     --UTL_FILE.put_line(fich_salida_sh, 'FCH_DATOS=`echo ${2} | awk ''{ printf "%s %s", substr($1,0,10), substr($1,12,19) ; }''`');
     UTL_FILE.put_line(fich_salida_sh, 'BAN_FORZADO=${3}');
+    /* (20181012). Angel Ruiz. BUG. Si existen varios ficheros en el mismo directorio se cargan todos. Eso es un error*/
+    if (v_anyo_mes_en_nombre_interfaz = true) then
+      UTL_FILE.put_line(fich_salida_sh, 'FCH_MES=`echo ${FCH_CARGA} | awk ''{ print substr($1,1,6); }''`');
+    end if;
+    /* (20181012). Angel Ruiz. BUG. Fin */
     UTL_FILE.put_line(fich_salida_sh, 'FECHA_HORA=${FCH_CARGA}_`date +%Y%m%d_%H%M%S`');
     --UTL_FILE.put_line(fich_salida_sh, 'BAN_FORZADO=${3}');
     UTL_FILE.put_line(fich_salida_sh, '# Trasformacion de las fechas de entrada a formato HIVE');
@@ -419,7 +448,7 @@ BEGIN
     UTL_FILE.put_line(fich_salida_sh, '# Cuentas  Produccion / Desarrollo                                             #');
     UTL_FILE.put_line(fich_salida_sh, '################################################################################');
     --UTL_FILE.put_line(fich_salida_sh, 'if [ "`/sbin/ifconfig -a | grep ''10.225.173.'' | awk ''{print $2}''`" = "10.225.173.102" ]||[ "`/sbin/ifconfig -a | grep ''10.225.173.'' | awk ''{print $2}''`" = "10.225.173.184" ]; then');
-    UTL_FILE.put_line(fich_salida_sh, 'if [ "`/sbin/ifconfig -a | grep ''10.225.232.'' | awk ''{print $2}''`" = "10.225.232.153" ]; then');
+    UTL_FILE.put_line(fich_salida_sh, 'if [ "`/sbin/ifconfig -a | grep ''' || MASCARA_IP_PRODUCTIVO || ''' | awk ''{print substr($2, 6, 13)}''`" = "' || IP_PRODUCTIVO || '" ]; then');
     UTL_FILE.put_line(fich_salida_sh, '  ### Cuentas para produccion');
     UTL_FILE.put_line(fich_salida_sh, '  CTA_MAIL_USUARIOS=`cat ${' || NAME_DM || '_CONFIGURACION}/Correos_Mtto_Usuario_ReportesBI.txt`');
     UTL_FILE.put_line(fich_salida_sh, '  CTA_MAIL=`cat ${' || NAME_DM || '_CONFIGURACION}/Correos_Mtto_ReportesBI.txt`');
@@ -469,6 +498,34 @@ BEGIN
     UTL_FILE.put_line(fich_salida_sh, '  echo `date` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log');
     UTL_FILE.put_line(fich_salida_sh, '  exit 0');
     UTL_FILE.put_line(fich_salida_sh, 'fi');
+    /***************/
+    /* (20180507) Angel Ruiz. Meto una excepcion para los procesos load_SA_INGRESOS_ONE_FIJA_MES.sh, load_SA_PEDIDOS_ONE_FIJA_MES.sh, load_SA_CONTRATOS_ONE_FIJA_MES.sh */
+    if (reg_summary.CONCEPT_NAME = 'INGRESOS_ONE_FIJA_MES') then
+      UTL_FILE.put_line(fich_salida_sh, 'if [ ${ULT_PASO_EJECUTADO} -eq 0 ] && [ "${BAN_FORZADO}" = "N" ]');
+      UTL_FILE.put_line(fich_salida_sh, 'then');
+      UTL_FILE.put_line(fich_salida_sh, '  # Renombramos el fichero que viene de Saleforce');
+      UTL_FILE.put_line(fich_salida_sh, '  mv ${' || NAME_DM || '_STABI}/extract_Ingresos.csv ${' || NAME_DM || '_STABI}/' || nombre_interface_a_cargar);
+      UTL_FILE.put_line(fich_salida_sh, '  chmod 755 ${' || NAME_DM || '_STABI}/' || nombre_interface_a_cargar);
+      UTL_FILE.put_line(fich_salida_sh, 'fi');
+    end if;
+    if (reg_summary.CONCEPT_NAME = 'PEDIDOS_ONE_FIJA_MES') then
+      UTL_FILE.put_line(fich_salida_sh, 'if [ ${ULT_PASO_EJECUTADO} -eq 0 ] && [ "${BAN_FORZADO}" = "N" ]');
+      UTL_FILE.put_line(fich_salida_sh, 'then');
+      UTL_FILE.put_line(fich_salida_sh, '  # Renombramos el fichero que viene de Saleforce');
+      UTL_FILE.put_line(fich_salida_sh, '  mv ${' || NAME_DM || '_STABI}/extract_Pedidos.csv ${' || NAME_DM || '_STABI}/' || nombre_interface_a_cargar);
+      UTL_FILE.put_line(fich_salida_sh, '  chmod 755 ${' || NAME_DM || '_STABI}/' || nombre_interface_a_cargar);
+      UTL_FILE.put_line(fich_salida_sh, 'fi');
+    end if;
+    if (reg_summary.CONCEPT_NAME = 'CONTRATOS_ONE_FIJA_MES') then
+      UTL_FILE.put_line(fich_salida_sh, 'if [ ${ULT_PASO_EJECUTADO} -eq 0 ] && [ "${BAN_FORZADO}" = "N" ]');
+      UTL_FILE.put_line(fich_salida_sh, 'then');
+      UTL_FILE.put_line(fich_salida_sh, '  # Renombramos el fichero que viene de Saleforce');
+      UTL_FILE.put_line(fich_salida_sh, '  mv ${' || NAME_DM || '_STABI}/extract_Contract.csv ${' || NAME_DM || '_STABI}/' || nombre_interface_a_cargar);
+      UTL_FILE.put_line(fich_salida_sh, '  chmod 755 ${' || NAME_DM || '_STABI}/' || nombre_interface_a_cargar);
+      UTL_FILE.put_line(fich_salida_sh, 'fi');
+    end if;
+    /* (20180507) Angel Ruiz. Fin */
+    /***************/
     --UTL_FILE.put_line(fich_salida_sh, 'if [ ${ULT_PASO_EJECUTADO} -eq 0 ]');
     --UTL_FILE.put_line(fich_salida_sh, 'then');
     --UTL_FILE.put_line(fich_salida_sh, 'INICIO_PASO_TMR=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select current_timestamp from ${ESQUEMA_MT}.dual;"` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
@@ -483,13 +540,32 @@ BEGIN
     /* (20160816) Angel Ruiz. FIN. Comento lo relacionado con la escritura en el metadato */
     UTL_FILE.put_line(fich_salida_sh, 'echo "Inicio de la carga de la tabla de staging ' || 'SA' || '_' || reg_summary.CONCEPT_NAME || '"' || ' >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log');
     UTL_FILE.put_line(fich_salida_sh, '');
-    if (UPPER(reg_summary.SOURCE) = 'STABI' OR UPPER(reg_summary.SOURCE) = 'BIEN') then
+    if (UPPER(reg_summary.SOURCE) = 'STABI' OR UPPER(reg_summary.SOURCE) = 'BIEN' OR UPPER(reg_summary.SOURCE) = 'CONTA' OR UPPER(reg_summary.SOURCE) = 'CDG') then
       /* (20170130) Angel Ruiz. Nueva Funcionalidad (NF). Se anyada la parte relativa al directorio STABI */
       UTL_FILE.put_line(fich_salida_sh, 'NOMBRE_FICH_STABI=`ls -1 ${' || NAME_DM || '_STABI}/' || nombre_interface_a_cargar || '`');
       UTL_FILE.put_line(fich_salida_sh, 'if [ "${NOMBRE_FICH_STABI:-SIN_VALOR}" = "SIN_VALOR" ] ; then');
       UTL_FILE.put_line(fich_salida_sh, '  echo "El fichero no ha sido depositado en la ruta STABI establecida: ${' || NAME_DM || '_STABI}/' || nombre_interface_a_cargar || '" >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log');
       UTL_FILE.put_line(fich_salida_sh, 'else');
-      UTL_FILE.put_line(fich_salida_sh, '  NAME_FLAG=`basename ${NOMBRE_FICH_STABI} | sed -e ''s/\.[Dd][Aa][Tt]/\.flag/''`');
+      /* (20181010) Angel Ruiz. BUG. Hay casos en los que el interfaz a cargar no tiene extension .dat */
+      --UTL_FILE.put_line(fich_salida_sh, '  NAME_FLAG=`basename ${NOMBRE_FICH_STABI} | sed -e ''s/\.[Dd][Aa][Tt]/\.flag/''`');
+      UTL_FILE.put_line(fich_salida_sh, '  NAME_FLAG=`basename ${NOMBRE_FICH_STABI} | sed -e ''s/\.' || v_ext_interface_a_cargar || '/\.flag/''`');
+      /* (20181010) Angel Ruiz. BUG. FIN */
+      /* (20181012). Angel Ruiz. BUG. Si existen varios ficheros en el mismo directorio se cargan todos. Eso es un error*/
+      if (UPPER(reg_summary.SOURCE) = 'CONTA' OR UPPER(reg_summary.SOURCE) = 'CDG') then
+        UTL_FILE.put_line(fich_salida_sh, '  echo "En el caso de los ficheros que vienen de contabilidad no se deja flag. Se crea."');
+        UTL_FILE.put_line(fich_salida_sh, '  touch ${' || NAME_DM || '_STABI}/${NAME_FLAG}');
+        /* (20181025). Angel Ruiz. NF: Pueden venir ficheros palanos con cabecera. Se la quitamos*/
+        --UTL_FILE.put_line(fich_salida_sh, '  ENCABEZADO=''ID Compania|ID Item|Descripcion Item|Elem. Glob. Simple|Rol Telefonica|Grupo OCS''');
+        --UTL_FILE.put_line(fich_salida_sh, '  HEAD=`head -1 ${' || NAME_DM || '_STABI}/' || nombre_interface_a_cargar || '`');
+        --UTL_FILE.put_line(fich_salida_sh, '  if [ ${ENCABEZADO} -eq  ${HEAD} ]; then');
+        --UTL_FILE.put_line(fich_salida_sh, '  echo "El fichero viene con encabezado. Se elimina encabezado"');
+        --UTL_FILE.put_line(fich_salida_sh, '  tail +2 ${' || NAME_DM || '_STABI}/' || nombre_interface_a_cargar || ' > ${' || NAME_DM || '_STABI}/' || nombre_interface_a_cargar || '.tmp');
+        --UTL_FILE.put_line(fich_salida_sh, '  mv ${' || NAME_DM || '_STABI}/' || nombre_interface_a_cargar || '.tmp ${' || NAME_DM || '_STABI}/' || nombre_interface_a_cargar);
+        --UTL_FILE.put_line(fich_salida_sh, '  fi');
+        --UTL_FILE.put_line(fich_salida_sh, '');
+        /* (20181025). Angel Ruiz. FIN NF.*/
+      end if;
+      /* (20181012). Angel Ruiz. BUG. FIN */
       UTL_FILE.put_line(fich_salida_sh, '  # Procesamos el fichero obtenido');
       UTL_FILE.put_line(fich_salida_sh, '  echo "El fichero se agrega al hadoop fs"' || ' >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log');
       UTL_FILE.put_line(fich_salida_sh, '  hadoop fs -test -d ${' || NAME_DM || '_FUENTE}/' || reg_summary.CONCEPT_NAME);
@@ -560,7 +636,10 @@ BEGIN
     UTL_FILE.put_line(fich_salida_sh, '  then');
     UTL_FILE.put_line(fich_salida_sh, '    for FILE in ${NOMBRE_FICH_CARGA}');
     UTL_FILE.put_line(fich_salida_sh, '    do');
-    UTL_FILE.put_line(fich_salida_sh, '      NAME_FLAG=`echo $FILE | sed -e ''s/\.[Dd][Aa][Tt]/\.flag/''`');
+    /* (20181010) Angel Ruiz. BUG. Hay casos en los que el interfaz a cargar no tiene extension .dat */    
+    --UTL_FILE.put_line(fich_salida_sh, '      NAME_FLAG=`echo $FILE | sed -e ''s/\.[Dd][Aa][Tt]/\.flag/''`');
+    UTL_FILE.put_line(fich_salida_sh, '      NAME_FLAG=`echo $FILE | sed -e ''s/\.' || v_ext_interface_a_cargar || '/\.flag/''`');
+    /* (20181010) Angel Ruiz. BUG. FIN */
     UTL_FILE.put_line(fich_salida_sh, '      hadoop fs -test -e ${NAME_FLAG}');
     UTL_FILE.put_line(fich_salida_sh, '      if [ $? -ne 0 ]; then');
     --UTL_FILE.put_line(fich_salida_sh, '    if [ ! -f ${FILE} ] || [ ! -f ${NAME_FLAG} ] ; then');    
@@ -580,7 +659,10 @@ BEGIN
     UTL_FILE.put_line(fich_salida_sh, '    # No comprobamos la existencia del FLAG. Pero por si se ubiera extraido lo borramos.');
     UTL_FILE.put_line(fich_salida_sh, '    for FILE in ${NOMBRE_FICH_CARGA}');
     UTL_FILE.put_line(fich_salida_sh, '    do');
-    UTL_FILE.put_line(fich_salida_sh, '      NAME_FLAG=`echo $FILE | sed -e ''s/\.[Dd][Aa][Tt]/\.flag/''`');
+    /* (20181010) Angel Ruiz. BUG. Hay casos en los que el interfaz a cargar no tiene extension .dat */
+    --UTL_FILE.put_line(fich_salida_sh, '      NAME_FLAG=`echo $FILE | sed -e ''s/\.[Dd][Aa][Tt]/\.flag/''`');
+    UTL_FILE.put_line(fich_salida_sh, '      NAME_FLAG=`echo $FILE | sed -e ''s/\.' || v_ext_interface_a_cargar || '/\.flag/''`');
+    /* (20181010) Angel Ruiz. BUG. FIN */
     UTL_FILE.put_line(fich_salida_sh, '      hadoop fs -rm -f ${NAME_FLAG}');
     UTL_FILE.put_line(fich_salida_sh, '    done');
     UTL_FILE.put_line(fich_salida_sh, '  fi');
@@ -615,7 +697,7 @@ BEGIN
     --UTL_FILE.put_line(fich_salida_sh, 'OVERWRITE INTO TABLE ${BD_SID}.SA_' || reg_summary.CONCEPT_NAME || ' \');
     --UTL_FILE.put_line(fich_salida_sh, 'PARTITION (FCH_CARGA=''${FCH_CARGA}'')" >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
     UTL_FILE.put_line(fich_salida_sh, '');
-    UTL_FILE.put_line(fich_salida_sh, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_SA_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log`');
+    UTL_FILE.put_line(fich_salida_sh, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''ERROR jdbc.HiveConnection'' -e ''No current connection'' ${' || NAME_DM || '_TRAZAS}/' || 'load_SA_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log`');
     --UTL_FILE.put_line(fich_salida_sh, 'err_salida=$?');
     UTL_FILE.put_line(fich_salida_sh, 'if [ ${ERROR} -ne 0 ] ; then');
     --UTL_FILE.put_line(fich_salida_sh, 'if [ ${err_salida} -ne 0 ]; then');
@@ -675,7 +757,7 @@ BEGIN
     UTL_FILE.put_line(fich_salida_sh, 'FROM ${ESQUEMA_SA}.SAH_' || reg_summary.CONCEPT_NAME || ' WHERE FCH_CARGA = ''${FCH_CARGA_FMT_HIVE}' || ''';');
     UTL_FILE.put_line(fich_salida_sh, '!quit');
     UTL_FILE.put_line(fich_salida_sh, 'EOF');
-    UTL_FILE.put_line(fich_salida_sh, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_SA_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log`');
+    UTL_FILE.put_line(fich_salida_sh, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''ERROR jdbc.HiveConnection'' -e ''No current connection'' ${' || NAME_DM || '_TRAZAS}/' || 'load_SA_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log`');
     --UTL_FILE.put_line(fich_salida_sh, 'err_salida=$?');
     UTL_FILE.put_line(fich_salida_sh, 'if [ ${ERROR} -ne 0 ] ; then');
     --UTL_FILE.put_line(fich_salida_sh, 'if [ $? -ne 0 ]');
@@ -721,6 +803,25 @@ BEGIN
     --UTL_FILE.put_line(fich_salida_sh, 'done');
     UTL_FILE.put_line(fich_salida_sh, '');
     --UTL_FILE.put_line(fich_salida_sh, '');
+    /**********************/
+    /* (20180502) Angel Ruiz. Meto una excepcion que es necesaria para el proceso load_SA_DESCUENTO_ITEM.sh */
+    if (reg_summary.CONCEPT_NAME = 'DESCUENTO_ITEM') then
+      UTL_FILE.put_line(fich_salida_sh, 'beeline << EOF >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log ' || '2>> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_sh, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');    
+      UTL_FILE.put_line(fich_salida_sh, '!run ${' || NAME_DM || '_SQL}/inserts_SA_DESCUENTO_ITEM.sql');
+      UTL_FILE.put_line(fich_salida_sh, '!quit');
+      UTL_FILE.put_line(fich_salida_sh, 'EOF');
+      UTL_FILE.put_line(fich_salida_sh, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''ERROR jdbc.HiveConnection'' -e ''No current connection'' ${' || NAME_DM || '_TRAZAS}/' || 'load_SA_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log`');
+      UTL_FILE.put_line(fich_salida_sh, 'if [ ${ERROR} -ne 0 ] ; then');
+      UTL_FILE.put_line(fich_salida_sh, '  SUBJECT="${INTERFAZ}: Surgio un error al llevar a cabo la insercion manual en SA_ ' || reg_summary.CONCEPT_NAME || '. Error  ${err_salida}."');
+      UTL_FILE.put_line(fich_salida_sh, '  ${SHELL_SMS} "${TELEFONOS_DWH}" "${SUBJECT}"');
+      UTL_FILE.put_line(fich_salida_sh, '  echo ${SUBJECT} >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_sh, '  echo `date` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || reg_summary.CONCEPT_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_sh, '  exit 1');
+      UTL_FILE.put_line(fich_salida_sh, 'fi');
+      UTL_FILE.put_line(fich_salida_sh, '');
+    end if;
+    /**********************/
     UTL_FILE.put_line(fich_salida_sh, '# Insertamos que el proceso y el paso se han Ejecutado Correctamente');
     UTL_FILE.put_line(fich_salida_sh, 'InsertaFinOK');
     UTL_FILE.put_line(fich_salida_sh, '');

@@ -37,5 +37,5 @@ BEGIN
     DBMS_OUTPUT.put_line('INSERT INTO ' || OWNER_MTDT || '.MTDT_PASO');
     DBMS_OUTPUT.put_line('SELECT ' || reg.CVE_PROCESO || ', ' || reg.CVE_PASO || ', ''' || to_char(reg.FCH_ALTA, 'YYYY-MM-DD') || ''', ''' || reg.ESTADO || ''', ''' || to_char(reg.FCH_ESTADO, 'YYYY-MM-DD') || ''', ''' || to_char(reg.FCH_REGISTRO, 'YYYY-MM-DD') || ''' from ' || OWNER_MTDT || '.dual;');
   END LOOP;
-  DBMS_OUTPUT.put_line('!quit');
+  DBMS_OUTPUT.put_line('commit;');
 END;

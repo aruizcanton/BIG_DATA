@@ -15,7 +15,7 @@ SELECT
       --, 'PARQUE_ABO_MES', 'SUPPLEMENTARY_OFFER', 'BONUS', 'HANDSET_PRICE', 'PARQUE_SVA_MES', 'PARQUE_BENEF_MES', 'PSD_RESIDENCIAL'
       --, 'OFFER_ITEM', 'MOVIMIENTOS_ABO_MES', 'MOVIMIENTO_ABO', 'COMIS_POS_ABO_MES', 'AJUSTE_ABO_MES'
       --'OFERTA', 'TRANSACCIONES' , 'PRECIOS', 'MOVIMIENTOS_PLANTA', 'CONFIGURACION_CONTRATO');
-      'TRANSACCIONES', 'CONFIGURACION_CONTRATO', 'OFERTA', 'PRECIOS', 'MOVIMIENTOS_PLANTA');
+      'TRANSACCIONES', 'CONFIGURACION_CONTRATO', 'OFERTA', 'PRECIOS', 'MOVIMIENTOS_PLANTA', 'COSTES_CAPITALIZABLES');
     
     --and trim(MTDT_EXT_SCENARIO.TABLE_NAME) in ('PARQUE_PROMO_CAMPANA', 'MOV_PROMO_CAMPANA'
     --  );
@@ -2986,32 +2986,35 @@ begin
                   /**************************/
                   /*(20161205) Angel Ruiz. ***************************/
                   --UTL_FILE.put_line(fich_salida_load, 'ULT_PASO_EJECUTADO=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "\');
-                  UTL_FILE.put_line(fich_salida_load, 'ULT_PASO_EJECUTADO_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
-                  UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
-                  UTL_FILE.put_line(fich_salida_load, 'SELECT nvl(MAX(MTDT_MONITOREO.CVE_PASO),0) \');
-                  UTL_FILE.put_line(fich_salida_load, 'FROM \');
-                  UTL_FILE.put_line(fich_salida_load, '${ESQUEMA_MT}.MTDT_MONITOREO \');
-                  UTL_FILE.put_line(fich_salida_load, 'JOIN ${ESQUEMA_MT}.MTDT_PROCESO \');
-                  UTL_FILE.put_line(fich_salida_load, 'ON (MTDT_PROCESO.CVE_PROCESO = MTDT_MONITOREO.CVE_PROCESO) \');
-                  UTL_FILE.put_line(fich_salida_load, 'JOIN ${ESQUEMA_MT}.MTDT_PASO \');
-                  UTL_FILE.put_line(fich_salida_load, 'ON (MTDT_PROCESO.CVE_PROCESO = MTDT_PASO.CVE_PROCESO \');
-                  UTL_FILE.put_line(fich_salida_load, 'AND MTDT_PASO.CVE_PASO = MTDT_MONITOREO.CVE_PASO) \');
-                  UTL_FILE.put_line(fich_salida_load, 'WHERE \');
-                  UTL_FILE.put_line(fich_salida_load, 'MTDT_MONITOREO.FCH_CARGA = ''${FCH_CARGA_FMT_HIVE}'' AND \');
-                  UTL_FILE.put_line(fich_salida_load, 'MTDT_MONITOREO.FCH_DATOS = ''${FCH_DATOS_FMT_HIVE}'' AND \');
-                  UTL_FILE.put_line(fich_salida_load, 'MTDT_PROCESO.NOMBRE_PROCESO = ''' || nombre_fich_carga || ''' AND \');
-                  UTL_FILE.put_line(fich_salida_load, 'MTDT_MONITOREO.CVE_RESULTADO = 0;');
-                  UTL_FILE.put_line(fich_salida_load, '!quit');
-                  UTL_FILE.put_line(fich_salida_load, 'EOF`');
-                  UTL_FILE.put_line(fich_salida_load, 'ULT_PASO_EJECUTADO=`echo ${ULT_PASO_EJECUTADO_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');    
-                  UTL_FILE.put_line(fich_salida_load, 'if [ ${ULT_PASO_EJECUTADO} -eq 1 ] && [ "${BAN_FORZADO}" = "N" ]');
-                  UTL_FILE.put_line(fich_salida_load, 'then');
-                  UTL_FILE.put_line(fich_salida_load, '  SUBJECT="${INTERFAZ}: Ya se ejecutaron Ok todos los pasos de este proceso."');
-                  UTL_FILE.put_line(fich_salida_load, '  ${SHELL_SMS} "${TELEFONOS_DWH}" "${SUBJECT}"');
-                  UTL_FILE.put_line(fich_salida_load, '  echo ${SUBJECT} >> ' || '${' || NAME_DM || '_TRAZAS}/' || substr(nombre_fich_carga, 1, length(nombre_fich_carga) - 3) || '_${FECHA_HORA}.log');        
-                  UTL_FILE.put_line(fich_salida_load, '  echo `date` >> ' || '${' || NAME_DM || '_TRAZAS}/' || substr(nombre_fich_carga, 1, length(nombre_fich_carga) - 3) || '_${FECHA_HORA}.log');
-                  UTL_FILE.put_line(fich_salida_load, '  exit 0');
-                  UTL_FILE.put_line(fich_salida_load, 'fi');
+              
+                  /* (20171201) Angel Ruiz. Comento la parte que calcula el ultimo paso ejecutado ya que al ser un script de validacion no es necesario */
+                  --UTL_FILE.put_line(fich_salida_load, 'ULT_PASO_EJECUTADO_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
+                  --UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+                  --UTL_FILE.put_line(fich_salida_load, 'SELECT nvl(MAX(MTDT_MONITOREO.CVE_PASO),0) \');
+                  --UTL_FILE.put_line(fich_salida_load, 'FROM \');
+                  --UTL_FILE.put_line(fich_salida_load, '${ESQUEMA_MT}.MTDT_MONITOREO \');
+                  --UTL_FILE.put_line(fich_salida_load, 'JOIN ${ESQUEMA_MT}.MTDT_PROCESO \');
+                  --UTL_FILE.put_line(fich_salida_load, 'ON (MTDT_PROCESO.CVE_PROCESO = MTDT_MONITOREO.CVE_PROCESO) \');
+                  --UTL_FILE.put_line(fich_salida_load, 'JOIN ${ESQUEMA_MT}.MTDT_PASO \');
+                  --UTL_FILE.put_line(fich_salida_load, 'ON (MTDT_PROCESO.CVE_PROCESO = MTDT_PASO.CVE_PROCESO \');
+                  --UTL_FILE.put_line(fich_salida_load, 'AND MTDT_PASO.CVE_PASO = MTDT_MONITOREO.CVE_PASO) \');
+                  --UTL_FILE.put_line(fich_salida_load, 'WHERE \');
+                  --UTL_FILE.put_line(fich_salida_load, 'MTDT_MONITOREO.FCH_CARGA = ''${FCH_CARGA_FMT_HIVE}'' AND \');
+                  --UTL_FILE.put_line(fich_salida_load, 'MTDT_MONITOREO.FCH_DATOS = ''${FCH_DATOS_FMT_HIVE}'' AND \');
+                  --UTL_FILE.put_line(fich_salida_load, 'MTDT_PROCESO.NOMBRE_PROCESO = ''' || nombre_fich_carga || ''' AND \');
+                  --UTL_FILE.put_line(fich_salida_load, 'MTDT_MONITOREO.CVE_RESULTADO = 0;');
+                  --UTL_FILE.put_line(fich_salida_load, '!quit');
+                  --UTL_FILE.put_line(fich_salida_load, 'EOF`');
+                  --UTL_FILE.put_line(fich_salida_load, 'ULT_PASO_EJECUTADO=`echo ${ULT_PASO_EJECUTADO_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');    
+                  --UTL_FILE.put_line(fich_salida_load, 'if [ ${ULT_PASO_EJECUTADO} -eq 1 ] && [ "${BAN_FORZADO}" = "N" ]');
+                  --UTL_FILE.put_line(fich_salida_load, 'then');
+                  --UTL_FILE.put_line(fich_salida_load, '  SUBJECT="${INTERFAZ}: Ya se ejecutaron Ok todos los pasos de este proceso."');
+                  --UTL_FILE.put_line(fich_salida_load, '  ${SHELL_SMS} "${TELEFONOS_DWH}" "${SUBJECT}"');
+                  --UTL_FILE.put_line(fich_salida_load, '  echo ${SUBJECT} >> ' || '${' || NAME_DM || '_TRAZAS}/' || substr(nombre_fich_carga, 1, length(nombre_fich_carga) - 3) || '_${FECHA_HORA}.log');        
+                  --UTL_FILE.put_line(fich_salida_load, '  echo `date` >> ' || '${' || NAME_DM || '_TRAZAS}/' || substr(nombre_fich_carga, 1, length(nombre_fich_carga) - 3) || '_${FECHA_HORA}.log');
+                  --UTL_FILE.put_line(fich_salida_load, '  exit 0');
+                  --UTL_FILE.put_line(fich_salida_load, 'fi');
+                  /* (20171201) Angel Ruiz. FIN Comento parte del calculo del ultimo paso ejecutado */
                   
                   /*************************/
                   --UTL_FILE.put_line(fich_salida_load, 'INICIO_PASO_TMR=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select current_timestamp from ${ESQUEMA_MT}.dual;"` >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');

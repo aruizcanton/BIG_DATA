@@ -18,6 +18,7 @@ DECLARE
     WHERE 
     TRIM(MTDT_MODELO_SUMMARY.TABLE_NAME) = MTDT_SCENARIO.TABLE_NAME and
     TRIM(MTDT_MODELO_SUMMARY.CI) <> 'P' AND TRIM(MTDT_MODELO_SUMMARY.CI) <> 'I'   /* Las que poseen un valor "P" en esta columna son las tablas de PERMITED_VALUES, por lo que no hya que generar su modelo */
+    --AND MTDT_MODELO_SUMMARY.TABLE_NAME IN ('SOX_CONCILIACION_CDG_RESUMEN', 'SOX_CONCILIACION_CDG_DETALLE', 'SOX_FILTROS_INGRID')
     UNION     /* (20170807) ANGEL RUIZ. BUG. No estaba generando tablas de tipo I*/
     SELECT 
       TRIM(MTDT_MODELO_SUMMARY.TABLE_NAME) "TABLE_NAME",
@@ -29,7 +30,8 @@ DECLARE
     MTDT_MODELO_SUMMARY
     WHERE
     TRIM(MTDT_MODELO_SUMMARY.CI) = 'I'
-    order by TABLE_NAME;
+    order by TABLE_NAME
+    ;
   CURSOR c_mtdt_modelo_logico_COLUMNA (table_name_in IN VARCHAR2)
   IS
     SELECT 
@@ -112,16 +114,21 @@ BEGIN
       concept_name := substr(r_mtdt_modelo_logico_TABLA.TABLE_NAME, 5);
       /* (20170921) Angel Ruiz. BUG. Puede ocurrir que una misma tabla posea campos CVE_DIA y CVE_MES */
       --DBMS_OUTPUT.put_line('La tabla es: #' || r_mtdt_modelo_logico_TABLA.TABLE_NAME || '#');
-      select count(1) into v_num_campos 
+      select count(1) into v_num_campos
       from MTDT_MODELO_DETAIL 
       where trim(TABLE_NAME) = r_mtdt_modelo_logico_TABLA.TABLE_NAME 
       and trim(COLUMN_NAME) = 'CVE_MES' 
-      --and (regexp_count(substr(r_mtdt_modelo_logico_TABLA.TABLE_NAME, 1, 4), '??A_',1,'i') > 0
-      --or regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??F_',1,'i') > 0 or
-      --regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??G_',1,'i') > 0)
-      and (regexp_count(trim(TABLE_NAME), '^??A_') > 0
-      or regexp_count(trim(TABLE_NAME), '^??F_') > 0 or
-      regexp_count(trim(TABLE_NAME), '^??G_') > 0)
+      and 
+      (
+      (regexp_count(substr(TABLE_NAME, 1, 4), '??A_',1,'i') > 0
+      or regexp_count(substr(TABLE_NAME, 1, 4), '??F_',1,'i') > 0 or
+      regexp_count(substr(TABLE_NAME, 1, 4), '??G_',1,'i') > 0)
+      or /* (20190115 Angel Ruiz. Aparecen las tablas SOX_ que no siguen ningún patrón ??F, ??G_ pero que están particionadas) */
+      (r_mtdt_modelo_logico_TABLA.PARTICIONADO = 'M')
+      )
+      --and (regexp_count(trim(TABLE_NAME), '^??A_') > 0
+      --or regexp_count(trim(TABLE_NAME), '^??F_') > 0 or
+      --regexp_count(trim(TABLE_NAME), '^??G_') > 0)
       ;
       --DBMS_OUTPUT.put_line('El numero de campos es: ' || to_char(v_num_campos));
       if (v_num_campos = 1) then 
@@ -132,9 +139,15 @@ BEGIN
         from MTDT_MODELO_DETAIL 
         where TRIM(TABLE_NAME) = r_mtdt_modelo_logico_TABLA.TABLE_NAME 
         and trim(COLUMN_NAME) = 'CVE_DIA'
-        and (regexp_count(substr(TRIM(TABLE_NAME), 1, 4), '??A_',1,'i') > 0
+        and 
+        (
+        (regexp_count(substr(TRIM(TABLE_NAME), 1, 4), '??A_',1,'i') > 0
         or regexp_count(substr(TRIM(TABLE_NAME), 1, 4), '??F_',1,'i') > 0
-        or regexp_count(substr(TRIM(TABLE_NAME), 1, 4), '??G_',1,'i') > 0);
+        or regexp_count(substr(TRIM(TABLE_NAME), 1, 4), '??G_',1,'i') > 0)
+        or /* (20190115 Angel Ruiz. Aparecen las tablas SOX_ que no siguen ningún patrón ??F, ??G_ pero que están particionadas) */
+        (r_mtdt_modelo_logico_TABLA.PARTICIONADO = 'D')
+        )
+        ;
         if (v_num_campos = 1) then 
           v_tipo_particionado := 'D';
           --DBMS_OUTPUT.put_line('Entro en D');
@@ -155,19 +168,21 @@ BEGIN
         /* COMENZAMOS EL BUCLE QUE GENERARA LAS COLUMNAS */
         /* (20160916) Angel Ruiz. En HIVE cuando una columna es por la que se particiona, */
         /* esta columna no puede formar aprte del create de los campos */
-        if ((upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) <> 'CVE_DIA' and
-        upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) <> 'CVE_MES') or
+        if (
+        (upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) <> 'CVE_DIA' and
+        upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) <> 'CVE_MES')
         --(regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??F_',1,'i') =0 and
         --regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??A_',1,'i') =0) and
         --regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??G_',1,'i') =0
         
         --(v_tipo_particionado = 'M' and upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) <> 'CVE_MES') or
         --(v_tipo_particionado = 'D' and upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) <> 'CVE_DIA')) or
-        ((v_tipo_particionado = 'S' and (upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) = 'CVE_MES' or
-        upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) ='CVE_DIA') or (v_tipo_particionado = 'M' and
-        upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) ='CVE_DIA'))
+        or (v_tipo_particionado = 'S' and ((upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) = 'CVE_MES' or
+        upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) ='CVE_DIA'))) 
+        or (v_tipo_particionado = 'M' and
+        upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) ='CVE_DIA')
         )
-        ) then
+        then
           IF primera_col = 1 THEN /* Si es primera columna */
             CASE
               WHEN (INSTR(r_mtdt_modelo_logico_COLUMNA.DATA_TYPE, 'NUMBER') > 0) THEN
@@ -202,7 +217,10 @@ BEGIN
         if ((regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??F_',1,'i') >0 or
         regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??A_',1,'i') >0 or
         regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??G_',1,'i') >0)
-        AND upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) = 'CVE_DIA' and v_tipo_particionado = 'D') then
+        AND (upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) = 'CVE_DIA' or upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) = 'CVE_DAY' or upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) = 'DAY') and v_tipo_particionado = 'D')
+        or  /* (20190115 Angel Ruiz. Aparecen las tablas SOX_ que no siguen ningún patrón ??F, ??G_ pero que están particionadas) */
+        (upper(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME) = 'CVE_DIA' and v_tipo_particionado = 'D')
+        then
           /* SE TRATA DE UNA TABLA DE HECHOS CON COLUMNA CVE_DIA ==> PARTICIONADO DIARIO */
           --v_tipo_particionado := 'D';   /* Particionado Diario */
           /* (20160324) Angel Ruiz. NF: Indices en las tablas del modelo*/
@@ -229,7 +247,10 @@ BEGIN
         if ((regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??A_',1,'i') >0 or 
         regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??G_',1,'i') >0 or
         regexp_count(substr(r_mtdt_modelo_logico_COLUMNA.TABLE_NAME, 1, 4), '??F_',1,'i') >0) AND
-        (upper(trim(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME)) = 'CVE_MES') AND v_tipo_particionado = 'M') then
+        (upper(trim(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME)) = 'CVE_MES') AND v_tipo_particionado = 'M') 
+        or  /* (20190115 Angel Ruiz. Aparecen las tablas SOX_ que no siguen ningún patrón ??F, ??G_ pero que están particionadas) */
+        ((upper(trim(r_mtdt_modelo_logico_COLUMNA.COLUMN_NAME)) = 'CVE_MES') AND v_tipo_particionado = 'M')
+        then
           /* SE TRATA DE UNA TABLA DE AGREGADOS CON PARTICIONAMIENTO POR MES */
           --v_tipo_particionado := 'M';   /* Particionado Mensual, aunque para una tabla de Agregados*/
           /* (20160324) Angel Ruiz. NF: Indices en las tablas del modelo*/
@@ -254,6 +275,45 @@ BEGIN
         --  /* Hay que particonarla */
         if (v_tipo_particionado = 'D') then
           /* Se trata de un particionado diario */
+          /* (20191223) Angel Ruiz. BUG.*/
+          --DBMS_OUTPUT.put_line('PARTITIONED BY (CVE_DIA INT)');
+          DBMS_OUTPUT.put_line('PARTITIONED BY (' || lista_par(lista_par.last) || ' INT)');
+          /* (20191223) ANGEL RUIZ. FIN BUG */
+          --DBMS_OUTPUT.put_line(');');
+        elsif (v_tipo_particionado = 'M') then
+          /* Se trata de un particionado Mensual */
+          /* (20191223) Angel Ruiz. BUG.*/
+          --DBMS_OUTPUT.put_line('PARTITIONED BY (CVE_MES INT)');
+          DBMS_OUTPUT.put_line('PARTITIONED BY (' || lista_par(lista_par.last) || ' INT)');
+          /* (20191223) ANGEL RUIZ. FIN BUG */
+          --DBMS_OUTPUT.put_line('(');
+        elsif (v_tipo_particionado = 'M24') then
+          /* (20150918) Angel Ruiz. N.F.: Se trata de implementar el particionado para BSC donde hay 24 particiones siempre */
+          /* Las particiones se crean una vez y asi permanecen ya que el espacio de analisis se extiende 24 meses */
+          /* (20191223) Angel Ruiz. BUG.*/
+          --DBMS_OUTPUT.put_line('PARTITIONED BY (CVE_MES INT)');
+          DBMS_OUTPUT.put_line('PARTITIONED BY (' || lista_par(lista_par.last) || 'INT)');
+          /* (20150918) Angel Ruiz. Fin N.F*/
+        end if;
+      elsif (regexp_count(substr(r_mtdt_modelo_logico_TABLA.TABLE_NAME, 1, 4), '??A_',1,'i') >0 or
+            regexp_count(substr(r_mtdt_modelo_logico_TABLA.TABLE_NAME, 1, 4), '??G_',1,'i') >0)  then  /* Se trata de una tabla de HECHOS AGREGADOS  */
+        if (v_tipo_particionado = 'M') then
+          /* Hay que particonarla */
+          /* (20191223) Angel Ruiz. BUG*/
+          --DBMS_OUTPUT.put_line('PARTITIONED BY (CVE_MES INT)');
+          DBMS_OUTPUT.put_line('PARTITIONED BY (' || lista_par(lista_par.last) || 'INT)');
+          /* (20191223) Angel Ruiz. FIN BUG*/
+
+        end if;
+        --if (v_tipo_particionado = 'MyD') then
+          /* Hay que particionarla por MES y DIA */
+          --DBMS_OUTPUT.put_line('PARTITIONED BY (CVE_MES INT, CVE_DIA INT)');
+          --DBMS_OUTPUT.put_line('PARTITIONED BY (CVE_DIA INT)');
+        --end if;
+      else
+        /* (20190115 Angel Ruiz. Aparecen las tablas SOX_ que no siguen ningún patrón ??F, ??G_ pero que están particionadas) */
+        if (v_tipo_particionado = 'D') then
+          /* Se trata de un particionado diario */
           DBMS_OUTPUT.put_line('PARTITIONED BY (CVE_DIA INT)');
           --DBMS_OUTPUT.put_line(');');
         elsif (v_tipo_particionado = 'M') then
@@ -266,17 +326,7 @@ BEGIN
           DBMS_OUTPUT.put_line('PARTITIONED BY (CVE_MES INT)');
           /* (20150918) Angel Ruiz. Fin N.F*/
         end if;
-      elsif (regexp_count(substr(r_mtdt_modelo_logico_TABLA.TABLE_NAME, 1, 4), '??A_',1,'i') >0 or
-            regexp_count(substr(r_mtdt_modelo_logico_TABLA.TABLE_NAME, 1, 4), '??G_',1,'i') >0)  then  /* Se trata de una tabla de HECHOS AGREGADOS  */
-        if (v_tipo_particionado = 'M') then
-          /* Hay que particonarla */
-          DBMS_OUTPUT.put_line('PARTITIONED BY (CVE_MES INT)');
-        end if;
-        --if (v_tipo_particionado = 'MyD') then
-          /* Hay que particionarla por MES y DIA */
-          --DBMS_OUTPUT.put_line('PARTITIONED BY (CVE_MES INT, CVE_DIA INT)');
-          --DBMS_OUTPUT.put_line('PARTITIONED BY (CVE_DIA INT)');
-        --end if;
+        /* (20190115 Angel Ruiz. Fin */
       end if;
       IF lista_pk.COUNT > 0 THEN
         DBMS_OUTPUT.put_line('CLUSTERED BY (');

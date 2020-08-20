@@ -17,15 +17,20 @@ SELECT
     trim(MTDT_TC_SCENARIO.TABLE_NAME) = trim(mtdt_modelo_summary.TABLE_NAME) and
     trim(MTDT_TC_SCENARIO.TABLE_NAME) in 
     (
-    'NGA_PARQUE_ABO_MES', 'NGA_PARQUE_SVA_MES', 'NGA_PARQUE_BENEF_MES', 
-    'NGG_TRANSACCIONES_DETAIL', 'NGA_COMIS_POS_CALC_MES', 'NGA_AJUSTE_ABO_MES', 
-    'NGA_ALTAS_CANAL_MES', 'NGF_PERIMETRO', 'NGA_PARQUE_ABO_DESA_MES',
-    'NGA_DESC_ADQR_ABO_MES', 'NGA_DESC_EJEC_ABO_MES', 'NGA_PRECIO_UNITARIO_SIM', 'NGA_VIDA_MEDIA_ABO_PRE', 'NGA_MATERIALIDAD_SIM',
-    'NGG_TRANSACCIONES_DESC', 'NGA_PARQUE_DESC_MES', 'NGA_COMBINACION_ABO_MES', 'NGA_CONTRATOS_ONE_FIJA_MES', 
-    'NGA_PEDIDOS_ONE_FIJA_MES', 'NGA_FACTURA_EQUIPO_MES', 'NGG_RETROACTIVO_ESTIMADO', 'NGA_MATERIALIDAD_SIM',
-    'NGG_CONTRATO_ONE_FIJA'
+--    'NGA_PARQUE_ABO_MES', 
+--    'NGA_PARQUE_SVA_MES', 'NGA_PARQUE_BENEF_MES' 
+--    , 'NGG_TRANSACCIONES_DETAIL', 'NGA_COMIS_POS_CALC_MES', 'NGA_AJUSTE_ABO_MES' 
+--    , 'NGA_ALTAS_CANAL_MES', 'NGF_PERIMETRO', 'NGA_PARQUE_ABO_DESA_MES'
+--    , 'NGA_DESC_ADQR_ABO_MES', 'NGA_DESC_EJEC_ABO_MES', 'NGA_PRECIO_UNITARIO_SIM', 'NGA_VIDA_MEDIA_ABO_PRE', 'NGA_MATERIALIDAD_SIM'
+--    , 'NGG_TRANSACCIONES_DESC', 'NGA_PARQUE_DESC_MES', 'NGA_COMBINACION_ABO_MES', 'NGA_CONTRATOS_ONE_FIJA_MES'
+--    , 'NGA_PEDIDOS_ONE_FIJA_MES', 'NGA_FACTURA_EQUIPO_MES', 'NGG_RETROACTIVO_ESTIMADO', 'NGA_MATERIALIDAD_SIM'
+--    , 'NGG_CONTRATO_ONE_FIJA', 'NGG_COMIS_ESTIMADO', 'NGG_TRANSACCIONES_CLI', 'NGA_COMIS_POS_PAGA_MES', 'NGG_TRANSACCIONES_COMIS'
+--    , 'NGA_COMIS_ABO_MES', 'NGA_ABONADO_NOESTANDAR_DESC'
+--    , 'NGA_TRAZABILIDAD_MES', 'NGA_BAJAS_OE_MES'
+--    , 'SOX_CONCILIACION_CDG_RESUMEN', 'SOX_CONCILIACION_CDG_DETALLE'
+      'LBF_TRAFICO', 'LBF_SITUACION_EQUIPO', 'LBF_PARQUE_IMEI'
     );
-    --('NGA_PARQUE_ABO_MES');
+    --('NGA_CONTRATOS_ONE_FIJA_MES');
     
   cursor MTDT_SCENARIO (table_name_in IN VARCHAR2)
   is
@@ -139,7 +144,7 @@ SELECT
   lista_par                                      list_columns_par := list_columns_par ();
   tipo_col                                     varchar2(50);
   primera_col                               PLS_INTEGER;
-  columna                                    VARCHAR2(25000);
+  columna                                    VARCHAR2(32700);
   prototipo_fun                             VARCHAR2(2000);
   fich_salida_load                        UTL_FILE.file_type;
   fich_salida_exchange              UTL_FILE.file_type;
@@ -161,6 +166,8 @@ SELECT
   NAME_DM                                VARCHAR2(60);
   OWNER_TC                              VARCHAR2(60);
   PREFIJO_DM                            VARCHAR2(60);
+  MASCARA_IP_PRODUCTIVO                 VARCHAR2(60);
+  IP_PRODUCTIVO                         VARCHAR2(60);
   
   l_FROM                                      lista_tablas_from := lista_tablas_from();
   l_FROM_solo_tablas                               lista_tablas_from := lista_tablas_from();  
@@ -1102,13 +1109,13 @@ SELECT
   function procesa_campo_filter (cadena_in in varchar2) return varchar2
   is
     lon_cadena integer;
-    cabeza                varchar2 (25000);
+    cabeza                varchar2 (32700);
     sustituto              varchar2(100);
-    cola                      varchar2(25000);    
+    cola                      varchar2(32700);    
     pos                   PLS_integer;
     pos_ant           PLS_integer;
     posicion_ant           PLS_integer;
-    cadena_resul varchar(25000);
+    cadena_resul varchar(32700);
     begin
       lon_cadena := length (cadena_in);
       pos := 0;
@@ -1237,6 +1244,10 @@ SELECT
           --cadena_resul := cabeza || sustituto || cola;
         --end loop;
         cadena_resul := regexp_replace(cadena_resul, '#OWNER_MTDT#', OWNER_MTDT);
+        
+        cadena_resul := regexp_replace(cadena_resul, '#DWH#', 'bigbox');
+        cadena_resul := regexp_replace(cadena_resul, '#DATAM#', 'datam');
+
         /* Busco VAR_MARGEN_COMISION */
         --sustituto := ' 0.3 ';  /* Temporalmente pongo 90 dias */
         --pos := 0;
@@ -1265,7 +1276,7 @@ SELECT
     end;
 
   function genera_campo_select ( reg_detalle_in in MTDT_TC_DETAIL%rowtype) return VARCHAR2 is
-    valor_retorno VARCHAR (25000);
+    valor_retorno VARCHAR (32700);
     posicion          PLS_INTEGER;
     cad_pri           VARCHAR(500);
     cad_seg         VARCHAR(500);
@@ -1292,7 +1303,7 @@ SELECT
     ie_column_lkup    list_strings := list_strings();
     tipo_columna  VARCHAR2(30);
     mitabla_look_up VARCHAR2(4000);
-    v_tabla_base_name VARCHAR2(2000);
+    v_tabla_base_name VARCHAR2(7000);
     mi_tabla_base_name VARCHAR2(50);
     mi_tabla_base_name_alias VARCHAR2(50);
     l_registro          ALL_TAB_COLUMNS%rowtype;
@@ -1737,7 +1748,7 @@ SELECT
         /*********************************/
         /* (20161227) Angel Ruiz. Ocurre que pueden venir Queries en la columna TABLE_BASE_NAME */
         /*********************************/
-        if (regexp_instr (reg_scenario.TABLE_BASE_NAME,'[Ss][Ee][Ll][Ee][Cc][Tt] ') > 0) then
+        if (regexp_instr (reg_scenario.TABLE_BASE_NAME,'[Ss][Ee][Ll][Ee][Cc][Tt]') > 0) then
           /* Tenemos una query en TABLE_BASE_NAME DEL SCENARIO */
           v_es_query_table_base:=1;
           /* Calculo el TABLE_BASE_NAME a partir del Scenario mejor que a partir del detail */
@@ -1794,6 +1805,7 @@ SELECT
         --ie_column_lkup := split_string_coma (reg_detalle_in.IE_COLUMN_LKUP);
         table_columns_lkup := split_string_punto_coma (reg_detalle_in.TABLE_COLUMN_LKUP);
         ie_column_lkup := split_string_punto_coma (reg_detalle_in.IE_COLUMN_LKUP);
+        dbms_output.put_line ('¡¡¡¡¡¡¡¡¡¡¡¡¡HOLA HOLA !!!!!!!!!!!!!');
         
         
         /****************************************************************************/
@@ -1840,7 +1852,11 @@ SELECT
             end if;
           END LOOP;
           /* (20170709) Angel Ruiz. UNa excepcion para el campo ID_TRAZABILIDAD DE NGA_PARQUE_ABO_MES */
-          if (reg_detalle_in.TABLE_COLUMN = 'ID_TRAZABILIDAD' or reg_detalle_in.TABLE_COLUMN = 'ID_TRAZABILIDAD_ANT') then
+          if (reg_detalle_in.TABLE_COLUMN = 'ID_TRAZABILIDAD' or reg_detalle_in.TABLE_COLUMN = 'ID_TRAZABILIDAD_ANT' or 
+          (reg_detalle_in.TABLE_NAME = 'NGA_PARQUE_DESC_MES' and (reg_detalle_in.TABLE_COLUMN = 'BAN_OBLIGATORIEDAD_ANT' or reg_detalle_in.TABLE_COLUMN = 'CVE_TRATAMIENTO_ABO_ANT' or 
+          reg_detalle_in.TABLE_COLUMN = 'ID_PLAN_TARIFARIO'))
+          or (reg_detalle_in.TABLE_NAME = 'NGG_TRANSACCIONES_DETAIL' and (reg_detalle_in.TABLE_COLUMN = 'IMP_DESCUENTOS_PCT_CLIENTE' ))
+          ) then
             v_no_se_generara_case:=true;
           end if;
         else
@@ -1855,7 +1871,11 @@ SELECT
             v_no_se_generara_case:=true;
           end if;
           /* (20170709) Angel Ruiz. UNa excepcion para el campo ID_TRAZABILIDAD DE NGA_PARQUE_ABO_MES */
-          if (reg_detalle_in.TABLE_COLUMN = 'ID_TRAZABILIDAD' or reg_detalle_in.TABLE_COLUMN = 'ID_TRAZABILIDAD_ANT') then
+          if (reg_detalle_in.TABLE_COLUMN = 'ID_TRAZABILIDAD' or reg_detalle_in.TABLE_COLUMN = 'ID_TRAZABILIDAD_ANT' or
+          (reg_detalle_in.TABLE_NAME = 'NGA_PARQUE_DESC_MES' and (reg_detalle_in.TABLE_COLUMN = 'BAN_OBLIGATORIEDAD_ANT' or reg_detalle_in.TABLE_COLUMN = 'CVE_TRATAMIENTO_ABO_ANT' or 
+          reg_detalle_in.TABLE_COLUMN = 'ID_PLAN_TARIFARIO'))
+          or (reg_detalle_in.TABLE_NAME = 'NGG_TRANSACCIONES_DETAIL' and (reg_detalle_in.TABLE_COLUMN = 'IMP_DESCUENTOS_PCT_CLIENTE' ))
+          ) then
             v_no_se_generara_case:=true;
           end if;
         end if;
@@ -1967,9 +1987,19 @@ SELECT
                 if (v_alias_incluido = 1) then
                 /* (20160629) Angel Ruiz. NF: Se incluye la posibilidad de incluir el ALIAS en tablas de LKUP que sean SELECT */
                   --valor_retorno := valor_retorno || ') THEN -3 ELSE ' || 'NVL(' || sustituye_comillas_dinam(reg_detalle_in.VALUE) || ', -2) END';
-                  valor_retorno := valor_retorno || ') THEN -3 ELSE ' || 'NVL(' || procesa_campo_filter(reg_detalle_in.VALUE) || ', -2) END';
+                  if (instr(reg_detalle_in.TABLE_COLUMN, 'CVE_') > 0) then
+                  /* (20170929) Angel Ruiz. BUG. Aparece -2 cuando se trata de importes*/
+                    valor_retorno := valor_retorno || ') THEN -3 ELSE ' || 'NVL(' || procesa_campo_filter(reg_detalle_in.VALUE) || ', -2) END';
+                  else
+                    valor_retorno := valor_retorno || ') THEN 0 ELSE ' || 'NVL(' || procesa_campo_filter(reg_detalle_in.VALUE) || ', 0) END';
+                  end if;
                 else
-                  valor_retorno := valor_retorno || ') THEN -3 ELSE ' || 'NVL(' || v_alias || '.' || reg_detalle_in.VALUE || ', -2) END';
+                  if (instr(reg_detalle_in.TABLE_COLUMN, 'CVE_') > 0) then
+                  /* (20170929) Angel Ruiz. BUG. Aparece -2 cuando se trata de importes*/
+                    valor_retorno := valor_retorno || ') THEN -3 ELSE ' || 'NVL(' || v_alias || '.' || reg_detalle_in.VALUE || ', -2) END';
+                  else
+                    valor_retorno := valor_retorno || ') THEN 0 ELSE ' || 'NVL(' || v_alias || '.' || reg_detalle_in.VALUE || ', 0) END';
+                  end if;
                 end if;
               elsif (UPPER(TRIM(l_registro2.TYPE)) = 'DATE') then
                 if (v_alias_incluido = 1) then
@@ -1997,13 +2027,28 @@ SELECT
               if (l_registro2.TYPE = 'NUMBER') then
                 if (v_alias_incluido = 1) then
                   --valor_retorno :=  '    NVL(' || sustituye_comillas_dinam(reg_detalle_in.VALUE) || ', -2)';
-                  valor_retorno :=  '    NVL(' || procesa_campo_filter(reg_detalle_in.VALUE) || ', -2)';
+                  /* (20170929) Angel Ruiz. BUG. Aparece -2 cuando se trata de importes*/
+                  if (instr(reg_detalle_in.TABLE_COLUMN, 'CVE_') > 0) then
+                    valor_retorno :=  '    NVL(' || procesa_campo_filter(reg_detalle_in.VALUE) || ', -2)';
+                  else
+                    valor_retorno :=  '    NVL(' || procesa_campo_filter(reg_detalle_in.VALUE) || ', 0)';
+                  end if;
                 else
                   if (regexp_instr(reg_detalle_in.VALUE, '[A-Za-z0-9_]') = 0) then
                     /* (20170627) Angel Ruiz. Compruebo VALUE sólo sea un campo */
-                    valor_retorno :=  '    NVL(' || v_alias || '.' || reg_detalle_in.VALUE || ', -2)';
+                    if (instr(reg_detalle_in.TABLE_COLUMN, 'CVE_') > 0) then
+                    /* (20170929) Angel Ruiz. BUG. Aparece -2 cuando se trata de importes*/
+                      valor_retorno :=  '    NVL(' || v_alias || '.' || reg_detalle_in.VALUE || ', -2)';
+                    else
+                      valor_retorno :=  '    NVL(' || v_alias || '.' || reg_detalle_in.VALUE || ', 0)';
+                    end if;
                   else
-                    valor_retorno :=  '    NVL(' || procesa_campo_filter(reg_detalle_in.VALUE) || ', -2)';
+                    if (instr(reg_detalle_in.TABLE_COLUMN, 'CVE_') > 0) then
+                    /* (20170929) Angel Ruiz. BUG. Aparece -2 cuando se trata de importes*/
+                      valor_retorno :=  '    NVL(' || procesa_campo_filter(reg_detalle_in.VALUE) || ', -2)';
+                    else
+                      valor_retorno :=  '    NVL(' || procesa_campo_filter(reg_detalle_in.VALUE) || ', 0)';
+                    end if;
                   end if;
                 end if;
               elsif (l_registro2.TYPE = 'DATE') then
@@ -3136,6 +3181,9 @@ begin
   SELECT VALOR INTO OWNER_TC FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'OWNER_TC';  
   SELECT VALOR INTO PREFIJO_DM FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'PREFIJO_DM';
   SELECT VALOR INTO v_MULTIPLICADOR_PROC FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'MULTIPLICADOR_PROC';
+  SELECT VALOR INTO MASCARA_IP_PRODUCTIVO FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'MASCARA_IP_PRODUCTIVO';
+  SELECT VALOR INTO IP_PRODUCTIVO FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'IP_PRODUCTIVO';
+  
   
   /* (20141223) FIN*/
 
@@ -3605,6 +3653,16 @@ begin
         lista_par(lista_par.last) := reg_modelo_logico_col.COLUMN_NAME;
         /* (20160324) Angel Ruiz. Fin NF: Indices en las tablas del modelo*/
       end if;
+      if ((regexp_count(substr(reg_modelo_logico_col.TABLE_NAME, 1, 4), '??X_',1,'i') >0 or
+      regexp_count(substr(reg_modelo_logico_col.TABLE_NAME, 1, 4), '??G_',1,'i') >0 ) AND
+      (upper(trim(reg_modelo_logico_col.COLUMN_NAME)) = 'CVE_MES')) then
+        /* SE TRATA DE UNA TABLA DE AGREGADOS CON PARTICIONAMIENTO POR MES */
+        v_tipo_particionado := 'M';   /* Particionado Mensual, aunque para una tabla de Agregados*/
+        /* (20160324) Angel Ruiz. NF: Indices en las tablas del modelo*/
+        lista_par.extend;
+        lista_par(lista_par.last) := trim(reg_modelo_logico_col.COLUMN_NAME);
+        /* (20160324) Angel Ruiz. Fin NF: Indices en las tablas del modelo*/
+      end if;
       if ((regexp_count(substr(reg_modelo_logico_col.TABLE_NAME, 1, 4), '??A_',1,'i') >0 or 
       regexp_count(substr(reg_modelo_logico_col.TABLE_NAME, 1, 4), '??G_',1,'i') >0 ) AND
       (upper(trim(reg_modelo_logico_col.COLUMN_NAME)) = 'CVE_DIA' AND v_tipo_particionado= 'M')) then
@@ -3612,7 +3670,7 @@ begin
         v_tipo_particionado := 'MyD';   /* Particionado Mensual y Diario */
         lista_par.extend;
         lista_par(lista_par.last) := reg_modelo_logico_col.COLUMN_NAME;
-      end if;      
+      end if;
     end loop;
     close c_mtdt_modelo_logico_COLUMNA;
     /* (20170220) Angel Ruiz. BUG: Con tablas ORC y con el ACID activo no se puede hacer un OVERWRITE */
@@ -3652,6 +3710,19 @@ begin
         UTL_FILE.put_line(fich_salida_pkg,'DROP IF EXISTS PARTITION (CVE_MES=#VAR_CVE_MES#);');
         UTL_FILE.put_line(fich_salida_pkg,'');
       end if;
+    elsif (regexp_count(substr(reg_tabla.TABLE_NAME, 1, 4), '??X_',1,'i') >0 or
+          regexp_count(substr(reg_tabla.TABLE_NAME, 1, 4), '??G_',1,'i') >0)  then  /* Se trata de una tabla de HECHOS AGREGADOS  */
+      if (v_tipo_particionado = 'M') then
+        --  /* Hay que particonarla */
+        UTL_FILE.put_line(fich_salida_pkg,'ALTER TABLE ' || OWNER_DM || '.' || reg_tabla.TABLE_NAME);
+        UTL_FILE.put_line(fich_salida_pkg,'DROP IF EXISTS PARTITION (CVE_MES=#VAR_CVE_MES#);');
+        UTL_FILE.put_line(fich_salida_pkg,'');
+      elsif (v_tipo_particionado = 'MyD') then
+        --UTL_FILE.put_line(fich_salida_pkg,'PARTITION (CVE_MES=#VAR_CVE_MES#, CVE_DIA=#VAR_CVE_DIA#)');
+        UTL_FILE.put_line(fich_salida_pkg,'ALTER TABLE ' || OWNER_DM || '.' || reg_tabla.TABLE_NAME);
+        UTL_FILE.put_line(fich_salida_pkg,'DROP IF EXISTS PARTITION (CVE_MES=#VAR_CVE_MES#);');
+        UTL_FILE.put_line(fich_salida_pkg,'');
+      end if;
     end if;
     /* (20170220) Angel Ruiz. FIN BUG */
     --UTL_FILE.put_line(fich_salida_pkg, 'INSERT OVERWRITE TABLE ' || reg_tabla.TABLE_NAME);
@@ -3673,6 +3744,15 @@ begin
         /* (20150918) Angel Ruiz. Fin N.F*/
       end if;
     elsif (regexp_count(substr(reg_tabla.TABLE_NAME, 1, 4), '??A_',1,'i') >0 or
+          regexp_count(substr(reg_tabla.TABLE_NAME, 1, 4), '??G_',1,'i') >0)  then  /* Se trata de una tabla de HECHOS AGREGADOS  */
+      if (v_tipo_particionado = 'M') then
+        --  /* Hay que particonarla */
+        UTL_FILE.put_line(fich_salida_pkg,'PARTITION (CVE_MES=#VAR_CVE_MES#)');
+      elsif (v_tipo_particionado = 'MyD') then
+        --UTL_FILE.put_line(fich_salida_pkg,'PARTITION (CVE_MES=#VAR_CVE_MES#, CVE_DIA=#VAR_CVE_DIA#)');
+        UTL_FILE.put_line(fich_salida_pkg,'PARTITION (CVE_MES=#VAR_CVE_MES#)');
+      end if;
+    elsif (regexp_count(substr(reg_tabla.TABLE_NAME, 1, 4), '??X_',1,'i') >0 or
           regexp_count(substr(reg_tabla.TABLE_NAME, 1, 4), '??G_',1,'i') >0)  then  /* Se trata de una tabla de HECHOS AGREGADOS  */
       if (v_tipo_particionado = 'M') then
         --  /* Hay que particonarla */
@@ -3905,7 +3985,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, '# Cuentas  Produccion / Desarrollo                                             #');
     UTL_FILE.put_line(fich_salida_load, '################################################################################');
     --UTL_FILE.put_line(fich_salida_load, 'if [ "`/sbin/ifconfig -a | grep ''10.225.173.'' | awk ''{print $2}''`" = "10.225.173.102" ]||[ "`/sbin/ifconfig -a | grep ''10.225.173.'' | awk ''{print $2}''`" = "10.225.173.184" ]; then');
-    UTL_FILE.put_line(fich_salida_load, 'if [ "`/sbin/ifconfig -a | grep ''10.225.232.'' | awk ''{print $2}''`" = "10.225.232.153" ]; then');
+    UTL_FILE.put_line(fich_salida_load, 'if [ "`/sbin/ifconfig -a | grep ''' || MASCARA_IP_PRODUCTIVO || ''' | awk ''{print substr($2, 6, 13)}''`" = "' || IP_PRODUCTIVO || '" ]; then');
     UTL_FILE.put_line(fich_salida_load, '  ### Cuentas para produccion');
     UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL_USUARIOS=`cat ${' || NAME_DM || '_CONFIGURACION}/Correos_Mtto_Usuario_ReportesBI.txt`');
     UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL=`cat ${' || NAME_DM || '_CONFIGURACION}/Correos_Mtto_ReportesBI.txt`');
@@ -3942,7 +4022,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, '!quit');
     UTL_FILE.put_line(fich_salida_load, 'EOF`');
     UTL_FILE.put_line(fich_salida_load, 'ULT_PASO_EJECUTADO=`echo ${ULT_PASO_EJECUTADO_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');    
-    UTL_FILE.put_line(fich_salida_load, 'if [ ${ULT_PASO_EJECUTADO} -eq 1 ] && [ "${BAN_FORZADO}" = "N" ]');
+    UTL_FILE.put_line(fich_salida_load, 'if [ ${ULT_PASO_EJECUTADO} -eq 1 ] &&' || ' [ "${BAN_FORZADO}" = "N" ]');
     UTL_FILE.put_line(fich_salida_load, 'then');
     UTL_FILE.put_line(fich_salida_load, '  SUBJECT="${INTERFAZ}: Ya se ejecutaron Ok todos los pasos de este proceso."');
     UTL_FILE.put_line(fich_salida_load, '  ${SHELL_SMS} "${TELEFONOS_DWH}" "${SUBJECT}"');
@@ -3952,7 +4032,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, 'fi');
     
     /*************************/
-    --UTL_FILE.put_line(fich_salida_load, 'INICIO_PASO_TMR=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select current_timestamp from ${ESQUEMA_MT}.dual;"` >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+    --UTL_FILE.put_line(fich_salida_load, 'INICIO_PASO_TMR=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select current_timestamp from ${ESQUEMA_MT}.dual;"` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
     UTL_FILE.put_line(fich_salida_load, 'INICIO_PASO_TMR_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
     UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
     UTL_FILE.put_line(fich_salida_load, 'select current_timestamp from ${ESQUEMA_MT}.dual;');
@@ -3965,43 +4045,51 @@ begin
     if (reg_tabla.TABLE_NAME = 'NGA_PARQUE_ABO_DESA_MES') then
       UTL_FILE.put_line(fich_salida_load, 'FCH_DATOS_MES_ANT_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
       UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
-      UTL_FILE.put_line(fich_salida_load, 'select DATE_FORMAT(ADD_MONTHS(''${FCH_CARGA_FMT_HIVE}'',-1),''YYYYMM'') from ${ESQUEMA_MT}.dual;');
+      UTL_FILE.put_line(fich_salida_load, 'select DATE_FORMAT(ADD_MONTHS(''${FCH_CARGA_FMT_HIVE}'',-1),''yyyyMM'') from ${ESQUEMA_MT}.dual;');
       UTL_FILE.put_line(fich_salida_load, '!quit');
       UTL_FILE.put_line(fich_salida_load, 'EOF`');
       --UTL_FILE.put_line(fich_salida_load, 'INICIO_PASO_TMR=`echo ${INICIO_PASO_TMR_PREV} | sed -e ''s/ //g'' -e ''s/\n//g'' -e ''s/\r//g''`');    
       UTL_FILE.put_line(fich_salida_load, 'FCH_DATOS_MES_ANT=`echo ${FCH_DATOS_MES_ANT_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');    
     end if;
     /* (20170817) Angel Ruiz.Fin */
-    UTL_FILE.put_line(fich_salida_load, 'echo "Inicio de la carga de ' || reg_tabla.TABLE_NAME || '"' || ' >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+    UTL_FILE.put_line(fich_salida_load, 'echo "Inicio de la carga de ' || reg_tabla.TABLE_NAME || '"' || ' >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
     UTL_FILE.put_line(fich_salida_load, '');
     /* (20170817) Angel Ruiz. Meto una excepcion porque me ha dicho Stephnay que para PARQUE_ABO_DESA_MES */
     /* es necesario que en lugar de insertarse en la particion del mes de carga se ha de tomar el mes anterior */
     if (reg_tabla.TABLE_NAME = 'NGA_PARQUE_ABO_DESA_MES') then
-      UTL_FILE.put_line(fich_salida_load, 'sed -e "s/#VAR_FCH_REGISTRO#/${INICIO_PASO_TMR}/g" -e "s/#VAR_FCH_CARGA#/${FCH_CARGA_FMT_HIVE}/g" -e "s/#VAR_FCH_DATOS#/${FCH_DATOS_FMT_HIVE}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" -e "s/#VAR_CVE_MES#/${FCH_DATOS_MES_ANT}/g" -e "s/#VAR_CVE_DIA#/${VAR_FCH_CARGA}/g" ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '.sql > ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
+      UTL_FILE.put_line(fich_salida_load, 'sed -e "s/#VAR_FCH_REGISTRO#/${INICIO_PASO_TMR}/g" -e "s/#VAR_FCH_CARGA#/${FCH_CARGA_FMT_HIVE}/g" -e "s/#VAR_FCH_DATOS#/${FCH_DATOS_FMT_HIVE}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" -e "s/#VAR_CVE_MES#/${FCH_DATOS_MES_ANT}/g" -e "s/#VAR_CVE_DIA#/${FCH_CARGA}/g" ${' || NAME_DM || '_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '.sql > ${' || NAME_DM ||'_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
     elsif (v_VAR_PCT_COMISIONES = true) then
-      UTL_FILE.put_line(fich_salida_load, 'sed -e "s/#VAR_FCH_REGISTRO#/${INICIO_PASO_TMR}/g" -e "s/#VAR_FCH_CARGA#/${FCH_CARGA_FMT_HIVE}/g" -e "s/#VAR_FCH_DATOS#/${FCH_DATOS_FMT_HIVE}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" -e "s/#VAR_CVE_MES#/${FCH_CARGA_MES}/g" -e "s/#VAR_CVE_DIA#/${VAR_FCH_CARGA}/g" -e "s/#VAR_PCT_COMISIONES#/${VAR_PCT_COMISIONES}/g" ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '.sql > ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
+      UTL_FILE.put_line(fich_salida_load, 'sed -e "s/#VAR_FCH_REGISTRO#/${INICIO_PASO_TMR}/g" -e "s/#VAR_FCH_CARGA#/${FCH_CARGA_FMT_HIVE}/g" -e "s/#VAR_FCH_DATOS#/${FCH_DATOS_FMT_HIVE}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" -e "s/#VAR_CVE_MES#/${FCH_CARGA_MES}/g" -e "s/#VAR_CVE_DIA#/${FCH_CARGA}/g" -e "s/#VAR_PCT_COMISIONES#/${VAR_PCT_COMISIONES}/g" ${' || NAME_DM || '_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '.sql > ${' || NAME_DM || '_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
     else
-      UTL_FILE.put_line(fich_salida_load, 'sed -e "s/#VAR_FCH_REGISTRO#/${INICIO_PASO_TMR}/g" -e "s/#VAR_FCH_CARGA#/${FCH_CARGA_FMT_HIVE}/g" -e "s/#VAR_FCH_DATOS#/${FCH_DATOS_FMT_HIVE}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" -e "s/#VAR_CVE_MES#/${FCH_CARGA_MES}/g" -e "s/#VAR_CVE_DIA#/${VAR_FCH_CARGA}/g" ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '.sql > ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
+      UTL_FILE.put_line(fich_salida_load, 'sed -e "s/#VAR_FCH_REGISTRO#/${INICIO_PASO_TMR}/g" -e "s/#VAR_FCH_CARGA#/${FCH_CARGA_FMT_HIVE}/g" -e "s/#VAR_FCH_DATOS#/${FCH_DATOS_FMT_HIVE}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" -e "s/#VAR_CVE_MES#/${FCH_CARGA_MES}/g" -e "s/#VAR_CVE_DIA#/${FCH_CARGA}/g" ${' || NAME_DM || '_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '.sql > ${' || NAME_DM || '_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
     end if;
     /* (20170817) Angel Ruiz.Fin */
     /***********************************************************************************/
-    --UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -f ' || '${NGRD_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+    --UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -f ' || '${' || NAME_DM || '_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
     UTL_FILE.put_line(fich_salida_load, 'beeline << EOF >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
     UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
     /* (20170725) Angel Ruiz. BUG. Correccion de error */
     if (reg_tabla.TABLE_NAME = 'NGA_PARQUE_ABO_MES' or
-    reg_tabla.TABLE_NAME = 'NGA_PARQUE_SVA_MES' or
-    reg_tabla.TABLE_NAME = 'NGG_TRANSACCIONES_DETAIL'
+    reg_tabla.TABLE_NAME = 'NGG_TRANSACCIONES_DETAIL' or
+    reg_tabla.TABLE_NAME = 'NGA_PARQUE_DESC_MES'
     ) then
       UTL_FILE.put_line(fich_salida_load, 'set hive.execution.engine=tez;');
+      UTL_FILE.put_line(fich_salida_load, 'set tez.queue.name=default;');
+      UTL_FILE.put_line(fich_salida_load, 'set hive.exec.parallel=true;');
+      UTL_FILE.put_line(fich_salida_load, 'set hive.vectorized.execution.enabled=true;');
+      UTL_FILE.put_line(fich_salida_load, 'set hive.vectorized.execution.reduce.enabled;');
       UTL_FILE.put_line(fich_salida_load, 'set hive.enforce.bucketing=true;');
-      UTL_FILE.put_line(fich_salida_load, 'set hive.tez.container.size=6144;');
+      UTL_FILE.put_line(fich_salida_load, 'set hive.tez.container.size=4096;');
+      UTL_FILE.put_line(fich_salida_load, 'set hive.auto.convert.join.noconditionaltask.size=1397760;');
       --UTL_FILE.put_line(fich_salida_load, 'set hive.tez.java.opts=-server -Djava.net.preferIPv4Stack=true -Xmx4096m -Xms4096m -X-XX:NewRatio=8 -XX:+UseNUMA -XX:+UseG1GC -XX:+ResizeTLAB -XX:+PrintGCDetails -verbose:gc -XX:+PrintGCTimeStamps;');
+    elsif (reg_tabla.TABLE_NAME = 'LBF_TRAFICO' or reg_tabla.TABLE_NAME = 'LBF_ACTIVACION') then
+      /* (20190802) Angel Ruiz*/
+      UTL_FILE.put_line(fich_salida_load, 'set hive.execution.engine=mr;');
     end if;
     UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
     UTL_FILE.put_line(fich_salida_load, '!quit');
     UTL_FILE.put_line(fich_salida_load, 'EOF');
-    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log`');
+    UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''java.lang.RuntimeException'' -e ''ERROR jdbc.HiveConnection'' -e ''No current connection'' ${' || NAME_DM || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log`');
     --UTL_FILE.put_line(fich_salida_load, 'err_salida=$?');
     UTL_FILE.put_line(fich_salida_load, '');
     --UTL_FILE.put_line(fich_salida_load, 'if [ ${err_salida} -ne 0 ]; then');
@@ -4015,9 +4103,9 @@ begin
     UTL_FILE.put_line(fich_salida_load, 'fi');
     UTL_FILE.put_line(fich_salida_load, '');
     UTL_FILE.put_line(fich_salida_load, '# Borro el fichero temporal .sql generado en vuelo');
-    UTL_FILE.put_line(fich_salida_load, 'rm ${NGRD_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
+    UTL_FILE.put_line(fich_salida_load, 'rm ${' || NAME_DM || '_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
     UTL_FILE.put_line(fich_salida_load, '# Obtenemos el numero de registros nuevos para despues grabarlo en el metadato');
-    --UTL_FILE.put_line(fich_salida_load, 'TOT_INSERTADOS=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_ML}.T_' || nombre_tabla_reducido || ';"` >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+    --UTL_FILE.put_line(fich_salida_load, 'TOT_INSERTADOS=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_ML}.T_' || nombre_tabla_reducido || ';"` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_he' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
     UTL_FILE.put_line(fich_salida_load, 'TOT_INSERTADOS_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
     UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
     UTL_FILE.put_line(fich_salida_load, 'select count(*) from ${ESQUEMA_ML}.T_' || nombre_tabla_reducido || ';');

@@ -8,6 +8,7 @@ cursor MTDT_TABLA
     FROM
       MTDT_TC_SCENARIO
     WHERE TABLE_TYPE in ('D', 'I')
+    --WHERE TABLE_TYPE in ('I')
     --and TABLE_NAME in ('SA_ITX_TRAFICO1', 'SA_ITX_PARQUE1', 'SA_ITX_MOU', 'SA_ITX_IMPORTES')
     --and TABLE_NAME in ('SA_DESGASTE_PARQUE_PRE', 'SA_MKT_PRE_PARQUE', 'SA_MKT_PRE_INGR1', 'SA_MKT_PRE_ARPU_NUEVO1', 'SA_PRE_COMIS_PROPIO')
     --and TABLE_NAME in ('SA_ALTAS_POSTPAGO', 'SA_ALTAS_PREPAGO', 'SA_DESGASTE_PARQUE_PRE', 'SA_PRE_COMIS_PROPIO', 'SA_COMIS_CDA', 'SA_COMIS_TMK', 'SA_COMIS_DIGITAL', 'SA_ALTASXTTORIO_ESP1', 'SA_RECARGA_ESP', 'SA_COMIS_ESP')
@@ -21,13 +22,18 @@ cursor MTDT_TABLA
     --and TABLE_NAME in ('SA_CLIENTE_DIST1', 'DWD_CLIENTE_DISTRIBUIDOR')
     and trim(TABLE_NAME) in 
     (
-    'NGD_EQUIPO', 'NGD_REGION_COMERCIAL_NIVEL3', 'NGD_REGION_COMERCIAL_NIVEL2', 'NGD_REGION_COMERCIAL_NIVEL1', 'NGD_PRIMARY_OFFER', 
-    'NGD_SUPPLEMENTARY_OFFER', 'NGD_BONUS', 'NGD_HANDSET_PRICE', 'NGD_PROYECTO_COMERCIAL', 'NGD_USO',
-    'NGD_NOSTNDR_SERVS_PRECIOS', 'NGG_OFERTA_ESTANDAR', 'NGD_DESCUENTO', 'NGD_OFFER_RENT', 'SA_OFFER_RENT1',
-    'SA_OFFER_ITEM1', 'SA_PARQUE_SVA_MES1', 'NGD_ABONADO_NOESTANDAR', 'NGG_OFERTA_DESCUENTO', 'SA_COMBINACION_ABO_MES',
-    'NGD_COMBINACION_OFERTA', 'SA_HANDSET_PRICE1', 'NGD_TRAZABILIDAD', 'NGG_OFERTA_EQUIPO', 'NGD_MATRIZ_ESQUEMA_COMIS',
-    'NGD_NUM_SERIE', 'NGD_MODALIDAD_VENTA'
-    )
+--    'NGD_EQUIPO', 'NGD_REGION_COMERCIAL_NIVEL3', 'NGD_REGION_COMERCIAL_NIVEL2', 'NGD_REGION_COMERCIAL_NIVEL1', 'NGD_PRIMARY_OFFER', 
+--    'NGD_SUPPLEMENTARY_OFFER', 'NGD_BONUS', 'NGD_HANDSET_PRICE', 'NGD_PROYECTO_COMERCIAL', 'NGD_USO',
+--    'NGD_NOSTNDR_SERVS_PRECIOS', 'NGG_OFERTA_ESTANDAR', 'NGD_DESCUENTO', 'NGD_OFFER_RENT', 'SA_OFFER_RENT1',
+--    'SA_OFFER_ITEM1', 'SA_PARQUE_SVA_MES1', 'NGD_ABONADO_NOESTANDAR', 'NGG_OFERTA_DESCUENTO', 'SA_COMBINACION_ABO_MES',
+--    'NGD_COMBINACION_OFERTA', 'SA_HANDSET_PRICE1', 'NGD_TRAZABILIDAD', 'NGG_OFERTA_EQUIPO', 'NGD_MATRIZ_ESQUEMA_COMIS',
+--    'NGD_NUM_SERIE', 'NGD_MODALIDAD_VENTA', 'SA_PARQUE_DESC_MES1', 'NGD_PLANES_FAMILIARES_CLI', 'NGD_COMIS_ABO',
+--    'NGD_MAPEO'
+      'LBD_SALIDA_INVENTARIO', 'LBD_FACTURACION', 'LBD_HANDSETS', 'SA_PARQUE_IMEI'
+      )
+    --(
+    --'SA_SOLAPES_DESC', 'SA_DESHACE_SOLAPES_DESC'
+    --)
     --('NGD_PRIMARY_OFFER')
     order by
     TABLE_NAME;
@@ -179,7 +185,7 @@ cursor MTDT_TABLA
   
   TYPE list_columns_primary  IS TABLE OF VARCHAR(30);
   TYPE list_strings  IS TABLE OF VARCHAR(500);
-  type lista_tablas_from is table of varchar(800);
+  type lista_tablas_from is table of varchar(2000);
   type lista_condi_where is table of varchar(500);
 
   l_FROM                                      lista_tablas_from := lista_tablas_from();
@@ -223,6 +229,9 @@ cursor MTDT_TABLA
   NAME_DM                                VARCHAR(60);
   OWNER_TC                              VARCHAR(60);
   PREFIJO_DM                            VARCHAR2(60);
+  MASCARA_IP_PRODUCTIVO                 VARCHAR2(60);
+  IP_PRODUCTIVO                         VARCHAR2(60);
+
   nombre_funcion                   VARCHAR2(100);
   v_encontrado											VARCHAR2(1):= 'N';
   v_contador                        PLS_INTEGER:=0;
@@ -1015,6 +1024,10 @@ cursor MTDT_TABLA
           --cadena_resul := cabeza || sustituto || cola;
         --end loop;
         cadena_resul := regexp_replace(cadena_resul, '#OWNER_MTDT#', OWNER_MTDT);
+        
+        cadena_resul := regexp_replace(cadena_resul, '#DWH#', 'bigbox');
+        cadena_resul := regexp_replace(cadena_resul, '#DATAM#', 'datam');
+        
         /* Busco VAR_MARGEN_COMISION */
         --sustituto := ' 0.3 ';  /* Temporalmente pongo 90 dias */
         --pos := 0;
@@ -1184,7 +1197,7 @@ cursor MTDT_TABLA
     table_columns_lkup  list_strings := list_strings();
     ie_column_lkup    list_strings := list_strings();
     tipo_columna  VARCHAR2(30);
-    mitabla_look_up VARCHAR2(800);
+    mitabla_look_up VARCHAR2(2000);
     l_registro          MTDT_INTERFACE_DETAIL%rowtype;
     l_registro1         MTDT_MODELO_DETAIL%rowtype;
     l_registro2         v_MTDT_CAMPOS_DETAIL%rowtype;
@@ -1199,7 +1212,7 @@ cursor MTDT_TABLA
     mi_tabla_base_name_alias VARCHAR2(50);
     v_tipo_campo  VARCHAR2(30);
     v_alias_table_base  VARCHAR2(40);
-    v_tabla_base_name VARCHAR2(2000);
+    v_tabla_base_name VARCHAR2(4000);
     constante         VARCHAR2(500);
     v_nombre_func_lookup             VARCHAR2(40);
     v_nombre_paquete                    VARCHAR2(40);
@@ -1840,9 +1853,19 @@ cursor MTDT_TABLA
               if (INSTR(trim(l_registro2.TYPE), 'NUMBER') > 0) then
                 if (v_alias_incluido = 1) then
                 /* (20160629) Angel Ruiz. NF: Se incluye la posibilidad de incluir el ALIAS en tablas de LKUP que sean SELECT */
-                  valor_retorno := valor_retorno || ') THEN -3 ELSE ' || 'NVL(' || procesa_campo_filter (reg_detalle_in.VALUE) || ', -2) END';
+                  if (instr(reg_detalle_in.TABLE_COLUMN, 'CVE_') > 0) then
+                  /* (20170929) Angel Ruiz. BUG. Aparece -2 cuando se trata de importes*/
+                    valor_retorno := valor_retorno || ') THEN -3 ELSE ' || 'NVL(' || procesa_campo_filter (reg_detalle_in.VALUE) || ', -2) END';
+                  else
+                    valor_retorno := valor_retorno || ') THEN 0 ELSE ' || 'NVL(' || procesa_campo_filter (reg_detalle_in.VALUE) || ', 0) END';
+                  end if;
                 else
-                  valor_retorno := valor_retorno || ') THEN -3 ELSE ' || 'NVL(' || v_alias || '.' || procesa_campo_filter (reg_detalle_in.VALUE) || ', -2) END';
+                  if (instr(reg_detalle_in.TABLE_COLUMN, 'CVE_') > 0) then
+                  /* (20170929) Angel Ruiz. BUG. Aparece -2 cuando se trata de importes*/
+                    valor_retorno := valor_retorno || ') THEN -3 ELSE ' || 'NVL(' || v_alias || '.' || procesa_campo_filter (reg_detalle_in.VALUE) || ', -2) END';
+                  else
+                    valor_retorno := valor_retorno || ') THEN 0 ELSE ' || 'NVL(' || v_alias || '.' || procesa_campo_filter (reg_detalle_in.VALUE) || ', 0) END';
+                  end if;
                 end if;
               elsif (UPPER(TRIM(l_registro2.TYPE)) = 'DATE') then
                 if (v_alias_incluido = 1) then
@@ -1871,13 +1894,28 @@ cursor MTDT_TABLA
               UPPER(TRIM(COLUMN_NAME)) = reg_detalle_in.TABLE_COLUMN;
               if (instr(l_registro2.TYPE, 'NUMBER') > 0) then
                 if (v_alias_incluido = 1) then
-                  valor_retorno :=  '    NVL(' || procesa_campo_filter(reg_detalle_in.VALUE) || ', -2)';
+                  if (instr(reg_detalle_in.TABLE_COLUMN, 'CVE_') > 0) then
+                  /* (20170929) Angel Ruiz. BUG. Aparece -2 cuando se trata de importes*/
+                    valor_retorno :=  '    NVL(' || procesa_campo_filter(reg_detalle_in.VALUE) || ', -2)';
+                  else
+                    valor_retorno :=  '    NVL(' || procesa_campo_filter(reg_detalle_in.VALUE) || ', 0)';
+                  end if;
                 else
                   if (regexp_instr(reg_detalle_in.VALUE, '[A-Za-z0-9_]') = 0) then
                     /* (20170627) Angel Ruiz. Compruebo VALUE sólo sea un campo */
-                    valor_retorno :=  '    NVL(' || v_alias || '.' || reg_detalle_in.VALUE || ', -2)';
+                    if (instr(reg_detalle_in.TABLE_COLUMN, 'CVE_') > 0) then
+                    /* (20170929) Angel Ruiz. BUG. Aparece -2 cuando se trata de importes*/
+                      valor_retorno :=  '    NVL(' || v_alias || '.' || reg_detalle_in.VALUE || ', -2)';
+                    else
+                      valor_retorno :=  '    NVL(' || v_alias || '.' || reg_detalle_in.VALUE || ', 0)';
+                    end if;
                   else
-                    valor_retorno :=  '    NVL(' || procesa_campo_filter(reg_detalle_in.VALUE) || ', -2)';
+                    if (instr(reg_detalle_in.TABLE_COLUMN, 'CVE_') > 0) then
+                    /* (20170929) Angel Ruiz. BUG. Aparece -2 cuando se trata de importes*/
+                      valor_retorno :=  '    NVL(' || procesa_campo_filter(reg_detalle_in.VALUE) || ', -2)';
+                    else
+                      valor_retorno :=  '    NVL(' || procesa_campo_filter(reg_detalle_in.VALUE) || ', 0)';
+                    end if;
                   end if;
                 end if;
               elsif (UPPER(trim(l_registro2.TYPE)) = 'DATE') then
@@ -2809,9 +2847,9 @@ cursor MTDT_TABLA
             condicion := substr(cadena,pos_del_si+length('SI'), pos_del_then-(pos_del_si+length('SI')));
             condicion_pro := procesa_COM_RULE_lookup(condicion);
             constante := substr(cadena, pos_del_else+length('ELSE'),pos_del_end-(pos_del_else+length('ELSE')));
-            valor_retorno := 'CASE WHEN ' || trim(condicion_pro) || ' THEN NVL(' || reg_detalle_in.VALUE || ', '' '') ELSE ' || trim(constante) || ' END';
+            valor_retorno := 'CASE WHEN ' || trim(condicion_pro) || ' THEN NVL(' || procesa_campo_filter(reg_detalle_in.VALUE) || ', '' '') ELSE ' || trim(constante) || ' END';
           else
-            valor_retorno := reg_detalle_in.VALUE;
+            valor_retorno := procesa_campo_filter(reg_detalle_in.VALUE);
           end if;
       end case;
     return valor_retorno;
@@ -3267,6 +3305,9 @@ begin
   SELECT VALOR INTO v_REQ_NUMER FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'REQ_NUMBER';
   SELECT VALOR INTO PREFIJO_DM FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'PREFIJO_DM';
   SELECT VALOR INTO v_MULTIPLICADOR_PROC FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'MULTIPLICADOR_PROC';
+  SELECT VALOR INTO MASCARA_IP_PRODUCTIVO FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'MASCARA_IP_PRODUCTIVO';
+  SELECT VALOR INTO IP_PRODUCTIVO FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'IP_PRODUCTIVO';
+  
 
   /* (20141222) FIN*/
 
@@ -4151,10 +4192,10 @@ begin
       UTL_FILE.put_line(fich_salida_load, 'fi');
       UTL_FILE.put_line(fich_salida_load, NAME_DM || '_TRAZAS=${' || NAME_DM || '_TRAZAS}/${FCH_CARGA}');
       UTL_FILE.put_line(fich_salida_load, 'echo "${0}" > ${' || NAME_DM || '_TRAZAS}/load_ne_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}' || '.log ');
-      UTL_FILE.put_line(fich_salida_load, 'echo "Inicia Proceso: `date +%d/%m/%Y\ %H:%M:%S`"  >> ${' || 'NGRD' || '_TRAZAS}/load_ne_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}' || '.log ');
-      UTL_FILE.put_line(fich_salida_load, 'echo "Fecha de Carga: ${FCH_CARGA}"  >> ${' || 'NGRD' || '_TRAZAS}/load_ne_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}' || '.log ');
-      UTL_FILE.put_line(fich_salida_load, 'echo "Fecha de Datos: ${FCH_DATOS}"  >> ${' || 'NGRD' || '_TRAZAS}/load_ne_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}' || '.log ');
-      UTL_FILE.put_line(fich_salida_load, 'echo "Forzado: ${BAN_FORZADO}"  >> ${' || 'NGRD' || '_TRAZAS}/load_ne_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}' || '.log ');
+      UTL_FILE.put_line(fich_salida_load, 'echo "Inicia Proceso: `date +%d/%m/%Y\ %H:%M:%S`"  >> ${' || NAME_DM || '_TRAZAS}/load_ne_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}' || '.log ');
+      UTL_FILE.put_line(fich_salida_load, 'echo "Fecha de Carga: ${FCH_CARGA}"  >> ${' || NAME_DM || '_TRAZAS}/load_ne_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}' || '.log ');
+      UTL_FILE.put_line(fich_salida_load, 'echo "Fecha de Datos: ${FCH_DATOS}"  >> ${' || NAME_DM || '_TRAZAS}/load_ne_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}' || '.log ');
+      UTL_FILE.put_line(fich_salida_load, 'echo "Forzado: ${BAN_FORZADO}"  >> ${' || NAME_DM || '_TRAZAS}/load_ne_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}' || '.log ');
       --UTL_FILE.put_line(fich_salida_sh, 'set -x');
       UTL_FILE.put_line(fich_salida_load, '#Permite los acentos y U');
       UTL_FILE.put_line(fich_salida_load, 'NLS_LANG=AMERICAN_AMERICA.WE8ISO8859P1');
@@ -4179,7 +4220,7 @@ begin
       UTL_FILE.put_line(fich_salida_load, '# Cuentas  Produccion / Desarrollo                                             #');
       UTL_FILE.put_line(fich_salida_load, '################################################################################');
       --UTL_FILE.put_line(fich_salida_load, 'if [ "`/sbin/ifconfig -a | grep ''10.225.173.'' | awk ''{print $2}''`" = "10.225.173.102" ]||[ "`/sbin/ifconfig -a | grep ''10.225.173.'' | awk ''{print $2}''`" = "10.225.173.184" ]; then');
-      UTL_FILE.put_line(fich_salida_load, 'if [ "`/sbin/ifconfig -a | grep ''10.225.232.'' | awk ''{print $2}''`" = "10.225.232.153" ]; then');
+      UTL_FILE.put_line(fich_salida_load, 'if [ "`/sbin/ifconfig -a | grep ''' || MASCARA_IP_PRODUCTIVO || ''' | awk ''{print substr($2, 6, 13)}''`" = "' || IP_PRODUCTIVO || '" ]; then');
       UTL_FILE.put_line(fich_salida_load, '  ### Cuentas para produccion');
       UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL_USUARIOS=`cat ${' || NAME_DM || '_CONFIGURACION}/Correos_Mtto_Usuario_ReportesBI.txt`');
       UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL=`cat ${' || NAME_DM || '_CONFIGURACION}/Correos_Mtto_ReportesBI.txt`');
@@ -4218,7 +4259,7 @@ begin
       UTL_FILE.put_line(fich_salida_load, '!quit');
       UTL_FILE.put_line(fich_salida_load, 'EOF`');
       UTL_FILE.put_line(fich_salida_load, 'ULT_PASO_EJECUTADO=`echo ${ULT_PASO_EJECUTADO_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');    
-      UTL_FILE.put_line(fich_salida_load, 'if [ ${ULT_PASO_EJECUTADO} -eq 1 ] && [ "${BAN_FORZADO}" = "N" ]');
+      UTL_FILE.put_line(fich_salida_load, 'if [ ${ULT_PASO_EJECUTADO} -eq 1 ] &&' || ' [ "${BAN_FORZADO}" = "N" ]');
       UTL_FILE.put_line(fich_salida_load, 'then');
       UTL_FILE.put_line(fich_salida_load, '  SUBJECT="${INTERFAZ}: Ya se ejecutaron Ok todos los pasos de este proceso."');
       UTL_FILE.put_line(fich_salida_load, '  ${SHELL_SMS} "${TELEFONOS_DWH}" "${SUBJECT}"');
@@ -4226,7 +4267,7 @@ begin
       UTL_FILE.put_line(fich_salida_load, '  echo `date` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
       UTL_FILE.put_line(fich_salida_load, '  exit 0');
       UTL_FILE.put_line(fich_salida_load, 'fi');
-      --UTL_FILE.put_line(fich_salida_load, 'INICIO_PASO_TMR=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select current_timestamp from ${ESQUEMA_MT}.dual;"` >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+      --UTL_FILE.put_line(fich_salida_load, 'INICIO_PASO_TMR=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select current_timestamp from ${ESQUEMA_MT}.dual;"` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
       UTL_FILE.put_line(fich_salida_load, 'INICIO_PASO_TMR_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
       UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
       UTL_FILE.put_line(fich_salida_load, 'select current_timestamp from ${ESQUEMA_MT}.dual;');
@@ -4236,8 +4277,8 @@ begin
       UTL_FILE.put_line(fich_salida_load, 'INICIO_PASO_TMR=`echo ${INICIO_PASO_TMR_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');    
       UTL_FILE.put_line(fich_salida_load, 'echo "Inicio de la carga de dimension ' || reg_tabla.TABLE_NAME || '"' || ' >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
       UTL_FILE.put_line(fich_salida_load, '');
-      UTL_FILE.put_line(fich_salida_load, 'sed -e "s/#VAR_FCH_REGISTRO#/${INICIO_PASO_TMR}/g" -e "s/#VAR_FCH_CARGA#/${FCH_CARGA_FMT_HIVE}/g" -e "s/#VAR_FCH_DATOS#/${FCH_DATOS_FMT_HIVE}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '.sql > ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
-      --UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -f ' || '${NGRD_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+      UTL_FILE.put_line(fich_salida_load, 'sed -e "s/#VAR_FCH_REGISTRO#/${INICIO_PASO_TMR}/g" -e "s/#VAR_FCH_CARGA#/${FCH_CARGA_FMT_HIVE}/g" -e "s/#VAR_FCH_DATOS#/${FCH_DATOS_FMT_HIVE}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" ${' || NAME_DM || '_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '.sql > ${' || NAME_DM || '_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
+      --UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -f ' || '${' || NAME_DM || '_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
       UTL_FILE.put_line(fich_salida_load, 'beeline << EOF >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
       if (reg_tabla.TABLE_NAME = 'NGD_HANDSET_PRICE') then
         UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_ML};ssl=true;sslTrustStore=/grid/00/certificadoKnox/knoxgateway.jks;trustStorePassword=bigdatatemmcsr;transportMode=http;httpPath=gateway/ClusterBigData/hive ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
@@ -4257,7 +4298,7 @@ begin
       UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
       UTL_FILE.put_line(fich_salida_load, '!quit');
       UTL_FILE.put_line(fich_salida_load, 'EOF');
-      UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log`');
+      UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''ERROR jdbc.HiveConnection'' -e ''No current connection'' ${' || NAME_DM || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log`');
       UTL_FILE.put_line(fich_salida_load, '');
       --UTL_FILE.put_line(fich_salida_load, 'err_salida=$?');
       UTL_FILE.put_line(fich_salida_load, 'if [ ${ERROR} -ne 0 ] ; then');
@@ -4270,9 +4311,9 @@ begin
       UTL_FILE.put_line(fich_salida_load, '  exit 1');    
       UTL_FILE.put_line(fich_salida_load, 'fi');
       UTL_FILE.put_line(fich_salida_load, '# Borro el fichero temporal .sql generado en vuelo');
-      UTL_FILE.put_line(fich_salida_load, 'rm ${NGRD_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
+      UTL_FILE.put_line(fich_salida_load, 'rm ${' || NAME_DM || '_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
       UTL_FILE.put_line(fich_salida_load, '# Obtenemos el numero de registros nuevos para despues grabarlo en el metadato');
-      --UTL_FILE.put_line(fich_salida_load, 'TOT_INSERTADOS=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_ML}.T_' || nombre_tabla_reducido || ';"` >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+      --UTL_FILE.put_line(fich_salida_load, 'TOT_INSERTADOS=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_ML}.T_' || nombre_tabla_reducido || ';"` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
       UTL_FILE.put_line(fich_salida_load, 'TOT_INSERTADOS_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
       UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
       UTL_FILE.put_line(fich_salida_load, 'select count(*) from ${ESQUEMA_ML}.T_' || nombre_tabla_reducido || ';');
@@ -4280,7 +4321,7 @@ begin
       UTL_FILE.put_line(fich_salida_load, 'EOF` >> '|| '${' || NAME_DM || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
       UTL_FILE.put_line(fich_salida_load, 'TOT_INSERTADOS=`echo ${TOT_INSERTADOS_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
       UTL_FILE.put_line(fich_salida_load, '# Obtenemos el numero de registros modificados para despues grabarlo en el metadato');
-      --UTL_FILE.put_line(fich_salida_load, 'TOT_MODIFICADOS=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_ML}.T_' || nombre_tabla_reducido || '_01;"` >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+      --UTL_FILE.put_line(fich_salida_load, 'TOT_MODIFICADOS=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_ML}.T_' || nombre_tabla_reducido || '_01;"` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
       UTL_FILE.put_line(fich_salida_load, 'TOT_MODIFICADOS_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
       UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
       UTL_FILE.put_line(fich_salida_load, 'select count(*) from ${ESQUEMA_ML}.T_' || nombre_tabla_reducido || '_01;');
@@ -4288,7 +4329,7 @@ begin
       UTL_FILE.put_line(fich_salida_load, 'EOF` >> '|| '${' || NAME_DM || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
       UTL_FILE.put_line(fich_salida_load, 'TOT_MODIFICADOS=`echo ${TOT_MODIFICADOS_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
       UTL_FILE.put_line(fich_salida_load, '# Obtenemos el numero de registros historificados para despues grabarlo en el metadato');
-      --UTL_FILE.put_line(fich_salida_load, 'TOT_HISTO=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_ML}.T_' || nombre_tabla_reducido || '_02;"` >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+      --UTL_FILE.put_line(fich_salida_load, 'TOT_HISTO=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_ML}.T_' || nombre_tabla_reducido || '_02;"` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
       UTL_FILE.put_line(fich_salida_load, 'TOT_HISTO_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
       UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
       UTL_FILE.put_line(fich_salida_load, 'select count(*) from ${ESQUEMA_ML}.T_' || nombre_tabla_reducido || '_02;');
@@ -4307,7 +4348,7 @@ begin
       UTL_FILE.put_line(fich_salida_load, '  exit 1');
       UTL_FILE.put_line(fich_salida_load, 'fi');
       UTL_FILE.put_line(fich_salida_load, '');
-      UTL_FILE.put_line(fich_salida_load, 'echo "La carga de la tabla ' || reg_tabla.TABLE_NAME || ' se ha realizado correctamente." >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
+      UTL_FILE.put_line(fich_salida_load, 'echo "La carga de la tabla ' || reg_tabla.TABLE_NAME || ' se ha realizado correctamente." >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
       UTL_FILE.put_line(fich_salida_load, 'exit 0');    
       UTL_FILE.put_line(fich_salida_load, '');    
     
@@ -4555,10 +4596,10 @@ begin
         UTL_FILE.put_line(fich_salida_load, 'fi');
         UTL_FILE.put_line(fich_salida_load, NAME_DM || '_TRAZAS=${' || NAME_DM || '_TRAZAS}/${FCH_CARGA}');
         UTL_FILE.put_line(fich_salida_load, 'echo "${0}" > ${' || NAME_DM || '_TRAZAS}/load_SA_' || nombre_tabla_reducido || '_${FECHA_HORA}' || '.log ');
-        UTL_FILE.put_line(fich_salida_load, 'echo "Inicia Proceso: `date +%d/%m/%Y\ %H:%M:%S`"  >> ${' || 'NGRD' || '_TRAZAS}/load_SA_' || nombre_tabla_reducido || '_${FECHA_HORA}' || '.log ');
-        UTL_FILE.put_line(fich_salida_load, 'echo "Fecha de Carga: ${FCH_CARGA}"  >> ${' || 'NGRD' || '_TRAZAS}/load_SA_' || nombre_tabla_reducido || '_${FECHA_HORA}' || '.log ');
-        UTL_FILE.put_line(fich_salida_load, 'echo "Fecha de Datos: ${FCH_DATOS}"  >> ${' || 'NGRD' || '_TRAZAS}/load_SA_' || nombre_tabla_reducido || '_${FECHA_HORA}' || '.log ');
-        UTL_FILE.put_line(fich_salida_load, 'echo "Forzado: ${BAN_FORZADO}"  >> ${' || 'NGRD' || '_TRAZAS}/load_SA_' || nombre_tabla_reducido || '_${FECHA_HORA}' || '.log ');
+        UTL_FILE.put_line(fich_salida_load, 'echo "Inicia Proceso: `date +%d/%m/%Y\ %H:%M:%S`"  >> ${' || NAME_DM || '_TRAZAS}/load_SA_' || nombre_tabla_reducido || '_${FECHA_HORA}' || '.log ');
+        UTL_FILE.put_line(fich_salida_load, 'echo "Fecha de Carga: ${FCH_CARGA}"  >> ${' || NAME_DM || '_TRAZAS}/load_SA_' || nombre_tabla_reducido || '_${FECHA_HORA}' || '.log ');
+        UTL_FILE.put_line(fich_salida_load, 'echo "Fecha de Datos: ${FCH_DATOS}"  >> ${' || NAME_DM || '_TRAZAS}/load_SA_' || nombre_tabla_reducido || '_${FECHA_HORA}' || '.log ');
+        UTL_FILE.put_line(fich_salida_load, 'echo "Forzado: ${BAN_FORZADO}"  >> ${' || NAME_DM || '_TRAZAS}/load_SA_' || nombre_tabla_reducido || '_${FECHA_HORA}' || '.log ');
         --UTL_FILE.put_line(fich_salida_sh, 'set -x');
         UTL_FILE.put_line(fich_salida_load, '#Permite los acentos y U');
         UTL_FILE.put_line(fich_salida_load, 'NLS_LANG=AMERICAN_AMERICA.WE8ISO8859P1');
@@ -4580,7 +4621,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '# Cuentas  Produccion / Desarrollo                                             #');
         UTL_FILE.put_line(fich_salida_load, '################################################################################');
         --UTL_FILE.put_line(fich_salida_load, 'if [ "`/sbin/ifconfig -a | grep ''10.225.173.'' | awk ''{print $2}''`" = "10.225.173.102" ]||[ "`/sbin/ifconfig -a | grep ''10.225.173.'' | awk ''{print $2}''`" = "10.225.173.184" ]; then');
-        UTL_FILE.put_line(fich_salida_load, 'if [ "`/sbin/ifconfig -a | grep ''10.225.232.'' | awk ''{print $2}''`" = "10.225.232.153" ]; then');
+        UTL_FILE.put_line(fich_salida_load, 'if [ "`/sbin/ifconfig -a | grep ''' || MASCARA_IP_PRODUCTIVO || ''' | awk ''{print $2}''`" = "' || IP_PRODUCTIVO || '" ]; then');
         UTL_FILE.put_line(fich_salida_load, '  ### Cuentas para produccion');
         UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL_USUARIOS=`cat ${' || NAME_DM || '_CONFIGURACION}/Correos_Mtto_Usuario_ReportesBI.txt`');
         UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL=`cat ${' || NAME_DM || '_CONFIGURACION}/Correos_Mtto_ReportesBI.txt`');
@@ -4614,7 +4655,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '!quit');
         UTL_FILE.put_line(fich_salida_load, 'EOF`');
         UTL_FILE.put_line(fich_salida_load, 'ULT_PASO_EJECUTADO=`echo ${ULT_PASO_EJECUTADO_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');    
-        UTL_FILE.put_line(fich_salida_load, 'if [ ${ULT_PASO_EJECUTADO} -eq 1 ] && [ "${BAN_FORZADO}" = "N" ]');
+        UTL_FILE.put_line(fich_salida_load, 'if [ ${ULT_PASO_EJECUTADO} -eq 1 ] &&' || ' [ "${BAN_FORZADO}" = "N" ]');
         UTL_FILE.put_line(fich_salida_load, 'then');
         UTL_FILE.put_line(fich_salida_load, '  SUBJECT="${INTERFAZ}: Ya se ejecutaron Ok todos los pasos de este proceso."');
         UTL_FILE.put_line(fich_salida_load, '  ${SHELL_SMS} "${TELEFONOS_DWH}" "${SUBJECT}"');
@@ -4622,7 +4663,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  echo `date` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || nombre_tabla_reducido || '_${FECHA_HORA}.log');
         UTL_FILE.put_line(fich_salida_load, '  exit 0');
         UTL_FILE.put_line(fich_salida_load, 'fi');
-        --UTL_FILE.put_line(fich_salida_load, 'INICIO_PASO_TMR=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select current_timestamp from ${ESQUEMA_MT}.dual;"` >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+        --UTL_FILE.put_line(fich_salida_load, 'INICIO_PASO_TMR=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select current_timestamp from ${ESQUEMA_MT}.dual;"` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
         UTL_FILE.put_line(fich_salida_load, 'INICIO_PASO_TMR_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
         UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
         UTL_FILE.put_line(fich_salida_load, 'select current_timestamp from ${ESQUEMA_MT}.dual;');
@@ -4632,14 +4673,18 @@ begin
         UTL_FILE.put_line(fich_salida_load, 'INICIO_PASO_TMR=`echo ${INICIO_PASO_TMR_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');    
         UTL_FILE.put_line(fich_salida_load, 'echo "Inicio de la carga de dimension ' || reg_tabla.TABLE_NAME || '"' || ' >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || nombre_tabla_reducido || '_${FECHA_HORA}.log');
         UTL_FILE.put_line(fich_salida_load, '');
-        UTL_FILE.put_line(fich_salida_load, 'sed -e "s/#VAR_FCH_REGISTRO#/${INICIO_PASO_TMR}/g" -e "s/#VAR_FCH_CARGA#/${FCH_CARGA_FMT_HIVE}/g" -e "s/#VAR_FCH_DATOS#/${FCH_DATOS_FMT_HIVE}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '.sql > ${NGRD_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
-        --UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -f ' || '${NGRD_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+        /* (20180110) Angel Ruiz.  Meto este workaround porque estos dos procesos necesitan otra cadena de conexion para poder terminar y no dar error de HEAP */
+        if (reg_tabla.TABLE_NAME = 'SA_PARQUE_DESC_MES1' or reg_tabla.TABLE_NAME = 'SA_PARQUE_SVA_MES1') then
+          UTL_FILE.put_line(fich_salida_load,'PARAM_CONEX=";ssl=true;sslTrustStore=/grid/00/certificadoKnox/knoxgateway.jks;trustStorePassword=bigdatatemmcsr;transportMode=http;httpPath=gateway/ClusterBigData/hive?hive.execution.engine=tez;tez.queue.name=default;hive.exec.parallel=true;hive.vectorized.execution.enabled=true;hive.vectorized.execution.reduce.enabled;hive.enforce.bucketing=true;hive.tez.container.size=4096;hive.auto.convert.join.noconditionaltask.size=1397760"');
+        end if;
+        UTL_FILE.put_line(fich_salida_load, 'sed -e "s/#VAR_FCH_REGISTRO#/${INICIO_PASO_TMR}/g" -e "s/#VAR_FCH_CARGA#/${FCH_CARGA_FMT_HIVE}/g" -e "s/#VAR_FCH_DATOS#/${FCH_DATOS_FMT_HIVE}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" ${' || NAME_DM || '_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '.sql > ${' || NAME_DM || '_SQL}/' || 'pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
+        --UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -f ' || '${' || NAME_DM || '_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
         UTL_FILE.put_line(fich_salida_load, 'beeline << EOF >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || nombre_tabla_reducido || '_${FECHA_HORA}.log ' || '2>> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || nombre_tabla_reducido || '_${FECHA_HORA}.log');
         UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
         UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
         UTL_FILE.put_line(fich_salida_load, '!quit');
         UTL_FILE.put_line(fich_salida_load, 'EOF');
-        UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' ${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || nombre_tabla_reducido || '_${FECHA_HORA}.log`');
+        UTL_FILE.put_line(fich_salida_load, 'ERROR=`grep -ic -e ''Error: '' -e ''java.lang.RuntimeException'' -e ''Error: Could not open client transport'' -e ''Error: Error while'' -e ''ERROR jdbc.HiveConnection'' -e ''No current connection'' ${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || nombre_tabla_reducido || '_${FECHA_HORA}.log`');
         UTL_FILE.put_line(fich_salida_load, '');
         UTL_FILE.put_line(fich_salida_load, 'if [ ${ERROR} -ne 0 ] ; then');
         --UTL_FILE.put_line(fich_salida_load, 'if [ ${err_salida} -ne 0 ]; then');
@@ -4651,9 +4696,9 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  exit 1');    
         UTL_FILE.put_line(fich_salida_load, 'fi');
         UTL_FILE.put_line(fich_salida_load, '# Borro el fichero temporal .sql generado en vuelo');
-        UTL_FILE.put_line(fich_salida_load, 'rm ${NGRD_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
+        UTL_FILE.put_line(fich_salida_load, 'rm ${' || NAME_DM || '_SQL}/pkg_' || reg_tabla.TABLE_NAME || '_tmp.sql');
         UTL_FILE.put_line(fich_salida_load, '# Obtenemos el numero de registros nuevos para despues grabarlo en el metadato');
-        --UTL_FILE.put_line(fich_salida_load, 'TOT_INSERTADOS=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_ML}.T_' || nombre_tabla_reducido || ';"` >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
+        --UTL_FILE.put_line(fich_salida_load, 'TOT_INSERTADOS=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_ML}.T_' || nombre_tabla_reducido || ';"` >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_ne' || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log ' || '2>&' || '1');
         UTL_FILE.put_line(fich_salida_load, 'TOT_INSERTADOS_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
         UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_ML}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
         UTL_FILE.put_line(fich_salida_load, 'select count(*) from ${ESQUEMA_ML}.' || reg_scenario.TABLE_NAME || ';');
@@ -4672,7 +4717,7 @@ begin
         UTL_FILE.put_line(fich_salida_load, '  exit 1');
         UTL_FILE.put_line(fich_salida_load, 'fi');
         UTL_FILE.put_line(fich_salida_load, '');
-        UTL_FILE.put_line(fich_salida_load, 'echo "La carga de la tabla ' || reg_tabla.TABLE_NAME || ' se ha realizado correctamente." >> ' || '${' || 'NGRD' || '_TRAZAS}/' || 'load_SA' || '_' || nombre_tabla_reducido || '_${FECHA_HORA}.log');
+        UTL_FILE.put_line(fich_salida_load, 'echo "La carga de la tabla ' || reg_tabla.TABLE_NAME || ' se ha realizado correctamente." >> ' || '${' || NAME_DM || '_TRAZAS}/' || 'load_SA' || '_' || nombre_tabla_reducido || '_${FECHA_HORA}.log');
         UTL_FILE.put_line(fich_salida_load, 'exit 0');    
         UTL_FILE.put_line(fich_salida_load, '');    
         

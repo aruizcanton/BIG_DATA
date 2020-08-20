@@ -10,11 +10,13 @@
       TRIM(TYPE) "TYPE",
       TRIM(SEPARATOR) "SEPARATOR",
       TRIM(DELAYED) "DELAYED",
-      upper(trim(TYPE_VALIDATION)) TYPE_VALIDATION
+      upper(trim(TYPE_VALIDATION)) TYPE_VALIDATION,
+      upper(TRIM(ENCABEZADO)) "ENCABEZADO"
   FROM MTDT_INTERFACE_SUMMARY
   --WHERE TRIM(SOURCE) <> 'SA' and TRIM(SOURCE) <> 'MAN' and
   WHERE TRIM(SOURCE) <> 'MAN' and
-  (TRIM(STATUS) ='P' OR TRIM(STATUS) = 'D');
+  (TRIM(STATUS) ='P' OR TRIM(STATUS) = 'D')
+  ;
   --where CONCEPT_NAME = 'CICLO';
 
   CURSOR dtd_interfaz_summary_history
@@ -121,7 +123,7 @@ BEGIN
     
     /* (20161125) Angel Ruiz. Ocurre que en las tablas de Staging podemos tener un campo para almacenar el nombre */
     /* del fichero del que las cargamos. Ese nombre del ficehro puede venir en el fichero plano previamente extraido */
-    /* o bien ser añadido ese nombre al carga en la tabla de Staging aunque no viene en el ficehro plano*/
+    /* o bien ser añadido ese nombre al cargar en la tabla de Staging aunque no viene en el ficehro plano*/
     /* Si no viene en el fichero plano, este campo no puede crearse en la tabla de Staging en la que se va cargar el mismo */
     /* Si viene en el fichero plano, entonces hay que crear la tabla de estagin con este campo */
     SELECT COUNT(*) INTO v_existe_file_name FROM MTDT_EXT_DETAIL WHERE TRIM(TABLE_NAME) = reg_summary.CONCEPT_NAME AND TRIM(TABLE_COLUMN) = 'FILE_NAME';
@@ -165,7 +167,8 @@ BEGIN
             /* de HIVE que usamos como tablas de validacion de los ficheros enviados a Madrid*/
             if (reg_datail.CONCEPT_NAME = 'OFERTA' or reg_datail.CONCEPT_NAME = 'TRANSACCIONES'
             or reg_datail.CONCEPT_NAME = 'PRECIOS' or reg_datail.CONCEPT_NAME = 'CONFIGURACION_CONTRATO'
-            or reg_datail.CONCEPT_NAME = 'MOVIMIENTOS_PLANTA' or reg_datail.CONCEPT_NAME = 'COSTES_CAPITALIZABLES') then
+            or reg_datail.CONCEPT_NAME = 'MOVIMIENTOS_PLANTA' or reg_datail.CONCEPT_NAME = 'COSTES_CAPITALIZABLES'
+            or reg_datail.CONCEPT_NAME = 'CONFIGURACION_CONTRATO_CLI') then
               tipo_col := 'STRING';
             else
               tipo_col := 'DECIMAL (' || reg_datail.LENGTH || ')';
@@ -214,7 +217,8 @@ BEGIN
             /* de HIVE que usamos como tablas de validacion de los ficheros enviados a Madrid*/
             if (reg_datail.CONCEPT_NAME = 'OFERTA' or reg_datail.CONCEPT_NAME = 'TRANSACCIONES'
             or reg_datail.CONCEPT_NAME = 'PRECIOS' or reg_datail.CONCEPT_NAME = 'CONFIGURACION_CONTRATO'
-            or reg_datail.CONCEPT_NAME = 'MOVIMIENTOS_PLANTA' or reg_datail.CONCEPT_NAME = 'COSTES_CAPITALIZABLES') then
+            or reg_datail.CONCEPT_NAME = 'MOVIMIENTOS_PLANTA' or reg_datail.CONCEPT_NAME = 'COSTES_CAPITALIZABLES'
+            or reg_datail.CONCEPT_NAME = 'CONFIGURACION_CONTRATO_CLI') then
               tipo_col := 'STRING';
             else
               tipo_col := 'DECIMAL (' || reg_datail.LENGTH || ')';
@@ -254,9 +258,26 @@ BEGIN
         /* que toda tabla lleva */
         DBMS_OUTPUT.put_line(')');
         DBMS_OUTPUT.put_line('PARTITIONED BY (FCH_CARGA STRING)');
-        DBMS_OUTPUT.put_line('ROW FORMAT DELIMITED');
-        DBMS_OUTPUT.put_line('FIELDS TERMINATED BY ''' || reg_summary.SEPARATOR || '''');
-        DBMS_OUTPUT.put_line('STORED AS TEXTFILE;');
+        /* (20170926) Angel Ruiz. Se trata de un fichero tipo CSV */
+        if (reg_summary.TYPE = 'C') then
+          DBMS_OUTPUT.put_line('ROW FORMAT SERDE ''org.apache.hadoop.hive.serde2.OpenCSVSerde''');
+          if (reg_summary.SEPARATOR is not null) then
+            DBMS_OUTPUT.put_line('WITH SERDEPROPERTIES (');
+            DBMS_OUTPUT.put_line('"separatorChar" = "' || reg_summary.SEPARATOR || '"');
+            DBMS_OUTPUT.put_line(')');
+          end if;
+        else
+          DBMS_OUTPUT.put_line('ROW FORMAT DELIMITED');
+          DBMS_OUTPUT.put_line('FIELDS TERMINATED BY ''' || reg_summary.SEPARATOR || '''');
+        end if;
+        /* (20181026) Angel Ruiz. NF. Ficheros con cabecera */
+        --DBMS_OUTPUT.put_line('STORED AS TEXTFILE;');
+        if (reg_summary.ENCABEZADO = 'S') then
+          DBMS_OUTPUT.put_line('STORED AS TEXTFILE TBLPROPERTIES ("skip.header.line.count"="1");');
+        else  
+          DBMS_OUTPUT.put_line('STORED AS TEXTFILE;');
+        end if;
+        /* (20181026) Angel Ruiz. FIN NF. Ficheros con cabecera */
       END IF;
       /* tomamos el campo por el que va a estar particionada la tabla */
       if (lista_par.COUNT > 0) then
@@ -270,9 +291,27 @@ BEGIN
         END LOOP;
         DBMS_OUTPUT.put_line('PARTITIONED BY');
         DBMS_OUTPUT.put_line('(FCH_CARGA STRING' || lista_campos_particion || ')');
-        DBMS_OUTPUT.put_line('ROW FORMAT DELIMITED');
-        DBMS_OUTPUT.put_line('FIELDS TERMINATED BY ''' || reg_summary.SEPARATOR || '''');
-        DBMS_OUTPUT.put_line('STORED AS TEXTFILE;');
+        /* (20170926) Angel Ruiz. Se trata de un fichero tipo CSV */
+        if (reg_summary.TYPE = 'C') then
+          DBMS_OUTPUT.put_line('ROW FORMAT SERDE ''org.apache.hadoop.hive.serde2.OpenCSVSerde''');
+          if (reg_summary.SEPARATOR is not null) then
+            DBMS_OUTPUT.put_line('WITH SERDEPROPERTIES (');
+            DBMS_OUTPUT.put_line('"separatorChar" = "' || reg_summary.SEPARATOR || '"');
+            DBMS_OUTPUT.put_line(')');
+          end if;
+        else
+          DBMS_OUTPUT.put_line('ROW FORMAT DELIMITED');
+          DBMS_OUTPUT.put_line('FIELDS TERMINATED BY ''' || reg_summary.SEPARATOR || '''');
+        end if;
+        /* (20181026) Angel Ruiz. NF. Ficheros con cabecera */
+        --DBMS_OUTPUT.put_line('STORED AS TEXTFILE;');
+        if (reg_summary.ENCABEZADO = 'S') then
+          DBMS_OUTPUT.put_line('STORED AS TEXTFILE TBLPROPERTIES ("skip.header.line.count"="1");');
+        else  
+          DBMS_OUTPUT.put_line('STORED AS TEXTFILE;');
+        end if;
+        /* (20181026) Angel Ruiz. FIN NF. Ficheros con cabecera */
+        
         DBMS_OUTPUT.put_line('');
         lista_par.DELETE;
         /* (20151118) Angel Ruiz. NF: Creacion de tablas para inyeccion SAD */

@@ -558,7 +558,9 @@ BEGIN
     --UTL_FILE.put_line(fich_salida_sh, '  # Comprobamos la existencia de los ficheros de Flag solo cuando se trata de la primera ejecucion');
     UTL_FILE.put_line(fich_salida_sh, '  # Comprobamos que el archivo contenga datos ');
     UTL_FILE.put_line(fich_salida_sh, '  REG_LEIDOS=`hadoop fs -cat ${NOMBRE_FICH_CARGA} | wc -l`');
-    UTL_FILE.put_line(fich_salida_sh, '  if [ ${REG_LEIDOS} -eq 1 ]');
+    /* (20190604) Angel Ruiz. CORRECCION DE BUG. */
+    /*UTL_FILE.put_line(fich_salida_sh, '  if [ ${REG_LEIDOS} -eq 1 ]');*/
+    UTL_FILE.put_line(fich_salida_sh, '  if [ ${REG_LEIDOS} -eq 0 ]');
     UTL_FILE.put_line(fich_salida_sh, '  then');
     UTL_FILE.put_line(fich_salida_sh, '    SUBJECT="${INTERFAZ}: EL FICHERO ESTA VACIO. ' || '${NOMBRE_FICH_CARGA}' || '."');
     UTL_FILE.put_line(fich_salida_sh, '    ${SHELL_SMS} "${TELEFONOS_DWH}" "${SUBJECT}"');

@@ -15,10 +15,7 @@ SELECT
       --, 'PARQUE_ABO_MES', 'SUPPLEMENTARY_OFFER', 'BONUS', 'HANDSET_PRICE', 'PARQUE_SVA_MES', 'PARQUE_BENEF_MES', 'PSD_RESIDENCIAL'
       --, 'OFFER_ITEM', 'MOVIMIENTOS_ABO_MES', 'MOVIMIENTO_ABO', 'COMIS_POS_ABO_MES', 'AJUSTE_ABO_MES'
       --'OFERTA', 'TRANSACCIONES' , 'PRECIOS', 'MOVIMIENTOS_PLANTA', 'CONFIGURACION_CONTRATO');
-      --'TRANSACCIONES', 'CONFIGURACION_CONTRATO', 'OFERTA', 'PRECIOS', 'MOVIMIENTOS_PLANTA', 'COSTES_CAPITALIZABLES'
-      --, 'EXT_IFRS_OE_MAPS', 'EXT_IFRS_ONE_MAPS'
-      'LIBERACION_TERMINALES'
-      );
+      'DW3_ABO_AJUSTE_MES');
     
     --and trim(MTDT_EXT_SCENARIO.TABLE_NAME) in ('PARQUE_PROMO_CAMPANA', 'MOV_PROMO_CAMPANA'
     --  );
@@ -191,7 +188,6 @@ SELECT
   BD_SID                                VARCHAR2(60);
   BD_USR                                VARCHAR2(60);
   OWNER_EX                              VARCHAR2(60);
-  MASCARA_IP_PRODUCTIVO                 VARCHAR2(60);
   
   l_FROM                                      lista_tablas_from := lista_tablas_from();
   l_FROM_solo_tablas                               lista_tablas_from := lista_tablas_from();  
@@ -899,10 +895,6 @@ SELECT
           dbms_output.put_line ('La cola es: ' || cola);
           cadena_resul := cabeza || sustituto || cola;
         end loop;
-        
-        cadena_resul := regexp_replace(cadena_resul, '#DWH#', 'bigbox');
-        cadena_resul := regexp_replace(cadena_resul, '#DATAM#', 'datam');
-        
         /* Busco OWNER_1 */
         sustituto := OWNER_1; 
         pos := 0;
@@ -1884,17 +1876,7 @@ SELECT
             valor_retorno := '''' || reg_detalle_in.VALUE || '''';
           end if;
         else
-          /* (20190813) Angel Ruiz. BUG. Ocurre que cuando se trata del escenario CABECERA siempre ha de poner las comillas*/
-          if (reg_detalle_in.SCENARIO = 'CAB') then
-            if instr(reg_detalle_in.VALUE, '''') > 0 then
-              /* realmente trae comillas con lo que me quedo con la parte que no tiene comillas y se las pongo despues */
-              valor_retorno := '''' || regexp_substr(reg_detalle_in.VALUE, '[^'']*') || '''';
-            else
-              valor_retorno := '''' || reg_detalle_in.VALUE || '''';
-            end if;
-          else          
-            valor_retorno := reg_detalle_in.VALUE;
-          end if;
+          valor_retorno := reg_detalle_in.VALUE;
         end if;
       when 'SEQ' then
         valor_retorno := OWNER_EX || '.SEQ_' || nombre_tabla_reducido || '.NEXTVAL';
@@ -2347,8 +2329,7 @@ begin
   SELECT VALOR INTO BD_USR FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'BD_USR';
   SELECT VALOR INTO OWNER_EX FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'OWNER_EX';
   SELECT VALOR INTO v_multiplicador_proc FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'MULTIPLICADOR_PROC';
-  SELECT VALOR INTO v_ip_productivo FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'IP_PRODUCTIVO';
-  SELECT VALOR INTO MASCARA_IP_PRODUCTIVO FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'MASCARA_IP_PRODUCTIVO';
+  SELECT VALOR INTO v_ip_productivo FROM MTDT_VAR_ENTORNO WHERE NOMBRE_VAR = 'IP_PRODUCTIVO';  
   /* (20141223) FIN*/
 
   open MTDT_TABLA;
@@ -3242,12 +3223,6 @@ begin
       nombre_interface_a_cargar := substr(nombre_interface_a_cargar, 1, pos_ini_mes -1) || '_${FECHA_MES}' || substr(nombre_interface_a_cargar, pos_fin_mes);
       nom_inter_a_cargar_sin_fecha := substr(nombre_interface_a_cargar, 1, pos_ini_mes -1);
     end if;
-    pos_ini_mes := regexp_instr(v_interface_name, '_YYYYMM_');
-    if (pos_ini_mes > 0) then
-      pos_fin_mes := pos_ini_mes + length ('_YYYYMM_');
-      nombre_interface_a_cargar := substr(nombre_interface_a_cargar, 1, pos_ini_mes -1) || '_${FECHA_MES}_' || substr(nombre_interface_a_cargar, pos_fin_mes);
-      nom_inter_a_cargar_sin_fecha := substr(nombre_interface_a_cargar, 1, pos_ini_mes -1);
-    end if;
     
     UTL_FILE.put_line(fich_salida_load, '#!/bin/bash');
     UTL_FILE.put_line(fich_salida_load, '#############################################################################');
@@ -3283,132 +3258,89 @@ begin
     UTL_FILE.put_line(fich_salida_load, '################################################################################');
     UTL_FILE.put_line(fich_salida_load, '################################################################################');
     UTL_FILE.put_line(fich_salida_load, '');
-    UTL_FILE.put_line(fich_salida_load, '################################################################################');
-    UTL_FILE.put_line(fich_salida_load, '# SE INSERTA EN EL METADATO FIN NO OK                                          #');
-    UTL_FILE.put_line(fich_salida_load, '################################################################################');    
-    UTL_FILE.put_line(fich_salida_load, 'InsertaFinFallido()');
-    UTL_FILE.put_line(fich_salida_load, '{');
+    --UTL_FILE.put_line(fich_salida_load, '################################################################################');
+    --UTL_FILE.put_line(fich_salida_load, '# SE INSERTA EN EL METADATO FIN NO OK                                          #');
+    --UTL_FILE.put_line(fich_salida_load, '################################################################################');    
+    --UTL_FILE.put_line(fich_salida_load, 'InsertaFinFallido()');
+    --UTL_FILE.put_line(fich_salida_load, '{');
     --UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "\');
-    UTL_FILE.put_line(fich_salida_load, 'beeline << EOF');
-    UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
-    UTL_FILE.put_line(fich_salida_load, 'INSERT INTO ${ESQUEMA_MT}.MTDT_MONITOREO');
-    UTL_FILE.put_line(fich_salida_load, 'SELECT');
+    --UTL_FILE.put_line(fich_salida_load, 'beeline << EOF');
+    --UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+    --UTL_FILE.put_line(fich_salida_load, 'INSERT INTO ${ESQUEMA_MT}.MTDT_MONITOREO');
+    --UTL_FILE.put_line(fich_salida_load, 'SELECT');
     --UTL_FILE.put_line(fich_salida_load, '  mtdt_proceso.cve_proceso*' || v_MULTIPLICADOR_PROC || '+${ULT_PASO_EJECUTADO}+unix_timestamp(),');  /* mtdt_proceso.cve_proceso*v_MULTIPLICADOR_PROC+mtdt_paso.cve_paso+unix_timestamp() */
-    UTL_FILE.put_line(fich_salida_load, '  mtdt_proceso.cve_proceso,');
-    UTL_FILE.put_line(fich_salida_load, '  1,');
-    UTL_FILE.put_line(fich_salida_load, '  1,');
-    UTL_FILE.put_line(fich_salida_load, '  ''${INICIO_PASO_TMR}'',');
-    UTL_FILE.put_line(fich_salida_load, '  current_timestamp(),');
-    UTL_FILE.put_line(fich_salida_load, '  ''${FECHA_FMT_HIVE}'',');
-    UTL_FILE.put_line(fich_salida_load, '  ''${FECHA_FMT_HIVE}'',');
-    UTL_FILE.put_line(fich_salida_load, '  ${B_CONTEO_BD},');  /* numero de inserts */
-    UTL_FILE.put_line(fich_salida_load, '  0,'); /* numero de updates */
-    UTL_FILE.put_line(fich_salida_load, '  0,'); /* numero de deletes */
-    UTL_FILE.put_line(fich_salida_load, '  ${CONTEO_ARCHIVO},'); /* numero de reads */
-    UTL_FILE.put_line(fich_salida_load, '  0,'); /* numero de discards */
-    UTL_FILE.put_line(fich_salida_load, '  ''${BAN_FORZADO}'','); /* BAN_FORZADO */
-    UTL_FILE.put_line(fich_salida_load, '  ''${INICIO_PASO_TMR}''');
-    UTL_FILE.put_line(fich_salida_load, 'FROM');
-    UTL_FILE.put_line(fich_salida_load, '${ESQUEMA_MT}.MTDT_PROCESO');
-    UTL_FILE.put_line(fich_salida_load, 'WHERE');
+    --UTL_FILE.put_line(fich_salida_load, '  mtdt_proceso.cve_proceso,');
+    --UTL_FILE.put_line(fich_salida_load, '  1,');
+    --UTL_FILE.put_line(fich_salida_load, '  1,');
+    --UTL_FILE.put_line(fich_salida_load, '  ''${INICIO_PASO_TMR}'',');
+    --UTL_FILE.put_line(fich_salida_load, '  current_timestamp(),');
+    --UTL_FILE.put_line(fich_salida_load, '  ''${FECHA_FMT_HIVE}'',');
+    --UTL_FILE.put_line(fich_salida_load, '  ''${FECHA_FMT_HIVE}'',');
+    --UTL_FILE.put_line(fich_salida_load, '  ${B_CONTEO_BD},');  /* numero de inserts */
+    --UTL_FILE.put_line(fich_salida_load, '  0,'); /* numero de updates */
+    --UTL_FILE.put_line(fich_salida_load, '  0,'); /* numero de deletes */
+    --UTL_FILE.put_line(fich_salida_load, '  ${CONTEO_ARCHIVO},'); /* numero de reads */
+    --UTL_FILE.put_line(fich_salida_load, '  0,'); /* numero de discards */
+    --UTL_FILE.put_line(fich_salida_load, '  ''${BAN_FORZADO}'','); /* BAN_FORZADO */
+    --UTL_FILE.put_line(fich_salida_load, '  ''${INICIO_PASO_TMR}''');
+    --UTL_FILE.put_line(fich_salida_load, 'FROM');
+    --UTL_FILE.put_line(fich_salida_load, '${ESQUEMA_MT}.MTDT_PROCESO');
+    --UTL_FILE.put_line(fich_salida_load, 'WHERE');
     --UTL_FILE.put_line(fich_salida_sh, '  MTDT_PROCESO.NOMBRE_PROCESO = ''load_SA_' || reg_summary.CONCEPT_NAME || '.sh'';"');
-    UTL_FILE.put_line(fich_salida_load, 'MTDT_PROCESO.NOMBRE_PROCESO = ''' || REQ_NUMBER || '_'|| reg_tabla.TABLE_NAME || '.sh'';');
-    UTL_FILE.put_line(fich_salida_load, '!quit');
-    UTL_FILE.put_line(fich_salida_load, 'EOF');
-    UTL_FILE.put_line(fich_salida_load, 'if [ $? -ne 0 ]');
-    UTL_FILE.put_line(fich_salida_load, 'then');
-    UTL_FILE.put_line(fich_salida_load, '  SUBJECT="${REQ_NUM}: ERROR: Al insertar en el metadato Fin Fallido."');
-    UTL_FILE.put_line(fich_salida_load, '  echo "Surgio un error al insertar en el metadato que le proceso no ha terminado OK." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-    UTL_FILE.put_line(fich_salida_load, '  echo `date`');
-    UTL_FILE.put_line(fich_salida_load, '  exit 1');
-    UTL_FILE.put_line(fich_salida_load, 'fi');
-    UTL_FILE.put_line(fich_salida_load, 'return 0');
-    UTL_FILE.put_line(fich_salida_load, '}');
+    --UTL_FILE.put_line(fich_salida_load, 'MTDT_PROCESO.NOMBRE_PROCESO = ''' || REQ_NUMBER || '_'|| reg_tabla.TABLE_NAME || '.sh'';');
+    --UTL_FILE.put_line(fich_salida_load, '!quit');
+    --UTL_FILE.put_line(fich_salida_load, 'EOF');
+    --UTL_FILE.put_line(fich_salida_load, 'if [ $? -ne 0 ]');
+    --UTL_FILE.put_line(fich_salida_load, 'then');
+    --UTL_FILE.put_line(fich_salida_load, '  SUBJECT="${REQ_NUM}: ERROR: Al insertar en el metadato Fin Fallido."');
+    --UTL_FILE.put_line(fich_salida_load, '  echo "Surgio un error al insertar en el metadato que le proceso no ha terminado OK." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
+    --UTL_FILE.put_line(fich_salida_load, '  echo `date`');
+    --UTL_FILE.put_line(fich_salida_load, '  exit 1');
+    --UTL_FILE.put_line(fich_salida_load, 'fi');
+    --UTL_FILE.put_line(fich_salida_load, 'return 0');
+    --UTL_FILE.put_line(fich_salida_load, '}');
     UTL_FILE.put_line(fich_salida_load, '');
-    UTL_FILE.put_line(fich_salida_load, '################################################################################');
-    UTL_FILE.put_line(fich_salida_load, '# SE INSERTA EN EL METADATO FIN OK                                             #');
-    UTL_FILE.put_line(fich_salida_load, '################################################################################');    
-    UTL_FILE.put_line(fich_salida_load, 'InsertaFinOK()');
-    UTL_FILE.put_line(fich_salida_load, '{');
+    --UTL_FILE.put_line(fich_salida_load, '################################################################################');
+    --UTL_FILE.put_line(fich_salida_load, '# SE INSERTA EN EL METADATO FIN OK                                             #');
+    --UTL_FILE.put_line(fich_salida_load, '################################################################################');    
+    --UTL_FILE.put_line(fich_salida_load, 'InsertaFinOK()');
+    --UTL_FILE.put_line(fich_salida_load, '{');
     --UTL_FILE.put_line(fich_salida_load, 'beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} -e "\');
-    UTL_FILE.put_line(fich_salida_load, 'beeline << EOF');
-    UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
-    UTL_FILE.put_line(fich_salida_load, 'INSERT INTO ${ESQUEMA_MT}.MTDT_MONITOREO');
-    UTL_FILE.put_line(fich_salida_load, 'SELECT');
+    --UTL_FILE.put_line(fich_salida_load, 'beeline << EOF');
+    --UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+    --UTL_FILE.put_line(fich_salida_load, 'INSERT INTO ${ESQUEMA_MT}.MTDT_MONITOREO');
+    --UTL_FILE.put_line(fich_salida_load, 'SELECT');
     --UTL_FILE.put_line(fich_salida_load, '  mtdt_proceso.cve_proceso*' || v_MULTIPLICADOR_PROC || '+${ULT_PASO_EJECUTADO}+unix_timestamp(),');  /* mtdt_proceso.cve_proceso*v_MULTIPLICADOR_PROC+mtdt_paso.cve_paso+unix_timestamp() */ 
-    UTL_FILE.put_line(fich_salida_load, '  mtdt_proceso.cve_proceso,');
-    UTL_FILE.put_line(fich_salida_load, '  1,');
-    UTL_FILE.put_line(fich_salida_load, '  0,');
-    UTL_FILE.put_line(fich_salida_load, '  ''${INICIO_PASO_TMR}'',');
-    UTL_FILE.put_line(fich_salida_load, '  current_timestamp(),');
-    UTL_FILE.put_line(fich_salida_load, '  ''${FECHA_FMT_HIVE}'',');
-    UTL_FILE.put_line(fich_salida_load, '  ''${FECHA_FMT_HIVE}'',');
-    UTL_FILE.put_line(fich_salida_load, '  ${B_CONTEO_BD},');  /* numero de inserts */
-    UTL_FILE.put_line(fich_salida_load, '  0,'); /* numero de updates */
-    UTL_FILE.put_line(fich_salida_load, '  0,'); /* numero de deletes */
-    UTL_FILE.put_line(fich_salida_load, '  ${CONTEO_ARCHIVO},'); /* numero de reads */
-    UTL_FILE.put_line(fich_salida_load, '  0,'); /* numero de discards */
-    UTL_FILE.put_line(fich_salida_load, '  ''${BAN_FORZADO}'','); /* BAN_FORZADO */
-    UTL_FILE.put_line(fich_salida_load, '  ''${INICIO_PASO_TMR}''');
-    UTL_FILE.put_line(fich_salida_load, 'FROM');
-    UTL_FILE.put_line(fich_salida_load, '${ESQUEMA_MT}.MTDT_PROCESO');
-    UTL_FILE.put_line(fich_salida_load, 'WHERE');
-    UTL_FILE.put_line(fich_salida_load, 'MTDT_PROCESO.NOMBRE_PROCESO = ''' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '.sh'';');
-    UTL_FILE.put_line(fich_salida_load, '!quit');
-    UTL_FILE.put_line(fich_salida_load, 'EOF');
-    UTL_FILE.put_line(fich_salida_load, 'if [ $? -ne 0 ]');
-    UTL_FILE.put_line(fich_salida_load, 'then');
-    UTL_FILE.put_line(fich_salida_load, '  SUBJECT="${REQ_NUM}: ERROR: Al insertar en el metadato Fin OK."');
-    UTL_FILE.put_line(fich_salida_load, '  echo "Surgio un error al insertar en el metadato que le proceso ha terminado OK." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-    UTL_FILE.put_line(fich_salida_load, '  echo `date`');
-    UTL_FILE.put_line(fich_salida_load, '  exit 1');
-    UTL_FILE.put_line(fich_salida_load, 'fi');
-    UTL_FILE.put_line(fich_salida_load, 'return 0');
-    UTL_FILE.put_line(fich_salida_load, '}');
+    --UTL_FILE.put_line(fich_salida_load, '  mtdt_proceso.cve_proceso,');
+    --UTL_FILE.put_line(fich_salida_load, '  1,');
+    --UTL_FILE.put_line(fich_salida_load, '  0,');
+    --UTL_FILE.put_line(fich_salida_load, '  ''${INICIO_PASO_TMR}'',');
+    --UTL_FILE.put_line(fich_salida_load, '  current_timestamp(),');
+    --UTL_FILE.put_line(fich_salida_load, '  ''${FECHA_FMT_HIVE}'',');
+    --UTL_FILE.put_line(fich_salida_load, '  ''${FECHA_FMT_HIVE}'',');
+    --UTL_FILE.put_line(fich_salida_load, '  ${B_CONTEO_BD},');  /* numero de inserts */
+    --UTL_FILE.put_line(fich_salida_load, '  0,'); /* numero de updates */
+    --UTL_FILE.put_line(fich_salida_load, '  0,'); /* numero de deletes */
+    --UTL_FILE.put_line(fich_salida_load, '  ${CONTEO_ARCHIVO},'); /* numero de reads */
+    --UTL_FILE.put_line(fich_salida_load, '  0,'); /* numero de discards */
+    --UTL_FILE.put_line(fich_salida_load, '  ''${BAN_FORZADO}'','); /* BAN_FORZADO */
+    --UTL_FILE.put_line(fich_salida_load, '  ''${INICIO_PASO_TMR}''');
+    --UTL_FILE.put_line(fich_salida_load, 'FROM');
+    --UTL_FILE.put_line(fich_salida_load, '${ESQUEMA_MT}.MTDT_PROCESO');
+    --UTL_FILE.put_line(fich_salida_load, 'WHERE');
+    --UTL_FILE.put_line(fich_salida_load, 'MTDT_PROCESO.NOMBRE_PROCESO = ''' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '.sh'';');
+    --UTL_FILE.put_line(fich_salida_load, '!quit');
+    --UTL_FILE.put_line(fich_salida_load, 'EOF');
+    --UTL_FILE.put_line(fich_salida_load, 'if [ $? -ne 0 ]');
+    --UTL_FILE.put_line(fich_salida_load, 'then');
+    --UTL_FILE.put_line(fich_salida_load, '  SUBJECT="${REQ_NUM}: ERROR: Al insertar en el metadato Fin OK."');
+    --UTL_FILE.put_line(fich_salida_load, '  echo "Surgio un error al insertar en el metadato que le proceso ha terminado OK." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
+    --UTL_FILE.put_line(fich_salida_load, '  echo `date`');
+    --UTL_FILE.put_line(fich_salida_load, '  exit 1');
+    --UTL_FILE.put_line(fich_salida_load, 'fi');
+    --UTL_FILE.put_line(fich_salida_load, 'return 0');
+    --UTL_FILE.put_line(fich_salida_load, '}');
     UTL_FILE.put_line(fich_salida_load, '');
-    if (v_type_validation <> 'I') then
-      /* (20161103) Angel Ruiz. Si se trata de una validacion que no es de integracion, por lo que se generan ficheros planos */
-      /* que hay que validar */
-      UTL_FILE.put_line(fich_salida_load, '################################################################################');
-      UTL_FILE.put_line(fich_salida_load, '# SE REALIZA LA VALIDACION DE LOS ARCHIVOS                                     #');
-      UTL_FILE.put_line(fich_salida_load, '################################################################################');
-      UTL_FILE.put_line(fich_salida_load, 'ValidaInformacionArchivo ()');
-      UTL_FILE.put_line(fich_salida_load, '{');
-      UTL_FILE.put_line(fich_salida_load, '  REPORTE=$1');
-      UTL_FILE.put_line(fich_salida_load, '  ChkReporteHadoop ${REPORTE}  0');
-      UTL_FILE.put_line(fich_salida_load, '  CodErr=$?');
-      UTL_FILE.put_line(fich_salida_load, '  echo "$1 ${REPORTE} $?"');
-      UTL_FILE.put_line(fich_salida_load, '  echo "Codigo error: $CodErr"');
-      UTL_FILE.put_line(fich_salida_load, '  if [ $CodErr -ne 0 ]');
-      UTL_FILE.put_line(fich_salida_load, '  then');
-      UTL_FILE.put_line(fich_salida_load, '    if [ $CodErr -eq 2 ]');
-      UTL_FILE.put_line(fich_salida_load, '    then');
-      UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: Error al generar el reporte ${REPORTE}, [No se genero el archivo .txt]"');
-      UTL_FILE.put_line(fich_salida_load, '      echo "El reporte: ${REPORTE}, no se gener en el servidor." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-      UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
-      UTL_FILE.put_line(fich_salida_load, '      exit 2');
-      UTL_FILE.put_line(fich_salida_load, '    elif [ $CodErr -eq 3 ]');
-      UTL_FILE.put_line(fich_salida_load, '    then');
-      UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: Error al generar el reporte ${REPORTE}, [archivo .txt Vacio]"');
-      UTL_FILE.put_line(fich_salida_load, '      echo "El reporte: ${REPORTE}, no tiene datos." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-      UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
-      UTL_FILE.put_line(fich_salida_load, '      exit 3');
-      UTL_FILE.put_line(fich_salida_load, '    elif [ $CodErr -eq 4 ]');
-      UTL_FILE.put_line(fich_salida_load, '    then');
-      UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: Error al generar el reporte ${REPORTE}, [Error de Hive]"');
-      UTL_FILE.put_line(fich_salida_load, '      echo "El reporte: ${REPORTE}, contiene errores de hive." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-      UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
-      UTL_FILE.put_line(fich_salida_load, '      exit 4');
-      UTL_FILE.put_line(fich_salida_load, '    else');
-      UTL_FILE.put_line(fich_salida_load, '      SUBJECT="${REQ_NUM}: Error al generar el reporte ${REPORTE}, [Error en archivo .txt]"');
-      UTL_FILE.put_line(fich_salida_load, '      echo "El reporte: ${REPORTE}, contiene errores." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-      UTL_FILE.put_line(fich_salida_load, '      InsertaFinFallido');
-      UTL_FILE.put_line(fich_salida_load, '      exit 1');
-      UTL_FILE.put_line(fich_salida_load, '    fi');
-      UTL_FILE.put_line(fich_salida_load, '  fi');
-      UTL_FILE.put_line(fich_salida_load, '  return 0');
-      UTL_FILE.put_line(fich_salida_load, '}');
-    end if;
     UTL_FILE.put_line(fich_salida_load, '################################################################################');
     UTL_FILE.put_line(fich_salida_load, '#Obtiene los password de base de datos                                         #');
     UTL_FILE.put_line(fich_salida_load, '################################################################################');
@@ -3660,31 +3592,29 @@ begin
       /* El interfaz tiene una tabla dinamica o bien en el nombre del fichero tiene un sufijo que es la fecha del mes por lo que hay que obtener la fecha YYYYMM */
       UTL_FILE.put_line (fich_salida_load,'  FECHA_MES=`echo ${FECHA} | awk ''{ printf "%s%s", substr($1,0,4), substr($1,6,2) ; }''`');
     end if;
-    UTL_FILE.put_line(fich_salida_load, '  FECHA_LOG=${FECHA_SIN_FMT}');
-    
     UTL_FILE.put_line(fich_salida_load, '  return 0');
     UTL_FILE.put_line(fich_salida_load, '}');
-    UTL_FILE.put_line(fich_salida_load, '################################################################################');
-    UTL_FILE.put_line(fich_salida_load, '# SE OBTIENE LA FECHA Y HORA EN LA QUE SE INICIA EL PROCESO                    #');
-    UTL_FILE.put_line(fich_salida_load, '################################################################################');
-    UTL_FILE.put_line(fich_salida_load, 'ObtieneFechaHora()');
-    UTL_FILE.put_line(fich_salida_load, '{');
+    --UTL_FILE.put_line(fich_salida_load, '################################################################################');
+    --UTL_FILE.put_line(fich_salida_load, '# SE OBTIENE LA FECHA Y HORA EN LA QUE SE INICIA EL PROCESO                    #');
+    --UTL_FILE.put_line(fich_salida_load, '################################################################################');
+    --UTL_FILE.put_line(fich_salida_load, 'ObtieneFechaHora()');
+    --UTL_FILE.put_line(fich_salida_load, '{');
     --UTL_FILE.put_line(fich_salida_load, '  INICIO_PASO_TMR=`beeline -u ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} -n ${BD_USER_HIVE} -p ${BD_CLAVE_HIVE} --silent=true --showHeader=false --outputformat=dsv -e "select current_timestamp from ${ESQUEMA_MT}.dual;"`');
-    UTL_FILE.put_line(fich_salida_load, '  INICIO_PASO_TMR_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
-    UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
-    UTL_FILE.put_line(fich_salida_load, 'select current_timestamp from ${ESQUEMA_MT}.dual;');
-    UTL_FILE.put_line(fich_salida_load, '!quit');
-    UTL_FILE.put_line(fich_salida_load, 'EOF`');
-    UTL_FILE.put_line(fich_salida_load, 'if [ $? -ne 0 ]; then');
-    UTL_FILE.put_line(fich_salida_load, '  SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha y hora del sistema."');
-    UTL_FILE.put_line(fich_salida_load, '  echo "Surgio un error al obtener la fecha y hora del sistema." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-    UTL_FILE.put_line(fich_salida_load, '  echo `date`');
-    UTL_FILE.put_line(fich_salida_load, '  InsertaFinFallido');    
-    UTL_FILE.put_line(fich_salida_load, '  exit 1');
-    UTL_FILE.put_line(fich_salida_load, 'fi');
-    UTL_FILE.put_line(fich_salida_load, 'INICIO_PASO_TMR=`echo ${INICIO_PASO_TMR_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');    
-    UTL_FILE.put_line(fich_salida_load, 'return 0');
-    UTL_FILE.put_line(fich_salida_load, '}');
+    --UTL_FILE.put_line(fich_salida_load, '  INICIO_PASO_TMR_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
+    --UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
+    --UTL_FILE.put_line(fich_salida_load, 'select current_timestamp from ${ESQUEMA_MT}.dual;');
+    --UTL_FILE.put_line(fich_salida_load, '!quit');
+    --UTL_FILE.put_line(fich_salida_load, 'EOF`');
+    --UTL_FILE.put_line(fich_salida_load, 'if [ $? -ne 0 ]; then');
+    --UTL_FILE.put_line(fich_salida_load, '  SUBJECT="${REQ_NUM}: ERROR: Al obtener la fecha y hora del sistema."');
+    --UTL_FILE.put_line(fich_salida_load, '  echo "Surgio un error al obtener la fecha y hora del sistema." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
+    --UTL_FILE.put_line(fich_salida_load, '  echo `date`');
+    --UTL_FILE.put_line(fich_salida_load, '  InsertaFinFallido');    
+    --UTL_FILE.put_line(fich_salida_load, '  exit 1');
+    --UTL_FILE.put_line(fich_salida_load, 'fi');
+    --UTL_FILE.put_line(fich_salida_load, 'INICIO_PASO_TMR=`echo ${INICIO_PASO_TMR_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');    
+    --UTL_FILE.put_line(fich_salida_load, 'return 0');
+    --UTL_FILE.put_line(fich_salida_load, '}');
     if (v_type_validation = 'I') then
       /* (20160620) Angel Ruiz. NF: Implemento la Validacion tipo I donde los datos extraidos van directamente */
       /* a las tablas de STAGING. Por claridad cuando esto sucede le cambio el nombre al procedure que lo hace */
@@ -3714,7 +3644,7 @@ begin
     /* (20160817) Angel Ruiz. Cambio temporal para adecuarse a la entrega de produccion*/
     UTL_FILE.put_line(fich_salida_load, 'ARCHIVO_SQL="${REQ_NUM}_' || reg_tabla.TABLE_NAME || '.sql"');
     /* (20170426) Angel Ruiz. BUG. A pesar de fallar la query no terminaba con error*/
-    /* UTL_FILE.put_line(fich_salida_load, 'FECHA_LOG=`date +%Y%m%d`');*/
+    UTL_FILE.put_line(fich_salida_load, 'FECHA_LOG=`date +%Y%m%d`');
     UTL_FILE.put_line(fich_salida_load, '# Comprobamos si existe el directorio de Trazas para fecha de carga');
     UTL_FILE.put_line(fich_salida_load, 'if ! [ -d ${' || NAME_DM || '_TRAZAS}/${FECHA_LOG} ] ; then');
     UTL_FILE.put_line(fich_salida_load, '  mkdir ${' || NAME_DM || '_TRAZAS}/${FECHA_LOG}');
@@ -3734,10 +3664,9 @@ begin
     if (reg_scenario.TABLE_NAME = 'TRANSACCIONES') then
       UTL_FILE.put_line(fich_salida_load, '# Para este script usamos otros parametros de conexion diferentes a los parametros del fichero de configuracion');
       --UTL_FILE.put_line(fich_salida_load, 'PARAM_CONEX=";ssl=true;sslTrustStore=/grid/00/certificadoKnox/knoxgateway.jks;trustStorePassword=bigdatatemmcsr;transportMode=http;httpPath=gateway/ClusterBigData/hive"');
-      UTL_FILE.put_line(fich_salida_load, 'PARAM_CONEX=";ssl=true;sslTrustStore=/grid/00/certificadoKnox/knoxgateway2.jks;trustStorePassword=bigdatatemmcsr;transportMode=http;httpPath=gateway/ClusterBigData/hive"');
-      UTL_FILE.put_line(fich_salida_load, '#PARAM_CONEX=";ssl=true;sslTrustStore=/grid/00/certificadoKnox/knoxgateway.jks;trustStorePassword=bigdatatemmcsr;transportMode=http;httpPath=gateway/ClusterBigData/hive?hive.execution.engine=tez;tez.queue.name=default;hive.exec.parallel=true;hive.vectorized.execution.enabled=true;hive.vectorized.execution.reduce.enabled;hive.enforce.bucketing=true;hive.tez.container.size=4096;hive.auto.convert.join.noconditionaltask.size=1397760"');
+      UTL_FILE.put_line(fich_salida_load, 'PARAM_CONEX=";ssl=true;sslTrustStore=/grid/00/certificadoKnox/knoxgateway.jks;trustStorePassword=bigdatatemmcsr;transportMode=http;httpPath=gateway/ClusterBigData/hive?hive.execution.engine=tez;tez.queue.name=default;hive.exec.parallel=true;hive.vectorized.execution.enabled=true;hive.vectorized.execution.reduce.enabled;hive.enforce.bucketing=true;hive.tez.container.size=4096;hive.auto.convert.join.noconditionaltask.size=1397760"');
     end if;
-    UTL_FILE.put_line(fich_salida_load, 'CAD_TMP=`echo "${' || NAME_DM || '_SALIDA}/${INTERFAZ}" | sed -e ''s/\//\\\\\//g''`');
+    UTL_FILE.put_line(fich_salida_load, 'CAD_TMP=`echo "${NGRD_SALIDA}/${INTERFAZ}" | sed -e ''s/\//\\\\\//g''`');
     
     --UTL_FILE.put_line(fich_salida_load, '  ARCHIVO_SQL="ONIX_' || reg_tabla.TABLE_NAME || '.sql"');
     /* (20160817) Angel Ruiz FIN Cambio temporal para adecuarse a la entrega de produccion*/
@@ -3787,11 +3716,6 @@ begin
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}/${ARCHIVO_SQL} ${PATH_SALIDA}/${ARCHIVO_SALIDA} ${FECHA_MES}');
         UTL_FILE.put_line(fich_salida_load, 'beeline --silent=true --showHeader=false --outputformat=dsv --nullemptystring=true << EOF > ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} 2>> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
         UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_EXT}/${OWNER_EXT}${PARAM_CONEX} ${BD_USR_EXT} ${BD_PWD}');
-        /* (20181218) Angel Ruiz. Se cambia el motor de ejecucion en caso de la interfaz TRANSACCIONES */
-        if (reg_scenario.TABLE_NAME = 'TRANSACCIONES') then        
-          UTL_FILE.put_line(fich_salida_load, 'set hive.execution.engine=mr;');
-        end if;
-        /* (20181218) Angel Ruiz. FIN */
         UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1');
         UTL_FILE.put_line(fich_salida_load, '!quit');
         UTL_FILE.put_line(fich_salida_load, 'EOF');
@@ -3840,11 +3764,6 @@ begin
         end if;
         UTL_FILE.put_line(fich_salida_load, 'beeline --silent=true --showHeader=false --outputformat=dsv --nullemptystring=true << EOF > ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} 2>> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
         UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_EXT}/${OWNER_EXT}${PARAM_CONEX} ${BD_USR_EXT} ${BD_PWD}');
-        /* (20181218) Angel Ruiz. Se cambia el motor de ejecucion en caso de la interfaz TRANSACCIONES */
-        if (reg_scenario.TABLE_NAME = 'TRANSACCIONES') then        
-          UTL_FILE.put_line(fich_salida_load, 'set hive.execution.engine=mr;');
-        end if;
-        /* (20181218) Angel Ruiz. FIN */
         UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.3');
         UTL_FILE.put_line(fich_salida_load, '!quit');
         UTL_FILE.put_line(fich_salida_load, 'EOF');
@@ -3889,15 +3808,8 @@ begin
           UTL_FILE.put_line(fich_salida_load, '  sed "s/' || v_usuario_owner || '/${OWNER_EXT}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2 > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2.tmp');
           UTL_FILE.put_line(fich_salida_load, '  mv ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2.tmp  ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2');
         end if;
-        /* (20181218) Angel Ruiz. FIN */
-        
         UTL_FILE.put_line(fich_salida_load, 'beeline --silent=true --showHeader=false --outputformat=dsv --nullemptystring=true << EOF > ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} 2>> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
         UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_EXT}/${OWNER_EXT}${PARAM_CONEX} ${BD_USR_EXT} ${BD_PWD}');
-        /* (20181218) Angel Ruiz. Se cambia el motor de ejecucion en caso de la interfaz TRANSACCIONES */
-        if (reg_scenario.TABLE_NAME = 'TRANSACCIONES') then        
-          UTL_FILE.put_line(fich_salida_load, 'set hive.execution.engine=mr;');
-        end if;
-        /* (20181218) Angel Ruiz. FIN */
         UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2');
         UTL_FILE.put_line(fich_salida_load, '!quit');
         UTL_FILE.put_line(fich_salida_load, 'EOF');
@@ -3946,11 +3858,6 @@ begin
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}/${ARCHIVO_SQL} ${PATH_SALIDA}/${ARCHIVO_SALIDA} ${FECHA} ${FECHA_FIN}');
         UTL_FILE.put_line(fich_salida_load, 'beeline --silent=true --showHeader=false --outputformat=dsv --nullemptystring=true << EOF > ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} 2>> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
         UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_EXT}/${OWNER_EXT}${PARAM_CONEX} ${BD_USR_EXT} ${BD_PWD}');
-        /* (20181218) Angel Ruiz. Se cambia el motor de ejecucion en caso de la interfaz TRANSACCIONES */
-        if (reg_scenario.TABLE_NAME = 'TRANSACCIONES') then        
-          UTL_FILE.put_line(fich_salida_load, '!set hive.execution.engine=mr;');
-        end if;
-        /* (20181218) Angel Ruiz. FIN */
         UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.2');
         UTL_FILE.put_line(fich_salida_load, '!quit');
         UTL_FILE.put_line(fich_salida_load, 'EOF');
@@ -3995,11 +3902,6 @@ begin
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}/${ARCHIVO_SQL} ${PATH_SALIDA}/${ARCHIVO_SALIDA} ${FECHA}');
         UTL_FILE.put_line(fich_salida_load, 'beeline --silent=true --showHeader=false --outputformat=dsv --nullemptystring=true << EOF > ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} 2>> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
         UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_EXT}/${OWNER_EXT}${PARAM_CONEX} ${BD_USR_EXT} ${BD_PWD}');
-        /* (20181218) Angel Ruiz. Se cambia el motor de ejecucion en caso de la interfaz TRANSACCIONES */
-        if (reg_scenario.TABLE_NAME = 'TRANSACCIONES') then        
-          UTL_FILE.put_line(fich_salida_load, '!set hive.execution.engine=mr;');
-        end if;
-        /* (20181218) Angel Ruiz. FIN */
         UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1');
         UTL_FILE.put_line(fich_salida_load, '!quit');
         UTL_FILE.put_line(fich_salida_load, 'EOF');
@@ -4039,25 +3941,13 @@ begin
           /* (20161109) Angel Ruiz. Puede ocurrir que el fichero .sql generado posea cadenas del tipo #OWNER_*# */
           /* (20170721). Angel Ruiz. BUG para extraer con INSERT INTO*/          
           --UTL_FILE.put_line(fich_salida_load, '  sed -e "s/' || v_usuario_owner || '/${OWNER_EXT}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g" ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL} > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1');
-        /* (20181010) Angel Ruiz. BUG. Aparece un sed //${OWNER_EXT}/g porque no hay usuario_owner */
-        --UTL_FILE.put_line(fich_salida_load, '  sed -e "s/' || v_usuario_owner || '/${OWNER_EXT}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g"' || ' -e "s/#DIRECTORIO#/${CAD_TMP}/g"' || ' ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL} > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1');
-        if (v_hay_usu_owner) then
-          UTL_FILE.put_line(fich_salida_load, '  sed -e "s/' || v_usuario_owner || '/${OWNER_EXT}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g"' || ' -e "s/#DIRECTORIO#/${CAD_TMP}/g"' || ' ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL} > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1');
-        else
-          UTL_FILE.put_line(fich_salida_load, '  sed -e "s/#VAR_USER#/${BD_USER_HIVE}/g"' || ' -e "s/#DIRECTORIO#/${CAD_TMP}/g"' || ' ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL} > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1');
-        end if;
-        /* (20181010) Angel Ruiz. BUG. FIN */
-        
+        UTL_FILE.put_line(fich_salida_load, '  sed -e "s/' || v_usuario_owner || '/${OWNER_EXT}/g" -e "s/#VAR_USER#/${BD_USER_HIVE}/g"' || ' -e "s/#DIRECTORIO#/${CAD_TMP}/g"' || ' ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL} > ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1');
         --end if;                
         --UTL_FILE.put_line(fich_salida_load, '  sqlplus ${BD_USR}/${BD_PWD}@${BD_SID} @${PATH_SQL}/${ARCHIVO_SQL} ${PATH_SALIDA}/${ARCHIVO_SALIDA}');
         
         UTL_FILE.put_line(fich_salida_load, 'beeline --silent=true --showHeader=false --outputformat=dsv --nullemptystring=true << EOF > ' || '${' || NAME_DM || '_TMP_LOCAL}/${ARCHIVO_SALIDA} 2>> ${' || NAME_DM || '_TRAZAS}/' || REQ_NUMBER || '_' || reg_tabla.TABLE_NAME || '_${FECHA_HORA}.log');
         UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_EXT}/${OWNER_EXT}${PARAM_CONEX} ${BD_USR_EXT} ${BD_PWD}');
-        /* (20181218) Angel Ruiz. Se cambia el motor de ejecucion en caso de la interfaz TRANSACCIONES */
-        if (reg_scenario.TABLE_NAME = 'TRANSACCIONES') then        
-          UTL_FILE.put_line(fich_salida_load, '!set hive.execution.engine=mr;');
-        end if;
-        /* (20181218) Angel Ruiz. FIN */
+        
         --if (v_hay_usu_owner = true) then
         UTL_FILE.put_line(fich_salida_load, '!run ${' || NAME_DM || '_SQL}/${ARCHIVO_SQL}.1');
         --else
@@ -4236,144 +4126,12 @@ begin
     UTL_FILE.put_line(fich_salida_load, '  return 0');
     UTL_FILE.put_line(fich_salida_load, '}');
 
-    if (v_type_validation <> 'I') then
-      UTL_FILE.put_line(fich_salida_load, '################################################################################');
-      UTL_FILE.put_line(fich_salida_load, '# SE VALIDA EL NUMERO DE REGISTROS DE LA INTERFAZ                              #');
-      UTL_FILE.put_line(fich_salida_load, '################################################################################');
-      UTL_FILE.put_line(fich_salida_load, 'ValidaConteo()');
-      UTL_FILE.put_line(fich_salida_load, '{');
-      if (v_type_validation = 'I') then
-        /* (20160607) Angel Ruiz. Si se trata de validacion I desde la extraccion */
-        /* va a las tablas de Stagin sin pasar por ficehro plano */
-        --UTL_FILE.put_line(fich_salida_load, '  CONTEO_ARCHIVO=`beeline -u ${CAD_CONEX}/${ESQUEMA_ST}${PARAM_CONEX} -n ${BD_USUARIO} -p ${BD_CLAVE} --silent=true --showHeader=false --outputformat=dsv -e "select count(*) from ${ESQUEMA_ST}.SA_' || reg_tabla.TABLE_NAME || ';"`');
-        UTL_FILE.put_line(fich_salida_load, '  CONTEO_ARCHIVO_PREV=`beeline --silent=true --showHeader=false --outputformat=dsv << EOF');
-        UTL_FILE.put_line(fich_salida_load, '!connect ${CAD_CONEX_HIVE}/${ESQUEMA_MT}${PARAM_CONEX} ${BD_USER_HIVE} ${BD_CLAVE_HIVE}');
-        UTL_FILE.put_line(fich_salida_load, 'select count(*) from ${ESQUEMA_ST}.SA_' || reg_tabla.TABLE_NAME || ';');
-        UTL_FILE.put_line(fich_salida_load, '!quit');
-        UTL_FILE.put_line(fich_salida_load, 'EOF`');
-        UTL_FILE.put_line(fich_salida_load, '  CONTEO_ARCHIVO=`echo ${CONTEO_ARCHIVO_PREV} | sed -e ''s/\n//g'' -e ''s/\r//g'' -e ''s/^[ ]*//g'' -e ''s/[ ]*$//g''`');
-        
-        --UTL_FILE.put_line(fich_salida_load, '  CONTEO_ARCHIVO=`sqlplus -s ${BD_USR}/${BD_PWD}@${BD_SID} <<!eof');
-        --UTL_FILE.put_line(fich_salida_load, 'whenever sqlerror exit 1');
-        --UTL_FILE.put_line(fich_salida_load, 'set pagesize 0');
-        --UTL_FILE.put_line(fich_salida_load, 'set heading off');
-        --UTL_FILE.put_line(fich_salida_load, 'select count(*)');
-        --UTL_FILE.put_line(fich_salida_load, 'from ' || OWNER_SA || '.SA_' || reg_tabla.TABLE_NAME || ';');
-        --UTL_FILE.put_line(fich_salida_load, 'quit');
-        --UTL_FILE.put_line(fich_salida_load, '!eof`');
-      else
-        UTL_FILE.put_line(fich_salida_load, '  CONTEO_ARCHIVO=`hadoop fs -cat ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA_SIN_FMT}/${ARCHIVO_SALIDA} | wc -l`');
-      end if;
-      UTL_FILE.put_line(fich_salida_load, '  if [ $? -ne 0 ]; then');
-      UTL_FILE.put_line(fich_salida_load, '    SUBJECT="${REQ_NUM}:  ERROR: Al generar el conteo del fichero (ERROR al ejecutar wc)."');
-      UTL_FILE.put_line(fich_salida_load, '    echo "Surgio un error al generar el conteo de la interfaz ' || reg_tabla.TABLE_NAME || ' (El error surgio al ejecutar wc)." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-      UTL_FILE.put_line(fich_salida_load, '    echo `date`');
-      UTL_FILE.put_line(fich_salida_load, '    InsertaFinFallido');
-      UTL_FILE.put_line(fich_salida_load, '    exit 1');
-      UTL_FILE.put_line(fich_salida_load, '  fi');
-      UTL_FILE.put_line(fich_salida_load, '  B_CONTEO_BD=${CONTEO_ARCHIVO}');
-      --UTL_FILE.put_line(fich_salida_load, '  B_CONTEO_BD=`sqlplus -s ${BD_USR}/${BD_PWD}@${BD_SID} <<!eof');
-      --UTL_FILE.put_line(fich_salida_load, 'whenever sqlerror exit 1');
-      --UTL_FILE.put_line(fich_salida_load, 'set pagesize 0');
-      --UTL_FILE.put_line(fich_salida_load, 'set heading off');
-      --UTL_FILE.put_line(fich_salida_load, 'select');
-      --if (v_fecha_ini_param = false and v_fecha_fin_param = false) then
-        --UTL_FILE.put_line(fich_salida_load, 'GET_CUENTAINTERFAZ(''${INTERFAZ}'', NULL, NULL)');
-      --elsif (v_fecha_ini_param = true and v_fecha_fin_param = true) then
-        --UTL_FILE.put_line(fich_salida_load, 'GET_CUENTAINTERFAZ(''${INTERFAZ}'', ''${FECHA}'', ''${FECHA_FIN}'')');      
-      --elsif (v_fecha_ini_param = true and v_fecha_fin_param = false) then    
-        --UTL_FILE.put_line(fich_salida_load, 'GET_CUENTAINTERFAZ(''${INTERFAZ}'', ''${FECHA}'', NULL)');
-      --end if;
-      --UTL_FILE.put_line(fich_salida_load, 'from dual;');
-      --UTL_FILE.put_line(fich_salida_load, 'quit');
-      --UTL_FILE.put_line(fich_salida_load, '!eof`');
-      --UTL_FILE.put_line(fich_salida_load, '  if [ $? -ne 0 ]; then');
-      --UTL_FILE.put_line(fich_salida_load, '    SUBJECT="${REQ_NUM}: ERROR: Al obtener la Bandera de Conteo de Base de Datos."');
-      --UTL_FILE.put_line(fich_salida_load, '    echo "Surgio un error al obtener el conteo de Base de datos para esta interfaz mediante la funcion GET_CUENTAINTERFAZ" | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-      --UTL_FILE.put_line(fich_salida_load, '    echo `date`');
-      --UTL_FILE.put_line(fich_salida_load, '    InsertaFinFallido');
-      --UTL_FILE.put_line(fich_salida_load, '    exit 1');
-      --UTL_FILE.put_line(fich_salida_load, '  fi');
-      UTL_FILE.put_line(fich_salida_load, '  if [ ${CONTEO_ARCHIVO} -ne ${B_CONTEO_BD} ]; then');
-      UTL_FILE.put_line(fich_salida_load, '    SUBJECT="${REQ_NUM}:  ERROR: Los conteos no coinciden (ERROR al ejecutar comparacion de conteos )."');
-      UTL_FILE.put_line(fich_salida_load, '    echo "La validacion de conteo ha fallado, favor de validar la extraccion antes de continuar" | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-      UTL_FILE.put_line(fich_salida_load, '    echo `date`');
-      UTL_FILE.put_line(fich_salida_load, '  fi');
-      UTL_FILE.put_line(fich_salida_load, '}');
-    end if;
-    if (v_type_validation <> 'I') then 
-      UTL_FILE.put_line(fich_salida_load, '################################################################################');
-      UTL_FILE.put_line(fich_salida_load, '# SE GENERA EL GENERA EL FICHERO DE FLAG                                       #');
-      UTL_FILE.put_line(fich_salida_load, '################################################################################');
-      --UTL_FILE.put_line(fich_salida_load, 'GeneraFlag()');
-      --UTL_FILE.put_line(fich_salida_load, '{');
-      --UTL_FILE.put_line(fich_salida_load, '  NAME_FLAG=`echo ${ARCHIVO_SALIDA} | sed -e ''s/\.[Dd][Aa][Tt]/\.flag/''`');
-      --UTL_FILE.put_line(fich_salida_load, '  echo "INICIA LA CREACION DEL ARCHIVO ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}/${NAME_FLAG} [`date +%d/%m/%Y\ %H:%M:%S`]"');
-      --UTL_FILE.put_line(fich_salida_load, '  echo ${CONTEO_ARCHIVO}');
-      --UTL_FILE.put_line(fich_salida_load, '  echo ${B_CONTEO_BD}');
-      --UTL_FILE.put_line(fich_salida_load, '  printf "%-50s%015d%015d\n" ${ARCHIVO_SALIDA} ${CONTEO_ARCHIVO} ${B_CONTEO_BD} > ${' || NAME_DM || '_TMP_LOCAL}/${NAME_FLAG}');
-      --UTL_FILE.put_line(fich_salida_load, '  hadoop fs -test -e ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}/${NAME_FLAG}');
-      --UTL_FILE.put_line(fich_salida_load, '  if [ $? -eq 0 ]; then');
-      --UTL_FILE.put_line(fich_salida_load, '  # En caso de existir el fichero de flag lo borramos. Opcion -f');
-      --UTL_FILE.put_line(fich_salida_load, '  hadoop fs -rm -f ' || '${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}/${NAME_FLAG}');
-      --UTL_FILE.put_line(fich_salida_load, '  # Movemos el ficehro de flag al destino');
-      --UTL_FILE.put_line(fich_salida_load, '  hadoop fs -put ${' || NAME_DM || '_TMP_LOCAL}/${NAME_FLAG} ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}/${NAME_FLAG}');
-      --UTL_FILE.put_line(fich_salida_load, '  if [ $? -ne 0 ]; then');
-      --UTL_FILE.put_line(fich_salida_load, '    echo "Error al generar el archivo flag ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}/${NAME_FLAG}"');
-      --UTL_FILE.put_line(fich_salida_load, '    InsertaFinFallido');
-      --UTL_FILE.put_line(fich_salida_load, '    exit 3');
-      --UTL_FILE.put_line(fich_salida_load, '  fi');
-      --UTL_FILE.put_line(fich_salida_load, '  rm ${' || NAME_DM || '_TMP_LOCAL}/${NAME_FLAG}');
-      --UTL_FILE.put_line(fich_salida_load, '  echo "TERMINA LA CREACION DEL ARCHIVO ${' || NAME_DM || '_SALIDA}/${INTERFAZ}/${FECHA}/${NAME_FLAG} [`date +%d/%m/%Y\ %H:%M:%S`]"');
-      --UTL_FILE.put_line(fich_salida_load, '}');
-      --UTL_FILE.put_line(fich_salida_load, '################################################################################');
-      --UTL_FILE.put_line(fich_salida_load, '# REALIZA EL ENVIO DE LOS ARCHIVOS POR SCP                                     #');
-      --UTL_FILE.put_line(fich_salida_load, '################################################################################');
-      --UTL_FILE.put_line(fich_salida_load, 'EnviaArchivos()');
-      --UTL_FILE.put_line(fich_salida_load, '{');
-      /* (20161004) Angel Ruiz. Modificacion Temporal. Se trata de comentar la linea que envia los ficheros */
-      /* dado que seran concatenados con otra fuente */
-      --if ( reg_tabla.TABLE_NAME in ('CALIDAD_PERCIBIDA', 'DICCIONARIO_TT', 'ESPECIFICACION_TT', 'ESTADO_TAREA', 'FORMA_CONTACTO'
-        --, 'MOTIVO_OPERACION_TT', 'MOVIMIENTOS_TT', 'NODO', 'PROVEEDOR_TELCO', 'TIPIFICACION_TT'
-        --, 'TIPO_NODO', 'TIPO_OPERACION_TT', 'UNIDAD_FUNCIONAL1', 'UNIDAD_FUNCIONAL2')) then
-        --UTL_FILE.put_line(fich_salida_load, '  PATH_DESTINO="/DWH/dwhprod/DWH/MEX/Fuente"');
-        --UTL_FILE.put_line(fich_salida_load, '  scp ${PATH_SALIDA}/${ARCHIVO_SALIDA} ${USER_DESTINO_SCP}@${DESTINO_IP}:${PATH_DESTINO}/${FECHA}');
-      --else
-        --UTL_FILE.put_line(fich_salida_load, '  scp ${PATH_SALIDA}/${ARCHIVO_SALIDA} ${USER_DESTINO_SCP}@${DESTINO_IP}:${PATH_DESTINO}');
-      --end if;
-      /* (20161004) Angel Ruiz. Fin cambio Temporal*/
-      --UTL_FILE.put_line(fich_salida_load, '  if [ $? -ne 0 ]; then');
-      --UTL_FILE.put_line(fich_salida_load, '    SUBJECT="${REQ_NUM}:  Surgio un error en el envio del archivo."');
-      --UTL_FILE.put_line(fich_salida_load, '    echo "Surgio un error al enviar el archivo ${ARCHIVO_SALIDA} al servidor ${DESTINO_IP}." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-      --UTL_FILE.put_line(fich_salida_load, '    echo `date`');
-      --UTL_FILE.put_line(fich_salida_load, '    InsertaFinFallido');
-      --UTL_FILE.put_line(fich_salida_load, '    exit 1');
-      --UTL_FILE.put_line(fich_salida_load, '  fi');
-      /* (20161004) Angel Ruiz. Modificacion Temporal. Se trata de comentar la linea que envia los ficheros */
-      /* dado que seran concatenados con otra fuente */
-      --if ( reg_tabla.TABLE_NAME in ('CALIDAD_PERCIBIDA', 'DICCIONARIO_TT', 'ESPECIFICACION_TT', 'ESTADO_TAREA', 'FORMA_CONTACTO'
-      --  , 'MOTIVO_OPERACION_TT', 'MOVIMIENTOS_TT', 'NODO', 'PROVEEDOR_TELCO', 'TIPIFICACION_TT'
-      --  , 'TIPO_NODO', 'TIPO_OPERACION_TT', 'UNIDAD_FUNCIONAL1', 'UNIDAD_FUNCIONAL2')) then
-      --  UTL_FILE.put_line(fich_salida_load, '  scp ${PATH_SALIDA}/${NAME_FLAG} ${USER_DESTINO_SCP}@${DESTINO_IP}:${PATH_DESTINO}/${FECHA}');
-      --else
-        --UTL_FILE.put_line(fich_salida_load, '  scp ${PATH_SALIDA}/${NAME_FLAG} ${USER_DESTINO_SCP}@${DESTINO_IP}:${PATH_DESTINO}');
-      --end if;
-      --UTL_FILE.put_line(fich_salida_load, '  if [ $? -ne 0 ]; then');
-      --UTL_FILE.put_line(fich_salida_load, '    SUBJECT="${REQ_NUM}:  Surgio un error en el envio del archivo."');
-      --UTL_FILE.put_line(fich_salida_load, '    echo "Surgio un error al enviar el archivo ${NAME_FLAG} al servidor ${DESTINO_IP}." | mailx -s "${SUBJECT}" "${CTA_MAIL}"');
-      --UTL_FILE.put_line(fich_salida_load, '    echo `date`');
-      --UTL_FILE.put_line(fich_salida_load, '    InsertaFinFallido');
-      --UTL_FILE.put_line(fich_salida_load, '    exit 1');
-      --UTL_FILE.put_line(fich_salida_load, '  fi');
-      --UTL_FILE.put_line(fich_salida_load, '  return 0');
-      --UTL_FILE.put_line(fich_salida_load, '}');
-    end if;
     UTL_FILE.put_line(fich_salida_load, '');
     UTL_FILE.put_line(fich_salida_load, '################################################################################');
     UTL_FILE.put_line(fich_salida_load, '# EJECUCION DEL PROGRAMA                                                       #');
     UTL_FILE.put_line(fich_salida_load, '################################################################################');
     UTL_FILE.put_line(fich_salida_load, '');
-    UTL_FILE.put_line(fich_salida_load, '. ${' || NAME_DM || '_ENTORNO}/entorno' || NAME_DM || '_MEX.sh');
+    UTL_FILE.put_line(fich_salida_load, '. ${' || NAME_DM || '_ENTORNO}/entornoNGRD_MEX.sh');
     UTL_FILE.put_line(fich_salida_load, 'set -x');
     UTL_FILE.put_line(fich_salida_load, '#Permite los acentos');
     UTL_FILE.put_line(fich_salida_load, 'export NLS_LANG=AMERICAN_AMERICA.WE8ISO8859P1');
@@ -4399,12 +4157,10 @@ begin
     --UTL_FILE.put_line(fich_salida_load, 'PATH_SHELL="${PATH_REQ}/shells/${REQ_NUM}/ONIX_${INTERFAZ}/shell/"');
     UTL_FILE.put_line(fich_salida_load, 'B_CONTEO_BD=0');
     UTL_FILE.put_line(fich_salida_load, 'CONTEO_ARCHIVO=0');
-    UTL_FILE.put_line(fich_salida_load, 'ULT_PASO_EJECUTADO=1');
+    UTL_FILE.put_line(fich_salida_load, 'ULT_PASO_EJECUTADO=0');
     UTL_FILE.put_line(fich_salida_load, 'BAN_FORZADO=''N''');
     --UTL_FILE.put_line(fich_salida_load, 'SHELL_SCP="${PATH_SHELL}' || REQ_NUMBER || '_EnviaArchivos.sh"');
-    --UTL_FILE.put_line(fich_salida_load, 'if [ "`/sbin/ifconfig -a | grep ''' || substr(v_ip_productivo, 1, 10) || ''' | awk -F'':'' ''{print substr($2,1,14) }''`" = "' || substr(v_ip_productivo, 1, 14) || '" ]; then');
-    UTL_FILE.put_line(fich_salida_load, 'if [ "`/sbin/ifconfig -a | grep ''' || MASCARA_IP_PRODUCTIVO || ''' | awk ''{print substr($2, 6, 13)}''`" = "' || v_ip_productivo || '" ]; then');
-    
+    UTL_FILE.put_line(fich_salida_load, 'if [ "`/sbin/ifconfig -a | grep ''' || substr(v_ip_productivo, 1, 10) || ''' | awk -F'':'' ''{print substr($2,1,14) }''`" = "' || substr(v_ip_productivo, 1, 14) || '" ]; then');
     --UTL_FILE.put_line(fich_salida_load, '  OWNER="ONIX"');
     UTL_FILE.put_line(fich_salida_load, '  #CUENTAS PARA PRODUCCION');
     --UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL=`cat ${' || NAME_DM || '_REQ}/shells/Utilerias/Correos_Mtto_ReportesBI.txt`');
@@ -4425,7 +4181,7 @@ begin
     --UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL=`cat ${' || NAME_DM || '_REQ}/shells/Utilerias/Correos_Mtto_ReportesBI.txt`');
     --UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL=`cat ${' || NAME_DM || '_CONFIGURACION}/Correos_Mtto_ReportesBI.txt`');
     UTL_FILE.put_line(fich_salida_load, '  #CUENTAS PARA MANTENIMIENTO');
-    UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL="stephany.esparza.ext@telefonica.com"');
+    UTL_FILE.put_line(fich_salida_load, '  CTA_MAIL="ulises.rosales.ext@telefonica.com"');
     --UTL_FILE.put_line(fich_salida_load, '  OWNER="ONIX"');
     UTL_FILE.put_line(fich_salida_load, '  #BASE DONDE SE CARGARA LA INFORMACION');
     --UTL_FILE.put_line(fich_salida_load, '  BD_SID="' || BD_SID || '"');
@@ -4441,15 +4197,14 @@ begin
     UTL_FILE.put_line(fich_salida_load, '################################################################################');
     UTL_FILE.put_line(fich_salida_load, '# LIBRERIAS                                                                    #');
     UTL_FILE.put_line(fich_salida_load, '################################################################################');
-    /* (20181010) ANGEL RUIZ. Quito lo if que consultan si la variable LD_UTILBD tiene valor*/
-    --UTL_FILE.put_line(fich_salida_load, 'if [ -z "${LD_UTILBD}" ] ; then');
+    UTL_FILE.put_line(fich_salida_load, 'if [ -z "${LD_UTILBD}" ] ; then');
     --UTL_FILE.put_line(fich_salida_load, '  . ${PATH_REQ}/shells/Utilerias/UtilBD.sh');
-    UTL_FILE.put_line(fich_salida_load, '. ${' || NAME_DM || '_UTILIDADES}/UtilBD.sh');
-    --UTL_FILE.put_line(fich_salida_load, 'fi');
-    --UTL_FILE.put_line(fich_salida_load, 'if [ -z "${LD_UTILArchivo}" ] ; then');
+    UTL_FILE.put_line(fich_salida_load, '  . ${' || NAME_DM || '_UTILIDADES}/UtilBD.sh');
+    UTL_FILE.put_line(fich_salida_load, 'fi');
+    UTL_FILE.put_line(fich_salida_load, 'if [ -z "${LD_UTILArchivo}" ] ; then');
     --UTL_FILE.put_line(fich_salida_load, '  . ${PATH_REQ}/shells/Utilerias/UtilBD.sh');
-    UTL_FILE.put_line(fich_salida_load, '. ${' || NAME_DM || '_UTILIDADES}/UtilArchivo.sh');
-    --UTL_FILE.put_line(fich_salida_load, 'fi');
+    UTL_FILE.put_line(fich_salida_load, '  . ${' || NAME_DM || '_UTILIDADES}/UtilArchivo.sh');
+    UTL_FILE.put_line(fich_salida_load, 'fi');
     --UTL_FILE.put_line(fich_salida_load, 'LdVarOra');
     UTL_FILE.put_line(fich_salida_load, '################################################################################');
     UTL_FILE.put_line(fich_salida_load, '# LLAMADO DE LAS FUNCIONES ESPECIALES                                          #');
@@ -4465,7 +4220,7 @@ begin
     UTL_FILE.put_line(fich_salida_load, '#OBTIENE LA FECHA');
     UTL_FILE.put_line(fich_salida_load, 'ObtieneFecha $1');
     UTL_FILE.put_line(fich_salida_load, '#OBTIENE LA FECHA Y HORA DEL SISTEMA');
-    UTL_FILE.put_line(fich_salida_load, 'ObtieneFechaHora');
+    --UTL_FILE.put_line(fich_salida_load, 'ObtieneFechaHora');
     if (v_type_validation = 'I') then
       /* (20160620) Angel Ruiz. NF: Implemento la Validacion tipo I donde los datos extraidos van directamente */
       /* a las tablas de STAGING. Por claridad cuando esto sucede le cambio el nombre al procedure que lo hace */
@@ -4476,7 +4231,7 @@ begin
     else
       UTL_FILE.put_line(fich_salida_load, '#OBTENEMOS Interfaz');
       UTL_FILE.put_line(fich_salida_load, 'ObtenInterfaz');
-      UTL_FILE.put_line(fich_salida_load, 'ValidaConteo');
+      --UTL_FILE.put_line(fich_salida_load, 'ValidaConteo');
     end if;
     --if (v_type_validation <> 'I') then
       --UTL_FILE.put_line(fich_salida_load, 'GeneraFlag');
@@ -4493,7 +4248,7 @@ begin
         --UTL_FILE.put_line(fich_salida_load, 'EnviaArchivos');
       --end if;
     --end if;
-    UTL_FILE.put_line(fich_salida_load, 'InsertaFinOK');
+    --UTL_FILE.put_line(fich_salida_load, 'InsertaFinOK');
     UTL_FILE.put_line(fich_salida_load, '################################################################################');
     UTL_FILE.put_line(fich_salida_load, '# FIN DEL SHELL                                                                #');
     UTL_FILE.put_line(fich_salida_load, '################################################################################');
