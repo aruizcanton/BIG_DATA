@@ -2753,7 +2753,10 @@ begin
                                   /* (20170626) Angel Ruiz. Soluciono BUG. Si se trata de un string literal no hago el date_format*/
                                   --UTL_FILE.put_line(fich_salida_pkg, 'date_format(' || columna || ', ''yyyyMMdd'')' || ' AS ' || reg_detail.TABLE_COLUMN);
                                 --else
-                                UTL_FILE.put_line(fich_salida_pkg, 'DATE_FORMAT(' || columna || ', ''YYYY-MM-dd'')' || ' AS ' || reg_detail.TABLE_COLUMN);
+                                /* (20210114) Angel Ruiz. Cambio ya que me reporta Stephany que hay un error */
+                                --UTL_FILE.put_line(fich_salida_pkg, 'DATE_FORMAT(' || columna || ', ''YYYY-MM-dd'')' || ' AS ' || reg_detail.TABLE_COLUMN);
+                                UTL_FILE.put_line(fich_salida_pkg, 'DATE_FORMAT(' || columna || ', ''yyyy-MM-dd'')' || ' AS ' || reg_detail.TABLE_COLUMN);
+                                /* (20210114) Angel Ruiz. Fin*/
                                 --end if;
                                 /* (20180328) Angel Ruiz. FIN. NO hay que formatear ya que extraemos de HIVE.*/
                               else
@@ -2767,7 +2770,10 @@ begin
                                 --UTL_FILE.put_line(fich_salida_pkg, '|| CASE WHEN ' || columna || ' IS NULL THEN RPAD('' '',' || reg_detail.LONGITUD ||', '' '') ELSE TO_CHAR(' || columna || ', ''YYYYMMDDHH24MISS'') END' || '          --' || reg_detail.TABLE_COLUMN);
                                   --UTL_FILE.put_line(fich_salida_pkg, 'date_format(' || columna || ', ''yyyyMMddhhmmss'')' || ' AS ' || reg_detail.TABLE_COLUMN);
                                 --else
-                                UTL_FILE.put_line(fich_salida_pkg, 'DATE_FORMAT(' || columna || ', ''YYYY-MM-dd HH:mm:ss'')' || ' AS ' || reg_detail.TABLE_COLUMN);
+                                /* (20210114) Angel Ruiz. Cambio ya que me reporta Stephany que hay un error */
+                                --UTL_FILE.put_line(fich_salida_pkg, 'DATE_FORMAT(' || columna || ', ''YYYY-MM-dd HH:mm:ss'')' || ' AS ' || reg_detail.TABLE_COLUMN);
+                                UTL_FILE.put_line(fich_salida_pkg, 'DATE_FORMAT(' || columna || ', ''yyyy-MM-dd HH:mm:ss'')' || ' AS ' || reg_detail.TABLE_COLUMN);
+                                /* (20210114) Angel Ruiz. Fin*/
                                 --end if;
                                 /* (20180328) Angel Ruiz. FIN. NO hay que formatear ya que extraemos de HIVE.*/
                               else
@@ -2955,7 +2961,10 @@ begin
                                   --UTL_FILE.put_line(fich_salida_pkg, ', ' || 'date_format(' || columna || ', ''yyyyMMdd'')' || ' AS ' || reg_detail.TABLE_COLUMN);
                                 --else
                                 /* (20180328) Angel Ruiz. FIN. No hay que hacer ningun formateo ya que extraemos de HIVE*/ 
-                                UTL_FILE.put_line(fich_salida_pkg, ', DATE_FORMAT(' || columna || ', ''YYYY-MM-dd'')' || ' AS ' || reg_detail.TABLE_COLUMN);
+                                /* (20210114) Angel Ruiz. Cambio ya que me reporta Stephany que hay un error */
+                                --UTL_FILE.put_line(fich_salida_pkg, ', DATE_FORMAT(' || columna || ', ''YYYY-MM-dd'')' || ' AS ' || reg_detail.TABLE_COLUMN);
+                                UTL_FILE.put_line(fich_salida_pkg, ', DATE_FORMAT(' || columna || ', ''yyyy-MM-dd'')' || ' AS ' || reg_detail.TABLE_COLUMN);
+                                /* (20210114) Angel Ruiz. Fin*/
                               --end if;
                               else
                                 UTL_FILE.put_line(fich_salida_pkg, ', ' || columna || ' AS ' || reg_detail.TABLE_COLUMN);
@@ -2969,7 +2978,10 @@ begin
                                 --UTL_FILE.put_line(fich_salida_pkg, '|| CASE WHEN ' || columna || ' IS NULL THEN RPAD('' '',' || reg_detail.LONGITUD ||', '' '') ELSE TO_CHAR(' || columna || ', ''YYYYMMDDHH24MISS'') END' || '          --' || reg_detail.TABLE_COLUMN);
                                   --UTL_FILE.put_line(fich_salida_pkg, ', ' || 'date_format(' || columna || ', ''yyyyMMddhhmmss'')' || ' AS ' || reg_detail.TABLE_COLUMN);
                                 --else
-                                UTL_FILE.put_line(fich_salida_pkg, ', DATE_FORMAT(' || columna || ', ''YYYY-MM-dd HH:mm:ss'') AS ' || reg_detail.TABLE_COLUMN);
+                                /* (20210114) Angel Ruiz. Cambio ya que me reporta Stephany que hay un error */
+                                --UTL_FILE.put_line(fich_salida_pkg, ', DATE_FORMAT(' || columna || ', ''YYYY-MM-dd HH:mm:ss'') AS ' || reg_detail.TABLE_COLUMN);
+                                UTL_FILE.put_line(fich_salida_pkg, ', DATE_FORMAT(' || columna || ', ''yyyy-MM-dd HH:mm:ss'') AS ' || reg_detail.TABLE_COLUMN);
+                                /* (20210114) Angel Ruiz. Fin.*/
                                 --end if;
                                 /* (20180328) Angel Ruiz. FIN .No hay que hacer ningun formateo ya que extraemos de HIVE */ 
                               else
