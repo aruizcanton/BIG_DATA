@@ -92,6 +92,7 @@ DECLARE
       v_existe_file_name                PLS_integer;
       v_ext_interface_a_cargar            VARCHAR2(60);
       v_anyo_mes_en_nombre_interfaz       boolean := false;
+      v_existe_formato_DDMMYY             boolean := false; /*(20210603) Angel Ruiz. Funcionalidad anyadida para migracion MVNO a HADOOP*/
       
 
   function procesa_campo_formateo (cadena_in in varchar2, nombre_campo_in in varchar2) return varchar2
@@ -178,7 +179,12 @@ BEGIN
     if (regexp_instr(nombre_interface_a_cargar, '_YYYYMMDD\.') > 0) then
       nombre_interface_a_cargar := regexp_replace (nombre_interface_a_cargar, '_YYYYMMDD', '_${FCH_DATOS}');
     end if;
-    
+    /* (20210603) Angel Ruiz. Funcionalidad anyadida para la migración MVNO a Hadoop */
+    if (regexp_instr(nombre_interface_a_cargar, 'DDMMYY\.') > 0) then
+      nombre_interface_a_cargar := regexp_replace(nombre_interface_a_cargar, 'DDMMYY', '${DD}${MM}${AA}');
+      v_existe_formato_DDMMYY : = true;
+    end if;
+    /* (20210603) Angel Ruiz. FIN Funcionalidad anyadida para la migración MVNO a Hadoop */
     /* (20170621) Angel Ruiz. BUG. */
     if (regexp_instr(nombre_interface_a_cargar, '_YYYYMM_') > 0) then
       nombre_interface_a_cargar := regexp_replace(nombre_interface_a_cargar, '_YYYYMM_', '_??????_');
@@ -208,6 +214,11 @@ BEGIN
       v_ext_interface_a_cargar := '[Cc][Ss][Vv]';
     elsif (regexp_instr(v_ext_interface_a_cargar, '\.[Dd][Aa][Tt]') > 0) then
       v_ext_interface_a_cargar := '[Dd][Aa][Tt]';
+    elsif (regexp_instr(v_ext_interface_a_cargar, '\.[Tt][Xx][Tt]') > 0) then
+      /* (20210601) Angel Ruiz. Metido para el proyecto de migración de MVNO a HADOOP*/
+      v_ext_interface_a_cargar := '[Tt][Xx][Tt]';
+    else
+      v_ext_interface_a_cargar := substr(v_ext_interface_a_cargar, 1);
     end if;
     /* (20181010) Angel Ruiz. BUG. FIN */
     --pos_ini_hora := instr(nombre_interface_a_cargar, 'HH24MISS');
@@ -599,7 +610,14 @@ BEGIN
       /* en el directorio hadoop y no en el directorio local */
       --UTL_FILE.put_line(fich_salida_sh, 'NOMBRE_FICH_CARGA=`ls -1 ${' || NAME_DM || '_FUENTE}/${FCH_CARGA}/' || nombre_interface_a_cargar ||'`');
       --UTL_FILE.put_line(fich_salida_sh, 'NOMBRE_FICH_CARGA=`hadoop fs -ls ${' || NAME_DM || '_FUENTE}/' || reg_summary.CONCEPT_NAME || '/' || nombre_interface_a_cargar ||' | awk '' { printf "%s\n", $8 ; }''`');
-      UTL_FILE.put_line(fich_salida_sh, 'NOMBRE_FICH_CARGA=`hadoop fs -ls ${' || NAME_DM || '_FUENTE}/' || reg_summary.CONCEPT_NAME || '/${FCH_CARGA}/' || nombre_interface_a_cargar ||' | awk '' { printf "%s\n", $8 ; }''`');
+    /* (20210603) Angel Ruiz. Funcionalidad anyadida para el proyecto de migración de MVNO a HADOOP*/
+    if (v_existe_formato_DDMMYY) then
+      UTL_FILE.put_line(fich_salida_sh,'DD=`echo ${FCH_CARGA} | awk ' || '''' || '{ printf substr($1,7,2) }' || '''' || '`');
+      UTL_FILE.put_line(fich_salida_sh,'MM=`echo ${FCH_CARGA} | awk ' || '''' || '{ printf substr($1,5,2) }' || '''' || '`');
+      UTL_FILE.put_line(fich_salida_sh,'AA=`echo ${FCH_CARGA} | awk ' || '''' || '{ printf substr($1,3,2) }' || '''' || '`');
+    end if;
+    /* (20210603) Angel Ruiz. FIN. Funcionalidad anyadida para el proyecto de migración de MVNO a HADOOP*/
+    UTL_FILE.put_line(fich_salida_sh, 'NOMBRE_FICH_CARGA=`hadoop fs -ls ${' || NAME_DM || '_FUENTE}/' || reg_summary.CONCEPT_NAME || '/${FCH_CARGA}/' || nombre_interface_a_cargar ||' | awk '' { printf "%s\n", $8 ; }''`');
       --UTL_FILE.put_line(fich_salida_sh, 'NOMBRE_FICH_FLAG=`ls -1 ${' || NAME_DM || '_FUENTE}/${FCH_CARGA}/' || nombre_flag_a_ cargar ||'`');
     --end if;    
     /****************************/
