@@ -92,7 +92,7 @@ DECLARE
       v_existe_file_name                PLS_integer;
       v_ext_interface_a_cargar            VARCHAR2(60);
       v_anyo_mes_en_nombre_interfaz       boolean := false;
-      v_existe_formato_DDMMYY             boolean := false; /*(20210603) Angel Ruiz. Funcionalidad anyadida para migracion MVNO a HADOOP*/
+      v_existe_formato_DDMMAA             boolean := false; /*(20210603) Angel Ruiz. Funcionalidad anyadida para migracion MVNO a HADOOP*/
       
 
   function procesa_campo_formateo (cadena_in in varchar2, nombre_campo_in in varchar2) return varchar2
@@ -180,9 +180,9 @@ BEGIN
       nombre_interface_a_cargar := regexp_replace (nombre_interface_a_cargar, '_YYYYMMDD', '_${FCH_DATOS}');
     end if;
     /* (20210603) Angel Ruiz. Funcionalidad anyadida para la migración MVNO a Hadoop */
-    if (regexp_instr(nombre_interface_a_cargar, 'DDMMYY\.') > 0) then
-      nombre_interface_a_cargar := regexp_replace(nombre_interface_a_cargar, 'DDMMYY', '${DD}${MM}${AA}');
-      v_existe_formato_DDMMYY : = true;
+    if (regexp_instr(nombre_interface_a_cargar, 'DDMMAA\.') > 0) then
+      nombre_interface_a_cargar := regexp_replace(nombre_interface_a_cargar, 'DDMMAA', '${DD}${MM}${AA}');
+      v_existe_formato_DDMMAA := true;
     end if;
     /* (20210603) Angel Ruiz. FIN Funcionalidad anyadida para la migración MVNO a Hadoop */
     /* (20170621) Angel Ruiz. BUG. */
@@ -611,7 +611,7 @@ BEGIN
       --UTL_FILE.put_line(fich_salida_sh, 'NOMBRE_FICH_CARGA=`ls -1 ${' || NAME_DM || '_FUENTE}/${FCH_CARGA}/' || nombre_interface_a_cargar ||'`');
       --UTL_FILE.put_line(fich_salida_sh, 'NOMBRE_FICH_CARGA=`hadoop fs -ls ${' || NAME_DM || '_FUENTE}/' || reg_summary.CONCEPT_NAME || '/' || nombre_interface_a_cargar ||' | awk '' { printf "%s\n", $8 ; }''`');
     /* (20210603) Angel Ruiz. Funcionalidad anyadida para el proyecto de migración de MVNO a HADOOP*/
-    if (v_existe_formato_DDMMYY) then
+    if (v_existe_formato_DDMMAA) then
       UTL_FILE.put_line(fich_salida_sh,'DD=`echo ${FCH_CARGA} | awk ' || '''' || '{ printf substr($1,7,2) }' || '''' || '`');
       UTL_FILE.put_line(fich_salida_sh,'MM=`echo ${FCH_CARGA} | awk ' || '''' || '{ printf substr($1,5,2) }' || '''' || '`');
       UTL_FILE.put_line(fich_salida_sh,'AA=`echo ${FCH_CARGA} | awk ' || '''' || '{ printf substr($1,3,2) }' || '''' || '`');
